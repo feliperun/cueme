@@ -1,0 +1,46 @@
+name: quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Gate estrutural real (Sentrux) — independente de plataforma, roda no Linux.
+  sentrux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gate precisa do merge base
+
+      - name: Install Sentrux
+        env:
+          SENTRUX_VERSION: v0.5.7
+        run: |
+          mkdir -p "$HOME/.sentrux/bin"
+          curl -fsSL "https://github.com/sentrux/sentrux/releases/download/${SENTRUX_VERSION}/sentrux-linux-x86_64" \
+            -o "$HOME/.sentrux/bin/sentrux"
+          chmod +x "$HOME/.sentrux/bin/sentrux"
+          echo "$HOME/.sentrux/bin" >> "$GITHUB_PATH"
+
+      - name: Sentrux check (regras absolutas)
+        run: sentrux check .
+
+      - name: Sentrux gate (sem regressão)
+        if: github.event_name == 'pull_request'
+        run: sentrux gate .
+
+  # Build do app. CueMe exige o SDK do macOS 26 (SpeechAnalyzer/Translation);
+  # os runners do GitHub ainda não têm — informativo até existir runner macOS 26.
+  build:
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: Build (best-effort até runner macOS 26)
+        run: |
+          xcodebuild -project CueMe.xcodeproj -scheme CueMe \
+            -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
