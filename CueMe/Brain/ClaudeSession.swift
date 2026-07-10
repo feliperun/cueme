@@ -9,7 +9,7 @@ import OSLog
 /// coach/resumo isso é natural; para tradução, uma sessão serial dá conta
 /// (utterances chegam espaçadas), e o prompt cache barateia o histórico.
 actor ClaudeSession {
-    private let log = Logger(subsystem: "LiveCopilot", category: "ClaudeSession")
+    private let log = Logger(subsystem: "CueMe", category: "ClaudeSession")
 
     private let cliPath: String
     private let model: String
@@ -58,7 +58,7 @@ actor ClaudeSession {
         proc.environment = env
         // cwd isolado e vazio: evita o CLI carregar CLAUDE.md/contexto de um projeto
         // por acidente (vazaria contexto pessoal pro coach).
-        let isolated = FileManager.default.temporaryDirectory.appendingPathComponent("LiveCopilotCLI", isDirectory: true)
+        let isolated = FileManager.default.temporaryDirectory.appendingPathComponent("CueMeCLI", isDirectory: true)
         try? FileManager.default.createDirectory(at: isolated, withIntermediateDirectories: true)
         proc.currentDirectoryURL = isolated
 

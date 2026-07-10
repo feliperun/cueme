@@ -9,14 +9,14 @@ import OSLog
 /// Regra dos callbacks de áudio: fazer o mínimo. Aqui só empacotam o buffer e
 /// entregam ao mundo async via `AsyncStream.Continuation`.
 final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
-    private let log = Logger(subsystem: "LiveCopilot", category: "AudioCapture")
+    private let log = Logger(subsystem: "CueMe", category: "AudioCapture")
 
     let chunks: AsyncStream<AudioChunk>
     private let continuation: AsyncStream<AudioChunk>.Continuation
 
     private let engine = AVAudioEngine()
     private var scStream: SCStream?
-    private let scQueue = DispatchQueue(label: "LiveCopilot.SCStreamOutput")
+    private let scQueue = DispatchQueue(label: "CueMe.SCStreamOutput")
 
     private var micRunning = false
     private var systemRunning = false

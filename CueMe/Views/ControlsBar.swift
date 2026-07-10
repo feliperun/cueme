@@ -128,6 +128,6 @@ private struct CaptureBadge: View {
         .buttonStyle(.plain)
         .help(active
               ? "Capturando o áudio do interlocutor (sistema)."
-              : "Sem áudio de sistema. Clique pra abrir Ajustes → Gravação de Tela e Áudio do Sistema, aprove o LiveCopilot e reinicie a sessão.")
+              : "Sem áudio de sistema. Clique pra abrir Ajustes → Gravação de Tela e Áudio do Sistema, aprove o CueMe e reinicie a sessão.")
     }
 }

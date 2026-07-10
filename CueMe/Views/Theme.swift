@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Identidade visual do LiveCopilot — dark "command center".
+/// Identidade visual do CueMe — dark "command center".
 /// Fundo profundo, acento violeta→ciano, verde-menta pro coach, glow sutil.
 enum Theme {
     // Fundo em camadas (gradiente profundo, quase-preto azulado).

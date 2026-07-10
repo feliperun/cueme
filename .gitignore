@@ -16,8 +16,8 @@ xcuserdata/
 
 # Xcode project user state
 *.xcworkspace/xcuserdata/
-LiveCopilot.xcodeproj/project.xcworkspace/xcuserdata/
-LiveCopilot.xcodeproj/xcuserdata/
+CueMe.xcodeproj/project.xcworkspace/xcuserdata/
+CueMe.xcodeproj/xcuserdata/
 
 # Swift Package Manager
 .build/

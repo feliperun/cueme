@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct LiveCopilotApp: App {
+struct CueMeApp: App {
     @State private var app = AppModel()
 
     var body: some Scene {

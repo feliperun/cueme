@@ -6,7 +6,7 @@ import OSLog
 /// que suspendem fora da main thread nos `await`.
 @MainActor
 final class SessionCoordinator {
-    private let log = Logger(subsystem: "LiveCopilot", category: "SessionCoordinator")
+    private let log = Logger(subsystem: "CueMe", category: "SessionCoordinator")
     private unowned let app: AppModel
 
     private let bus = TranscriptBus()

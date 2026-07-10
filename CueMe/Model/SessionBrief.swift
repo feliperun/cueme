@@ -81,7 +81,7 @@ struct SessionBrief: Codable, Sendable, Equatable {
 enum BriefStore {
     static func url() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = base.appendingPathComponent("LiveCopilot", isDirectory: true)
+        let dir = base.appendingPathComponent("CueMe", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("brief.json")
     }

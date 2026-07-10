@@ -1,4 +1,4 @@
-# LiveCopilot
+# CueMe
 
 Real-time conversation copilot for macOS — a native SwiftUI app that listens to
 both sides of a live conversation, transcribes and translates on the fly,
@@ -20,13 +20,17 @@ subscription/login), so there's nothing to configure and no key to leak.
 - **Captures both sides natively** — your mic (`AVAudioEngine`) + the other
   person's audio from the system (`ScreenCaptureKit`, e.g. Zoom/Meet). Because
   the two sources are separate, *who spoke* is known by origin — no diarization.
-- **Live transcription** (left pane) with speaker labels.
-- **Line-by-line translation** when the conversation is in a foreign language.
-- **Rolling summary** (top-right) of what's been said so far.
-- **Contextual coaching** (bottom-right): "they asked X — answer like this",
-  with a ready-to-say phrase in the conversation language + your native language.
-- **Session brief** (mode: interview / sales / difficult / custom) + a manual
-  question box you can type into mid-conversation.
+  Acoustic-echo dedup keeps it working even on speakers (no headphones).
+- **Live transcription** with speaker labels, in a compact always-on-top window.
+- **Line-by-line translation** via Apple's on-device **Translation** framework
+  (~100–200ms, no key), with the key words bolded for fast scanning.
+- **Rolling summary** of what's been said so far.
+- **Contextual coaching** — the "friend beside you": "they asked X → answer like
+  this", a ready-to-say phrase in the conversation language + your native
+  translation + key vocabulary. Terse and emoji-cued for reading under pressure.
+- **Session brief** (mode: interview / sales / difficult / custom) with your full
+  **CV/résumé** (paste or import .pdf/.md/.txt) so hints point at your real
+  stories. Plus a manual question box for mid-conversation.
 
 Example (interview in English, native Portuguese):
 
@@ -63,9 +67,9 @@ No Anthropic API key is used — the app reuses your CLI login.
 
 1. Open the project:
    ```sh
-   open LiveCopilot.xcodeproj
+   open CueMe.xcodeproj
    ```
-2. In Xcode, select the **LiveCopilot** scheme and press **⌘R**.
+2. In Xcode, select the **CueMe** scheme and press **⌘R**.
 3. On first launch, grant permissions when prompted:
    - **Microphone** — required (your side of the conversation).
    - **Screen & System Audio Recording** — optional but needed to hear the
@@ -113,33 +117,37 @@ AVAudioEngine (mic) ─────┐
 ScreenCaptureKit (sys) ──┘                                          │
                                                                     ▼
                                                              TranscriptBus (actor)
-                                    ┌────────────────┬───────────────┬───────────────┐
-                                    ▼                ▼               ▼               ▼
-                              Translation        Summary         Coaching        SwiftUI
-                              (haiku)            (haiku, 30s)    (sonnet, stream)  (2 panes)
-                                    └────────────────┴───────────────┘
-                                     persistent `claude -p` sessions (warm, per lane)
+                     ┌──────────────────────┬─────────────────────┬─────────────┐
+                     ▼                      ▼                     ▼             ▼
+        Apple Translation (on-device)   Summary (haiku)   Coaching (opus/sonnet,  SwiftUI
+        — transcript, ~100–200ms        haiku, ~30s        streaming, prewarmed)
+                     └──────────────────────┴─────────────────────┘
+                          coach/summary = persistent `claude -p` sessions (warm)
 ```
 
-- **Brain via Claude Code CLI.** Each lane keeps a long-lived `claude -p` process
-  in streaming-json mode (`--input-format stream-json --output-format stream-json`).
-  Cold start is paid once; turns after that are just inference. System prompt and
-  model (`haiku` / `sonnet`) are fixed per session; the coach streams tokens live.
-- **Speaker by origin.** Mic = `self`, system audio = `other`. No diarization.
-- **Swift Concurrency throughout.** Actors for shared state, `AsyncStream` for
+- **Brain via Claude Code CLI.** The coach and summary each keep a long-lived
+  `claude -p` process in streaming-json mode (`--input-format stream-json
+  --output-format stream-json`), prewarmed on start so the first hint is fast.
+  System prompt (with brief + CV) and model are fixed per session.
+- **Translation is off the LLM** — Apple's on-device `Translation` framework, so
+  the coach LLM is never blocked by per-line translation.
+- **Speaker by origin.** Mic = `self`, system audio = `other`. No diarization;
+  echo dedup + a question heuristic keep it usable in mic-only / speaker setups.
+- **Swift Concurrency throughout.** Actors for shared state, `AsyncStream`
   fan-out, cooperative cancellation for the coach (a new turn cancels the old).
 
 ### Project layout
 
 ```
-LiveCopilot/
-├── Audio/    AudioCapture (mic + ScreenCaptureKit), AudioConverter
-├── STT/      SttProvider (protocol), NativeTranscriber (SpeechAnalyzer)
+CueMe/
+├── Audio/    AudioCapture (mic + ScreenCaptureKit, echo dedup), AudioConverter
+├── STT/      SttProvider, NativeTranscriber (SpeechAnalyzer), TranslationPipe
 ├── Bus/      TranscriptBus (actor + fan-out + rolling window)
 ├── Brain/    ClaudeClient (CLI resolver), ClaudeSession (warm process),
-│             Translation / Summary / Coaching lanes, Prompts
+│             Summary / Coaching lanes, Prompts
 ├── Model/    AppModel (@Observable), SessionCoordinator, SessionBrief, Types
-└── Views/    RootView, TranscriptPane, SummaryPane, CoachingPane, ControlsBar
+└── Views/    RootView, HeaderBar, QuestionBanner, CoachingPane, Transcript,
+              Summary, BriefEditor, Theme
 ```
 
 ---

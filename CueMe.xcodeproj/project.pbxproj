@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		AA0000000000000000000006 /* LiveCopilot.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LiveCopilot.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000006 /* CueMe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CueMe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		AA0000000000000000000004 /* LiveCopilot */ = {
+		AA0000000000000000000004 /* CueMe */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 			);
-			path = LiveCopilot;
+			path = CueMe;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -34,7 +34,7 @@
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000004 /* LiveCopilot */,
+				AA0000000000000000000004 /* CueMe */,
 				AA0000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -42,7 +42,7 @@
 		AA0000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000006 /* LiveCopilot.app */,
+				AA0000000000000000000006 /* CueMe.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -50,9 +50,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AA0000000000000000000005 /* LiveCopilot */ = {
+		AA0000000000000000000005 /* CueMe */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AA000000000000000000000B /* Build configuration list for PBXNativeTarget "LiveCopilot" */;
+			buildConfigurationList = AA000000000000000000000B /* Build configuration list for PBXNativeTarget "CueMe" */;
 			buildPhases = (
 				AA0000000000000000000007 /* Sources */,
 				AA0000000000000000000008 /* Frameworks */,
@@ -63,11 +63,11 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				AA0000000000000000000004 /* LiveCopilot */,
+				AA0000000000000000000004 /* CueMe */,
 			);
-			name = LiveCopilot;
-			productName = LiveCopilot;
-			productReference = AA0000000000000000000006 /* LiveCopilot.app */;
+			name = CueMe;
+			productName = CueMe;
+			productReference = AA0000000000000000000006 /* CueMe.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = AA000000000000000000000A /* Build configuration list for PBXProject "LiveCopilot" */;
+			buildConfigurationList = AA000000000000000000000A /* Build configuration list for PBXProject "CueMe" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AA0000000000000000000005 /* LiveCopilot */,
+				AA0000000000000000000005 /* CueMe */,
 			);
 		};
 /* End PBXProject section */
@@ -172,7 +172,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = LiveCopilot/LiveCopilot.entitlements;
+				CODE_SIGN_ENTITLEMENTS = CueMe/CueMe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -181,14 +181,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSMinimumSystemVersion = "$(MACOSX_DEPLOYMENT_TARGET)";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O LiveCopilot usa o microfone para transcrever a sua fala em tempo real.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O CueMe usa o microfone para transcrever a sua fala em tempo real.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.3;
-				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.LiveCopilot;
+				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.CueMe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -199,7 +199,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = LiveCopilot/LiveCopilot.entitlements;
+				CODE_SIGN_ENTITLEMENTS = CueMe/CueMe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -208,14 +208,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSMinimumSystemVersion = "$(MACOSX_DEPLOYMENT_TARGET)";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O LiveCopilot usa o microfone para transcrever a sua fala em tempo real.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O CueMe usa o microfone para transcrever a sua fala em tempo real.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 0.3;
-				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.LiveCopilot;
+				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.CueMe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
@@ -225,7 +225,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AA000000000000000000000A /* Build configuration list for PBXProject "LiveCopilot" */ = {
+		AA000000000000000000000A /* Build configuration list for PBXProject "CueMe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AA000000000000000000000C /* Debug */,
@@ -234,7 +234,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AA000000000000000000000B /* Build configuration list for PBXNativeTarget "LiveCopilot" */ = {
+		AA000000000000000000000B /* Build configuration list for PBXNativeTarget "CueMe" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AA000000000000000000000E /* Debug */,

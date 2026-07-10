@@ -6,7 +6,7 @@ import OSLog
 /// STT nativo on-device via `SpeechAnalyzer` + `SpeechTranscriber` (macOS 26).
 /// Uma instância por fluxo → locutor conhecido pela origem, sem diarização.
 actor NativeTranscriber: SttSession {
-    private let log = Logger(subsystem: "LiveCopilot", category: "NativeTranscriber")
+    private let log = Logger(subsystem: "CueMe", category: "NativeTranscriber")
 
     private let config: SttConfig
 
