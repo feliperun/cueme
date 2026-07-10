@@ -13,7 +13,7 @@ final class SessionCoordinator {
     private let client = ClaudeClient()
 
     // Raias e sessões persistentes (warm), criadas no start() com o brief atual.
-    private var translationLane = TranslationLane(sessions: [])
+    // Tradução saiu da LLM → framework nativo Apple (app.translationPipe). Coach fica livre.
     private var summaryLane = SummaryLane(session: nil)
     private var coachingLane = CoachingLane(live: nil, manual: nil)
     private var sessions: [ClaudeSession] = []
@@ -47,8 +47,15 @@ final class SessionCoordinator {
 
         let brief = app.brief
 
+        // Tradução nativa on-device (só quando a conversa é estrangeira).
+        if brief.isForeign {
+            app.configureTranslation(source: brief.conversationLang, target: brief.nativeLang)
+        } else {
+            app.stopTranslation()
+        }
+
         // Sessões persistentes do Claude CLI (warm após 1º uso). System prompt e
-        // modelo fixos por sessão, derivados do brief.
+        // modelo fixos por sessão, derivados do brief. Prewarm paga o cold start já.
         buildBrain(brief: brief)
 
         // STT por origem: um transcritor para o mic (self), outro para o sistema (other).
@@ -117,34 +124,32 @@ final class SessionCoordinator {
 
         for s in sessions { await s.shutdown() }
         sessions.removeAll()
-        translationLane = TranslationLane(sessions: [])
         summaryLane = SummaryLane(session: nil)
         coachingLane = CoachingLane(live: nil, manual: nil)
+        app.stopTranslation()
         app.systemCaptureActive = false
         log.info("Sessão parada")
     }
 
-    /// Cria as sessões persistentes das raias (só se o CLI existir).
+    /// Cria as sessões persistentes das raias (só se o CLI existir) e as AQUECE.
     private func buildBrain(brief: SessionBrief) {
         guard client.isAvailable else { return }
 
-        // Tradução: pool (round-robin) só quando a conversa é estrangeira.
-        let translateSessions: [ClaudeSession] = brief.isForeign
-            ? (0..<3).compactMap { _ in
-                client.makeSession(model: ClaudeClient.fastModel, system: Prompts.translateSystem(brief: brief))
-              }
-            : []
         let summarySession = client.makeSession(model: ClaudeClient.fastModel, system: Prompts.summarySystem(brief: brief))
         // Live coach usa o modelo escolhido pelo usuário (Opus default).
         let coachLive = client.makeSession(model: app.coachModel.cliAlias, system: Prompts.coachSystem(brief: brief))
         // Input manual sempre Sonnet.
         let coachManual = client.makeSession(model: ClaudeClient.liveModel, system: Prompts.coachSystem(brief: brief))
 
-        translationLane = TranslationLane(sessions: translateSessions)
         summaryLane = SummaryLane(session: summarySession)
         coachingLane = CoachingLane(live: coachLive, manual: coachManual)
 
-        sessions = (translateSessions + [summarySession, coachLive, coachManual]).compactMap { $0 }
+        sessions = [summarySession, coachLive, coachManual].compactMap { $0 }
+
+        // Prewarm: paga o cold start agora, antes da 1ª pergunta. O coach é o crítico
+        // (resumo é background, não vale poluir o histórico dele com aquecimento).
+        coachLive?.prewarm()
+        coachManual?.prewarm()
     }
 
     func ask(_ text: String) async {
@@ -197,7 +202,7 @@ final class SessionCoordinator {
             await bus.publish(event)
             let lineID = app.upsertLine(event)
             app.currentQuestionID = lineID          // pergunta/deixa mais recente no topo
-            translate(event: event, lineID: lineID)
+            if app.brief.isForeign { app.enqueueTranslation(id: lineID, text: event.text) }
 
         case .self:
             // Eco da caixa de som? (interlocutor já transcrito pelo stream de sistema)
@@ -208,7 +213,7 @@ final class SessionCoordinator {
             await bus.publish(event)
             let lineID = app.upsertLine(event)
             recentMicFinals.append((lineID, event.text, Date()))
-            translate(event: event, lineID: lineID)
+            if app.brief.isForeign { app.enqueueTranslation(id: lineID, text: event.text) }
 
             // Mic-only (sem captura de sistema): o interlocutor entra pelo mic como
             // "self". Se parece pergunta/deixa, destaca e aciona o coach com locutor
@@ -254,17 +259,6 @@ final class SessionCoordinator {
             "qual", "quem", "me conta", "me fala", "descreva", "você pode",
         ]
         return starters.contains { lower.hasPrefix($0) }
-    }
-
-    private func translate(event: TranscriptEvent, lineID: UUID) {
-        let brief = app.brief
-        guard brief.isForeign else { return }
-        Task { [weak self] in
-            guard let self else { return }
-            if let translated = await self.translationLane.translate(event.text) {
-                self.app.setTranslation(lineID: lineID, translation: translated)
-            }
-        }
     }
 
     // MARK: - Coaching

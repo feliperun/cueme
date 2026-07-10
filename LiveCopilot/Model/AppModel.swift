@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import AppKit
+import Translation
 
 /// Estado observável da UI. Só leitura pela view; as raias empurram atualizações
 /// pelo `@MainActor`. Comandos delegam ao `SessionCoordinator`.
@@ -32,11 +33,38 @@ final class AppModel {
     var showSettings: Bool = false
     var currentQuestionID: UUID?           // última pergunta/deixa do interlocutor
 
+    /// Tradução nativa on-device: config observável aqui, loop no pipe (Sendable).
+    /// A RootView pluga `.translationTask(translationConfig)`.
+    var translationConfig: TranslationSession.Configuration?
+    @ObservationIgnored nonisolated let translationPipe = TranslationPipe()
+
     private var coordinator: SessionCoordinator?
 
     init() {
         self.brief = BriefStore.load()
         self.backendAvailable = ClaudeClient().isAvailable
+        translationPipe.onResult = { [weak self] id, text in
+            Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
+        }
+    }
+
+    // MARK: - Tradução
+
+    func configureTranslation(source: String, target: String) {
+        translationPipe.reset()
+        translationConfig = .init(
+            source: Locale.Language(identifier: SessionBrief.baseCode(source)),
+            target: Locale.Language(identifier: SessionBrief.baseCode(target))
+        )
+    }
+
+    func stopTranslation() {
+        translationConfig = nil
+        translationPipe.finish()
+    }
+
+    func enqueueTranslation(id: UUID, text: String) {
+        translationPipe.enqueue(id: id, text: text)
     }
 
     var isRunning: Bool {

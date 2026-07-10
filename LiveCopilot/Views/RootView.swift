@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 /// Layout compacto-first: feito pra viver numa janela pequena ao lado do Zoom/Meet.
 /// Hierarquia: pergunta atual no topo → dica do coach (herói) → painéis colapsáveis.
@@ -7,6 +8,9 @@ struct RootView: View {
 
     var body: some View {
         @Bindable var app = app
+        // Capturado fora do closure de tradução: o closure só toca este pipe (Sendable),
+        // nunca o AppModel (MainActor) — assim a session não "vaza" de isolamento.
+        let pipe = app.translationPipe
 
         VStack(spacing: 0) {
             HeaderBar()
@@ -23,6 +27,10 @@ struct RootView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .translationTask(app.translationConfig) { session in
+            nonisolated(unsafe) let s = session
+            await pipe.run(session: s)
+        }
         .sheet(isPresented: $app.showSettings) {
             BriefEditor()
         }

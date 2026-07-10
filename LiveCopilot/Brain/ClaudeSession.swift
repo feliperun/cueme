@@ -95,6 +95,14 @@ actor ClaudeSession {
         }
     }
 
+    /// Aquece o processo (paga o cold start ANTES da conversa). Manda um turno
+    /// trivial e descarta a resposta. Sistema prompt + CV já carregam no spawn.
+    nonisolated func prewarm() {
+        Task { [weak self] in
+            _ = try? await self?.complete("(aquecimento — se não houver nada a fazer responda apenas: NADA)")
+        }
+    }
+
     /// Conveniência: coleta o stream inteiro num texto só (tradução/resumo).
     func complete(_ user: String) async throws -> String {
         var acc = ""
