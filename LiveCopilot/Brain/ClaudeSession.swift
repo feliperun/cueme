@@ -1,0 +1,233 @@
+import Foundation
+import OSLog
+
+/// Sessão persistente do Claude Code CLI: um processo `claude -p` mantido VIVO
+/// em modo streaming-json bidirecional. Paga cold start uma vez; cada turno
+/// seguinte é só inferência (~1–2s). System prompt e modelo são fixos por sessão.
+///
+/// A conversa é única (o histórico acumula) → turnos são SERIALIZADOS. Para
+/// coach/resumo isso é natural; para tradução, uma sessão serial dá conta
+/// (utterances chegam espaçadas), e o prompt cache barateia o histórico.
+actor ClaudeSession {
+    private let log = Logger(subsystem: "LiveCopilot", category: "ClaudeSession")
+
+    private let cliPath: String
+    private let model: String
+    private let system: String
+    private let shell = "/bin/zsh"
+
+    private var process: Process?
+    private var stdin: FileHandle?
+    private var readerTask: Task<Void, Never>?
+
+    // Turno em andamento (só um por vez).
+    private final class Turn: @unchecked Sendable {
+        let continuation: AsyncThrowingStream<String, Error>.Continuation
+        var cancelled = false   // set por onTermination (fora do actor); race benigna
+        var buffer = ""
+        init(_ c: AsyncThrowingStream<String, Error>.Continuation) { continuation = c }
+    }
+    private var current: Turn?
+
+    // Serialização de turnos (conversa única) — interno ao actor, sem await cruzado.
+    private var busy = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(cliPath: String, model: String, system: String) {
+        self.cliPath = cliPath
+        self.model = model
+        self.system = system
+    }
+
+    // MARK: - Spawn
+
+    private func startIfNeeded() throws {
+        if let p = process, p.isRunning { return }
+
+        let script = #"exec "$LC_CLAUDE" -p --model "$LC_MODEL" --system-prompt "$LC_SYS" --input-format stream-json --output-format stream-json --include-partial-messages --verbose --settings "$LC_SETTINGS""#
+
+        var env = ProcessInfo.processInfo.environment
+        env["LC_CLAUDE"] = cliPath
+        env["LC_MODEL"] = model
+        env["LC_SYS"] = system
+        env["LC_SETTINGS"] = #"{"disableAllHooks":true}"#
+
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: shell)
+        proc.arguments = ["-lc", script]
+        proc.environment = env
+
+        let inPipe = Pipe()
+        let outPipe = Pipe()
+        proc.standardInput = inPipe
+        proc.standardOutput = outPipe
+        proc.standardError = Pipe()
+
+        try proc.run()
+
+        self.process = proc
+        self.stdin = inPipe.fileHandleForWriting
+        let outHandle = outPipe.fileHandleForReading
+
+        readerTask = Task { [weak self] in
+            do {
+                for try await line in outHandle.bytes.lines {
+                    await self?.handle(line: line)
+                }
+            } catch {
+                // pipe fechado / processo morreu
+            }
+            await self?.readerEnded()
+        }
+        log.info("ClaudeSession spawn (\(self.model, privacy: .public))")
+    }
+
+    // MARK: - Envio de um turno (streaming de deltas de texto)
+
+    func send(_ user: String) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task { await self.enqueue(user: user, continuation: continuation) }
+        }
+    }
+
+    /// Conveniência: coleta o stream inteiro num texto só (tradução/resumo).
+    func complete(_ user: String) async throws -> String {
+        var acc = ""
+        for try await delta in send(user) { acc += delta }
+        return acc.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func acquire() async {
+        if !busy { busy = true; return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    private func release() {
+        if let next = waiters.first {
+            waiters.removeFirst()
+            next.resume()   // segue ocupado; o próximo turno assume
+        } else {
+            busy = false
+        }
+    }
+
+    private func enqueue(user: String, continuation: AsyncThrowingStream<String, Error>.Continuation) async {
+        await acquire()
+        do {
+            try startIfNeeded()
+        } catch {
+            release()
+            continuation.finish(throwing: error)
+            return
+        }
+        guard let stdin else {
+            release()
+            continuation.finish(throwing: ClaudeSessionError.notRunning)
+            return
+        }
+
+        let turn = Turn(continuation)
+        current = turn
+        continuation.onTermination = { [weak self, weak turn] _ in
+            turn?.cancelled = true
+            _ = self   // o gate é liberado quando chega o `result`
+        }
+
+        // Mensagem de usuário no formato stream-json de entrada.
+        let payload: [String: Any] = [
+            "type": "user",
+            "message": ["role": "user", "content": user],
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else {
+            finishCurrent(throwing: ClaudeSessionError.encodeFailed)
+            return
+        }
+        var line = data
+        line.append(0x0A) // \n
+        stdin.write(line)
+    }
+
+    // MARK: - Parser dos eventos JSONL
+
+    private func handle(line: String) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              let data = trimmed.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = obj["type"] as? String
+        else { return }
+
+        switch type {
+        case "stream_event":
+            guard let event = obj["event"] as? [String: Any],
+                  (event["type"] as? String) == "content_block_delta",
+                  let delta = event["delta"] as? [String: Any],
+                  (delta["type"] as? String) == "text_delta",
+                  let text = delta["text"] as? String
+            else { return }
+            // Ignora thinking_delta (index 0); só texto conta.
+            if let turn = current, !turn.cancelled {
+                turn.buffer += text
+                turn.continuation.yield(text)
+            }
+
+        case "result":
+            let isError = (obj["is_error"] as? Bool) ?? false
+            if isError {
+                let msg = (obj["result"] as? String) ?? "erro no CLI"
+                finishCurrent(throwing: ClaudeSessionError.turnFailed(msg))
+            } else {
+                finishCurrent(throwing: nil)
+            }
+
+        default:
+            break
+        }
+    }
+
+    private func finishCurrent(throwing error: Error?) {
+        guard let turn = current else { return }
+        current = nil
+        if let error {
+            turn.continuation.finish(throwing: error)
+        } else {
+            turn.continuation.finish()
+        }
+        release()
+    }
+
+    private func readerEnded() {
+        // Processo morreu no meio de um turno → erro; libera o gate.
+        if current != nil {
+            finishCurrent(throwing: ClaudeSessionError.notRunning)
+        }
+        process = nil
+        stdin = nil
+    }
+
+    // MARK: - Shutdown
+
+    func shutdown() {
+        readerTask?.cancel()
+        readerTask = nil
+        try? stdin?.close()
+        stdin = nil
+        if let p = process, p.isRunning { p.terminate() }
+        process = nil
+        current = nil
+    }
+
+    enum ClaudeSessionError: LocalizedError {
+        case notRunning
+        case encodeFailed
+        case turnFailed(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .notRunning: return "Sessão do Claude CLI não está ativa."
+            case .encodeFailed: return "Falha ao serializar a mensagem para o CLI."
+            case .turnFailed(let m): return "Turno do Claude CLI falhou: \(m)"
+            }
+        }
+    }
+}
