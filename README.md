@@ -2,6 +2,13 @@
 
 [![quality](https://github.com/feliperun/cueme/actions/workflows/quality.yml/badge.svg)](https://github.com/feliperun/cueme/actions/workflows/quality.yml)
 [![release-please](https://github.com/feliperun/cueme/actions/workflows/release-please.yml/badge.svg)](https://github.com/feliperun/cueme/actions/workflows/release-please.yml)
+![platform](https://img.shields.io/badge/macOS-26-blue)
+![swift](https://img.shields.io/badge/Swift-6-orange)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+<p align="center">
+  <img src="docs/assets/demo.png" alt="CueMe — real-time conversation copilot for macOS: it hears both sides, translates on the fly, and whispers what to say next" width="920">
+</p>
 
 Real-time conversation copilot for macOS — a native SwiftUI app that listens to
 both sides of a live conversation, transcribes and translates on the fly,
