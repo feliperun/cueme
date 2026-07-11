@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CueMe — real-time conversation copilot for macOS</title>
+<meta name="description" content="Native macOS app that hears both sides of a live conversation, translates on the fly, and coaches you on what to say next. On-device speech, no API keys.">
+<meta property="og:title" content="CueMe — real-time conversation copilot for macOS">
+<meta property="og:description" content="Hears both sides, translates on the fly, and whispers what to say next. On-device speech, no API keys.">
+<meta property="og:image" content="https://feliperun.github.io/cueme/assets/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--violet:#8c6bff;--cyan:#4dd2ff;--mint:#4df2a6;--amber:#ffb84d;--rose:#ff6680;
+    --bg0:#0b0d16;--bg1:#070810;--surf:rgba(255,255,255,.045);--stroke:rgba(255,255,255,.09);--tx:#eef1ff;--mut:#aab2d5;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Inter,system-ui,sans-serif}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--font);-webkit-font-smoothing:antialiased;color:var(--tx);line-height:1.5;
+    background:radial-gradient(900px 560px at 10% -6%,rgba(140,107,255,.22),transparent 60%),radial-gradient(820px 560px at 108% 8%,rgba(77,210,255,.16),transparent 60%),linear-gradient(180deg,#0b0d16,#070810);
+    background-attachment:fixed;min-height:100vh}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:21px;letter-spacing:-.4px}
+  .mark{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(140deg,var(--violet),var(--cyan));box-shadow:0 6px 22px rgba(140,107,255,.5)}
+  .mark svg{width:21px;height:21px}
+  .navlinks{display:flex;gap:22px;align-items:center;font-size:14.5px;color:var(--mut);font-weight:600}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:750;font-size:14.5px;padding:10px 18px;border-radius:999px;border:1px solid var(--stroke);background:var(--surf);color:var(--tx);transition:.15s}
+  .btn:hover{border-color:rgba(255,255,255,.22)}
+  .btn.p{background:linear-gradient(140deg,var(--violet),var(--cyan));color:#0b0d16;border:none;box-shadow:0 10px 30px rgba(140,107,255,.4)}
+  /* hero */
+  .hero{text-align:center;padding:46px 0 20px}
+  .pill{display:inline-flex;gap:7px;align-items:center;font-size:12.5px;font-weight:700;color:#bfe9d6;padding:6px 13px;border-radius:999px;background:rgba(77,242,166,.1);border:1px solid rgba(77,242,166,.28);margin-bottom:22px}
+  h1{font-size:clamp(34px,6vw,60px);font-weight:850;letter-spacing:-1.5px;line-height:1.05}
+  h1 b{background:linear-gradient(120deg,var(--violet),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{max-width:720px;margin:20px auto 0;font-size:clamp(16px,2.2vw,20px);color:var(--mut);font-weight:500}
+  .cta{display:flex;gap:13px;justify-content:center;margin-top:28px;flex-wrap:wrap}
+  .shot{margin:38px auto 0;max-width:660px}
+  .shot img{width:100%;border-radius:18px;border:1px solid var(--stroke);box-shadow:0 40px 120px rgba(0,0,0,.6)}
+  .sub{font-size:13px;color:#6f78a0;margin-top:12px}
+  /* sections */
+  section{padding:56px 0}
+  .eyebrow{font-size:12px;font-weight:800;letter-spacing:1.6px;color:var(--cyan);text-transform:uppercase}
+  h2{font-size:clamp(26px,4vw,38px);font-weight:820;letter-spacing:-.8px;margin-top:10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:30px}
+  .card{padding:22px;border-radius:16px;background:var(--surf);border:1px solid var(--stroke)}
+  .card .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:20px;background:rgba(140,107,255,.13);border:1px solid rgba(140,107,255,.28);margin-bottom:13px}
+  .card h3{font-size:17.5px;font-weight:750}
+  .card p{color:var(--mut);font-size:14.5px;margin-top:7px}
+  .flow{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px;align-items:stretch}
+  .step{flex:1 1 150px;padding:18px;border-radius:14px;background:var(--surf);border:1px solid var(--stroke)}
+  .step .n{font-size:12px;font-weight:800;color:var(--cyan)}
+  .step h4{font-size:15.5px;font-weight:750;margin-top:6px}
+  .step p{font-size:13.5px;color:var(--mut);margin-top:5px}
+  .split{display:grid;grid-template-columns:1.1fr .9fr;gap:34px;align-items:center}
+  @media(max-width:760px){.split{grid-template-columns:1fr}}
+  .split img{width:100%;border-radius:16px;border:1px solid var(--stroke)}
+  .code{margin-top:20px;background:#05060b;border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px;color:#c7d0f0;overflow:auto}
+  .code .c{color:#6f78a0}
+  footer{padding:44px 0 60px;border-top:1px solid var(--stroke);margin-top:30px;color:var(--mut);font-size:14px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:24px}
+  .b{font-size:12.5px;font-weight:700;color:#9fb0e0;padding:6px 13px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--stroke)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#0b0d16" stroke-width="2.4" stroke-linecap="round"><path d="M4 12h2l2-6 4 14 3-9 2 4h3"/></svg></span>
+      CueMe
+    </div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a class="btn" href="https://github.com/feliperun/cueme">GitHub ↗</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="pill">🎧 On-device · no API keys · macOS 26</div>
+    <h1>The copilot that <b>whispers what to say next</b>.</h1>
+    <p class="lede">CueMe is a native macOS app that hears both sides of a live conversation, translates on the fly, and coaches you in real time — for interviews, sales calls, and hard talks.</p>
+    <div class="cta">
+      <a class="btn p" href="https://github.com/feliperun/cueme">⭐ Star on GitHub</a>
+      <a class="btn" href="#how">See how it works</a>
+    </div>
+    <div class="shot">
+      <img src="assets/demo.gif" alt="CueMe live: the interlocutor's question with translation, then the coach card streaming in">
+      <div class="sub">The interlocutor's question appears with a translation — then the coach card streams in with what to say and the words you need.</div>
+    </div>
+    <div class="badges">
+      <span class="b">100% native Swift</span><span class="b">on-device STT &amp; translation</span>
+      <span class="b">Claude Code CLI brain</span><span class="b">no third-party keys</span><span class="b">MIT</span>
+    </div>
+  </header>
+
+  <section id="how">
+    <div class="eyebrow">How it works</div>
+    <h2>Two audio sources in, one clear cue out.</h2>
+    <div class="flow">
+      <div class="step"><div class="n">01 · CAPTURE</div><h4>Both sides, natively</h4><p>Your mic + the other party's system audio (ScreenCaptureKit). Who spoke is known by origin — no diarization.</p></div>
+      <div class="step"><div class="n">02 · UNDERSTAND</div><h4>On-device speech</h4><p>SpeechAnalyzer transcribes live; Apple's Translation framework renders it in your language in ~100–200ms.</p></div>
+      <div class="step"><div class="n">03 · COACH</div><h4>What to say next</h4><p>A local Claude Code CLI session reads the brief + your CV and streams a terse cue: guidance, a ready phrase, key words.</p></div>
+      <div class="step"><div class="n">04 · GLANCE</div><h4>Read in 2 seconds</h4><p>A compact, always-on-top window beside your call. Emoji-cued, scannable under pressure.</p></div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="eyebrow">Features</div>
+    <h2>Built for the moment you're on the spot.</h2>
+    <div class="grid">
+      <div class="card"><div class="ic">🎯</div><h3>Friend-style coach</h3><p>"He asked X → answer like this." Guidance in your language, a ready phrase in theirs, plus the vocabulary you need.</p></div>
+      <div class="card"><div class="ic">🌐</div><h3>Live translation</h3><p>Every line the other person says, translated instantly with the key words bolded for fast scanning.</p></div>
+      <div class="card"><div class="ic">📄</div><h3>CV-grounded</h3><p>Paste or import your résumé; the coach points at your real stories instead of making things up.</p></div>
+      <div class="card"><div class="ic">🎓</div><h3>Voice training mode</h3><p>A built-in interviewer reads your CV and grills you out loud, adapting to your answers — end-to-end practice.</p></div>
+      <div class="card"><div class="ic">🔒</div><h3>Local-first &amp; private</h3><p>Speech and translation run on-device. The LLM runs on your own Claude Code login — no keys stored, nothing to leak.</p></div>
+      <div class="card"><div class="ic">⌨️</div><h3>Out of the way</h3><p>⌥Space to show/hide, a menu-bar control, pin-on-top. It sits beside the call, not in front of it.</p></div>
+    </div>
+  </section>
+
+  <section id="training">
+    <div class="split">
+      <div>
+        <div class="eyebrow">Training mode</div>
+        <h2>Practice against a voice that reads your CV.</h2>
+        <p style="color:var(--mut);margin-top:14px;font-size:15.5px">Turn on training mode and CueMe becomes its own interviewer: it speaks questions aloud from your brief and résumé, listens to your spoken answers, and asks natural follow-ups. It's a full end-to-end exercise of the real pipeline — no external app, no API key.</p>
+        <div class="badges" style="justify-content:flex-start"><span class="b">🎓 adaptive interviewer</span><span class="b">native TTS</span><span class="b">reads your CV</span></div>
+      </div>
+      <img src="assets/demo.png" alt="CueMe UI with the coaching card">
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="eyebrow">Install</div>
+    <h2>Clone, open, run.</h2>
+    <p style="color:var(--mut);margin-top:12px;font-size:15.5px">Requires <b>macOS 26</b>, <b>Xcode 26</b>, and the <b>Claude Code CLI</b> logged in (the brain — no API key needed).</p>
+    <div class="code">
+<span class="c"># get it</span><br>
+git clone https://github.com/feliperun/cueme.git<br>
+open cueme/CueMe.xcodeproj <span class="c"># then ⌘R in Xcode</span><br><br>
+<span class="c"># the brain uses your existing Claude Code login</span><br>
+claude -p "hi" <span class="c"># should answer → you're set</span>
+    </div>
+    <div class="cta" style="justify-content:flex-start;margin-top:24px">
+      <a class="btn p" href="https://github.com/feliperun/cueme">Open the repo →</a>
+    </div>
+  </section>
+
+  <footer>
+    <div>CueMe — MIT licensed. Built with Swift + the Claude Code CLI.</div>
+    <div><a href="https://github.com/feliperun/cueme">github.com/feliperun/cueme</a></div>
+  </footer>
+</div>
+</body>
+</html>
