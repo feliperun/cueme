@@ -25,3 +25,6 @@ CueMe.xcodeproj/xcuserdata/
 
 # Misc
 *.log
+
+# build artifacts
+dist/

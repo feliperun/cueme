@@ -15,14 +15,32 @@ struct CueMeApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 460, height: 720)
         .commands {
+            AboutCommand()
             CommandGroup(after: .windowArrangement) {
                 Button("Mostrar/Ocultar CueMe") { HotkeyManager.toggleMainWindow() }
                     .keyboardShortcut(.space, modifiers: [.option])
             }
         }
 
+        Window("Sobre o CueMe", id: "about") {
+            AboutView()
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+
         MenuBarExtra("CueMe", systemImage: app.isRunning ? "waveform.badge.mic" : "waveform") {
             MenuBarContent().environment(app)
+        }
+    }
+}
+
+/// Substitui o "Sobre" padrão do menu do app pela nossa tela.
+private struct AboutCommand: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("Sobre o CueMe") { openWindow(id: "about") }
         }
     }
 }
@@ -41,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// Conteúdo do menu na barra: status + controles rápidos.
 private struct MenuBarContent: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Text(app.isRunning ? "● Ao vivo" : "○ Pronto")
@@ -59,6 +78,7 @@ private struct MenuBarContent: View {
         }
 
         Divider()
+        Button("Sobre o CueMe") { openWindow(id: "about") }
         Button("Sair") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
