@@ -56,3 +56,4 @@ proposed → active → superseded
 | [0007](0007-speaker-by-origin-and-echo-dedup.md) | Speaker by capture origin, with echo dedup | active |
 | [0008](0008-coach-ux-and-context-safety.md) | Coach UX: terse, CV-grounded, leak-guarded | active |
 | [0009](0009-training-mode-voice-interviewer.md) | Training mode: voice interviewer + e2e harness | active |
+| [0010](0010-on-device-translation-highlighting.md) | On-device translation highlighting (tiered) | active |

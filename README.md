@@ -162,7 +162,7 @@ CueMe/
 │             Summary / Coaching lanes, Prompts
 ├── Model/    AppModel (@Observable), SessionCoordinator, SessionBrief, Types
 └── Views/    RootView, HeaderBar, QuestionBanner, CoachingPane, Transcript,
-              Summary, BriefEditor, Theme
+              Summary, BriefEditor, Highlighter (NaturalLanguage), Theme
 ```
 
 ---

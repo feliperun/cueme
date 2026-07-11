@@ -39,7 +39,8 @@ world via `AsyncStream`; shared state lives in actors; the UI reads an
   capture → STT → bus → lanes → UI, echo dedup, coach triggering), `SessionBrief`,
   `Types`.
 - **Views/** — compact SwiftUI: `HeaderBar`, `QuestionBanner`, `CoachingPane`,
-  `TranscriptPane`, `SummaryPane`, `BriefEditor`, `Theme`.
+  `TranscriptPane`, `SummaryPane`, `BriefEditor`, `Theme`, and `Highlighter`
+  (on-device `NaturalLanguage` tiering of translated lines).
 
 ## Runtime & hosting
 
