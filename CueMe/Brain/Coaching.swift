@@ -27,6 +27,10 @@ final class CoachingLane: Sendable {
             let user = Prompts.coachUser(window: window, latest: latest, manual: manual, speakerCertain: speakerCertain)
             let cardID = UUID()
 
+            // Frame instantâneo: mostra o card "pensando…" no gatilho (antes do 1º token)
+            // → reduz a latência percebida. Preenche conforme os tokens chegam.
+            continuation.yield(CoachCard(id: cardID, kind: manual ? .manual : .answer, isStreaming: true))
+
             let task = Task {
                 var accumulated = ""
                 do {

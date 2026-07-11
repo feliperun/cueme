@@ -189,4 +189,9 @@ final class AppModel {
             coachCards.removeFirst(coachCards.count - 30)
         }
     }
+
+    /// Remove cards sem conteúdo (ex.: placeholder que virou "NADA").
+    func pruneEmptyCoachCards() {
+        coachCards.removeAll { $0.guidePT.isEmpty && ($0.sayConversation?.isEmpty ?? true) && $0.sayNative.isEmpty }
+    }
 }

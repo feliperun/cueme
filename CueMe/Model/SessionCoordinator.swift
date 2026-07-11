@@ -309,6 +309,8 @@ final class SessionCoordinator {
             } catch {
                 self.log.error("Coaching falhou: \(error.localizedDescription, privacy: .public)")
             }
+            // Limpa o placeholder instantâneo se o coach não teve nada a dizer (NADA).
+            if !Task.isCancelled { self.app.pruneEmptyCoachCards() }
         }
     }
 
