@@ -34,6 +34,9 @@ struct RootView: View {
         .sheet(isPresented: $app.showSettings) {
             BriefEditor()
         }
+        .sheet(isPresented: $app.showHistory) {
+            HistoryView()
+        }
     }
 }
 

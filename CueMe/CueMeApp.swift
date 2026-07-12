@@ -78,6 +78,7 @@ private struct MenuBarContent: View {
         }
 
         Divider()
+        Button("Histórico de sessões") { app.showHistory = true }
         Button("Sobre o CueMe") { openWindow(id: "about") }
         Button("Sair") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

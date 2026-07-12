@@ -55,7 +55,7 @@ struct Turn: Identifiable, Sendable, Hashable {
 }
 
 /// Linha renderizada no painel de transcript (original + tradução opcional).
-struct TranscriptLine: Identifiable, Sendable, Hashable {
+struct TranscriptLine: Identifiable, Sendable, Hashable, Codable {
     let id: UUID
     let speaker: Speaker
     var text: String
@@ -80,19 +80,19 @@ struct TranscriptLine: Identifiable, Sendable, Hashable {
     }
 }
 
-enum CoachKind: String, Sendable {
+enum CoachKind: String, Sendable, Codable {
     case answer      // sugestão de resposta ao interlocutor
     case correction  // correção do que o usuário disse
     case manual      // resposta a pergunta digitada
 }
 
-enum Severity: String, Sendable {
+enum Severity: String, Sendable, Codable {
     case info
     case warn
 }
 
 /// Card de coaching mostrado no painel direito.
-struct CoachCard: Identifiable, Sendable {
+struct CoachCard: Identifiable, Sendable, Codable {
     let id: UUID
     var guidePT: String            // guia sempre no idioma nativo
     var sayConversation: String?   // frase no idioma da conversa (nil se == nativo)

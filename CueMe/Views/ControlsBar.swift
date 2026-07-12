@@ -48,6 +48,14 @@ struct HeaderBar: View {
             .help("Modo silêncio: pausa o coach, mantém a transcrição")
 
             Button {
+                app.showHistory = true
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+            }
+            .buttonStyle(IconButtonStyle())
+            .help("Histórico de sessões")
+
+            Button {
                 app.showSettings = true
             } label: {
                 Image(systemName: "slider.horizontal.3")

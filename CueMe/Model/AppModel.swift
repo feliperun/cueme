@@ -33,7 +33,12 @@ final class AppModel {
     var showTranscript: Bool = false
     var showSummary: Bool = false
     var showSettings: Bool = false
+    var showHistory: Bool = false
     var currentQuestionID: UUID?           // última pergunta/deixa do interlocutor
+
+    // Histórico de sessões.
+    var history: [SessionRecord] = []
+    private var sessionStartedAt: Date?
 
     /// Tradução nativa on-device: config observável aqui, loop no pipe (Sendable).
     /// A RootView pluga `.translationTask(translationConfig)`.
@@ -48,6 +53,7 @@ final class AppModel {
         translationPipe.onResult = { [weak self] id, text in
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
+        self.history = SessionStore.loadAll()
     }
 
     // MARK: - Tradução
@@ -94,17 +100,49 @@ final class AppModel {
 
     func start() {
         guard !isRunning, sessionState != .preparing else { return }
+        // Sessão nova: limpa os painéis (o snapshot da anterior já foi salvo no stop).
+        transcript = []
+        coachCards = []
+        summaryBullets = []
+        currentQuestionID = nil
+        sessionStartedAt = Date()
         let coord = SessionCoordinator(app: self)
         self.coordinator = coord
         Task { await coord.start() }
     }
 
     func stop() {
+        saveSessionRecord()
         Task { [coordinator] in
             await coordinator?.stop()
         }
         coordinator = nil
         sessionState = .idle
+    }
+
+    /// Salva a sessão atual no histórico (se teve conteúdo).
+    private func saveSessionRecord() {
+        guard let startedAt = sessionStartedAt,
+              !transcript.isEmpty || !coachCards.isEmpty else { sessionStartedAt = nil; return }
+        let record = SessionRecord(
+            startedAt: startedAt,
+            mode: brief.mode,
+            training: trainingMode,
+            conversationLang: brief.conversationLang,
+            nativeLang: brief.nativeLang,
+            goal: brief.goal,
+            transcript: transcript,
+            coachCards: coachCards.map { var c = $0; c.isStreaming = false; return c },
+            summaryBullets: summaryBullets
+        )
+        SessionStore.save(record)
+        history.insert(record, at: 0)
+        sessionStartedAt = nil
+    }
+
+    func deleteHistory(_ id: UUID) {
+        SessionStore.delete(id)
+        history.removeAll { $0.id == id }
     }
 
     func ask() {
