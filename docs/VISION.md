@@ -39,19 +39,34 @@ its translation, a couple of key words. Terse beats thorough when you're live.
 - **Compact and unobtrusive.** A small, always-on-top window that sits beside
   the call, not another thing to manage.
 
-## Near-term horizon
+## Shipped (v0.4.0)
 
-A single-window macOS app that, in a foreign-language mock interview, shows the
-interviewer's question with translation on top, an emoji-cued coach card
-(guidance + phrase + vocabulary) within ~2s, a rolling summary, and a CV-aware
-brief — usable on speakers without headphones.
+The near-term horizon from the original draft is done: a single-window macOS
+app that, in a foreign-language mock interview, shows the interviewer's question
+with translation on top, an emoji-cued coach card (guidance + phrase +
+vocabulary) within ~2s, a rolling summary, and a CV-aware brief — usable on
+speakers without headphones. Plus, beyond the original scope: an expert-panel
+coach persona with per-scenario playbooks, a voice training mode that practices
+*and* exercises the full pipeline end-to-end, a free-topic "meeting" mode with
+the coach off, and synced audio recording + a waveform player to revisit any
+past session. See the [ADR index](adr/README.md) for how each of these was
+decided.
+
+## Next horizon
+
+No fixed roadmap — pick based on real usage. Candidates surfaced during
+development but not yet built: editable/custom playbooks, saved brief profiles
+for quick context-switching between recurring scenarios, injecting the training
+interviewer's text directly as `.other` (skipping TTS→STT round-trip) for
+higher-fidelity practice transcripts, and Developer ID notarization for a
+Gatekeeper-clean install once distribution beyond personal use matters.
 
 ## Non-goals (for now)
 
 - No iOS/Windows/web port — macOS 26 only.
 - No cloud STT/translation, no bundled API keys.
-- No meeting recording/storage product; CueMe is an in-the-moment assistant.
-- No voice diarization engine — separation is by capture origin.
+- No voice diarization engine — separation is by capture origin, not voiceprint.
+- No multi-user/team features — this is a single-user local tool.
 
 ## Related docs
 

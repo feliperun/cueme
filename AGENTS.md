@@ -102,6 +102,37 @@ ADRs live in `docs/adr/`. Create one in the same commit as the code that impleme
 
 After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIONS.md` in the same commit.
 
+### CueMe-specific gotchas (hard-won — don't re-learn these)
+
+- **CI cannot build the app.** GitHub's `macos-latest` runner ships Xcode 16 /
+  macOS 15 SDK; CueMe needs macOS 26 (`SpeechAnalyzer`, `Translation`). The
+  `quality.yml` workflow only runs Sentrux — the `xcodebuild` gate above is
+  local/manual until GitHub ships a `macos-26` runner (see
+  [docs/PACKAGING.md](docs/PACKAGING.md)).
+- **`setVoiceProcessingEnabled(true)` on the mic input node wedged the process**
+  (unkillable, survived `kill -9`, needed a machine reboot) when enabled without
+  a connected duplex render graph. AEC is opt-in and off by default
+  ([ADR 0007](docs/adr/0007-speaker-by-origin-and-echo-dedup.md)). If you touch
+  `AudioCapture.startMic`, keep the mixer connection + muted output pattern and
+  test before ever defaulting it on.
+- **`ClaudeSession` runs from an isolated empty cwd with `disableAllHooks`.**
+  Without that, the CLI picks up the *user's own* project context (skill names,
+  `CLAUDE.md`) and the coach fabricates "experience" from it — this actually
+  happened once. Never remove this when touching `Brain/ClaudeSession.swift`
+  ([ADR 0005](docs/adr/0005-llm-brain-via-claude-cli.md),
+  [ADR 0008](docs/adr/0008-coach-ux-and-context-safety.md)).
+- **release-please: `bump-minor-pre-major` and `bump-patch-for-minor-pre-major`
+  are mutually exclusive.** Setting both (copy-paste mistake) silently made every
+  `feat:` bump the patch version instead of minor (caught before v0.4.0 shipped).
+  Only `bump-minor-pre-major: true` belongs in `release-please-config.json`.
+- **Destructive/merge actions are gated by an auto-mode safety classifier**,
+  independent of this file — self-merging a PR, force-push, changing repo
+  permissions via `gh api`, etc. get denied without explicit human sign-off in
+  the moment. Expect it; hand off to the user rather than routing around it.
+- **No absolute file paths in exported session JSON.** Audio recordings are
+  located by session id at read time (`MeetingRecording.directory(for:)`), never
+  stored as a literal path — keeps exports portable across machines/reinstalls.
+
 ---
 
 ## 4. Release-readiness checklist
@@ -120,12 +151,24 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
 ### Layout
 
 ```
-src/                      Source
+CueMe/                    App target (see docs/ARCHITECTURE.md for the full breakdown)
+  Audio/                  Capture, recording, playback, waveform
+  STT/                    On-device speech + translation
+  Bus/                    TranscriptBus actor (fan-out + rolling window)
+  Brain/                  Claude CLI client/session, prompts, coach/summary lanes
+  Model/                  AppModel, SessionCoordinator, SessionBrief/Record, Types
+  Views/                  SwiftUI (compact window, history, brief editor, About)
+  Assets.xcassets/        App icon, accent color
+CueMe.xcodeproj/          Xcode project (synchronized file group — no manual .pbxproj edits for new files)
+scripts/package.sh        Local Release build → signed .dmg (see docs/PACKAGING.md)
 docs/
-  adr/                    Architecture decision records
-  *.md                    Vision, architecture, abstractions, getting-started
+  adr/                    Architecture decision records (numbered, immutable)
+  assets/                 README/landing screenshots, demo GIF, OG banner
+  index.html              GitHub Pages landing site (docs/ is the Pages source)
+  *.md                    Vision, architecture, abstractions, getting-started, packaging
 .sentrux/                 Structural quality gate config + baseline
-.github/workflows/        CI
+.github/workflows/        CI (quality.yml = Sentrux only; release-please.yml = releases)
+release-please-config.json, .release-please-manifest.json   Automated versioning
 ```
 
 ### Useful commands
@@ -133,4 +176,5 @@ docs/
 ```bash
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
 sentrux check . && sentrux gate .
+./scripts/package.sh      # Release build → dist/CueMe-<version>.dmg (run on a Mac; see docs/PACKAGING.md)
 ```
