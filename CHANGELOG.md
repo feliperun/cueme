@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/feliperun/cueme/compare/v0.5.0...v0.6.0) (2026-07-14)
+
+
+### Features
+
+* ship reliable fast live coaching ([1014084](https://github.com/feliperun/cueme/commit/10140844262c07af01bf2182a82e4a6c392a7583))
+
 ## [0.5.0](https://github.com/feliperun/cueme/compare/v0.4.0...v0.5.0) (2026-07-13)
 
 
