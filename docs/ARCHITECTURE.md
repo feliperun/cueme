@@ -12,7 +12,7 @@ AVAudioEngine (mic, .self) ─────┐
 ScreenCaptureKit (system, .other)┘        │                                    │
                                            ▼                                   ▼
                                     MeetingRecorder                     TranscriptBus (actor)
-                                  (synced dual .caf files,     ┌────────────┬────────────┬────────────┐
+                                  (synced dual .m4a files,     ┌────────────┬────────────┬────────────┐
                                    opt-out, on by default)     ▼            ▼            ▼            ▼
                                                           Translation   Summary    Fast Coach     AppModel
                                                           (on-device,   (fast,     (Flash/Sonnet, (@Observable,
@@ -41,8 +41,9 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
 - **Audio/** — `AudioCapture` (mic via `AVAudioEngine` + system via
   `ScreenCaptureKit`, tagged by origin, per-channel level/health events,
   digital-silence detection and bounded system-stream recovery, opt-in AEC),
-  `AudioConverter`, `MeetingRecorder` (writes two timestamp-synced `.caf` files
-  for later playback), `MeetingPlayer` (two `AVAudioPlayer`s synced via
+  `AudioConverter`, `MeetingRecorder` (writes two timestamp-synced AAC-LC `.m4a`
+  files at 48 kHz/128 kbps for later playback), `MeetingPlayer` (two
+  `AVAudioPlayer`s synced via
   `deviceCurrentTime`), `WaveformGenerator` (background amplitude envelope for
   the player UI).
 - **STT/** — `NativeTranscriber` (`SpeechAnalyzer`/`SpeechTranscriber`, on-device),
@@ -95,13 +96,13 @@ real exercise of the full capture→STT→translate→coach path, not a mock
 
 Every session is snapshotted on `stop()` into a date/time directory under the
 user-selected archive root. `SessionStore` writes `session.json` and a mandatory
-`session.md`; `MeetingRecorder` writes synchronized `self.caf` and `other.caf` in
+`session.md`; `MeetingRecorder` writes synchronized `self.m4a` and `other.m4a` in
 the same directory. The JSON stores a portable directory name, never an absolute
 path. `SessionSidebar` keeps history visible and `SessionWorkspaceView` provides
 the same coach/summary/transcript navigation after the event, plus timeline notes,
 takeaways and persisted post-session generation. `recordingStartedAt` anchors
-transcript seeking to the audio clock. Legacy Application Support JSON/audio is
-still discovered and played back during migration. Deleting a session removes
+transcript seeking to the audio clock. Legacy `.caf` and Application Support
+JSON/audio are still discovered and played back during migration. Deleting a session removes
 its complete directory and any legacy counterpart.
 
 ## Runtime & hosting
@@ -131,7 +132,7 @@ coach calls its configured API directly. STT and translation are on-device.
 - Coaching/summary text is sent to the selected provider: Anthropic through the
   user's isolated CLI session or DeepSeek through direct HTTPS. CLI sessions run
   from an empty cwd and the coach prompt walls off ambient context.
-- Recorded audio (`.caf` files) never leaves the device — it's written locally
+- Recorded audio (`.m4a`, with legacy `.caf` playback) never leaves the device — it's written locally
   and only read back by `MeetingPlayer` for in-app playback.
 - Permissions: Microphone (required) and Screen & System Audio Recording
   (optional, for the other party). Non-sandboxed dev build; hardened runtime on;

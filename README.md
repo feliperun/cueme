@@ -55,10 +55,11 @@ subscription/login), so there's nothing to configure and no key to leak.
   fit an open agenda) while transcription, translation, and the rolling summary
   keep running.
 - **Session recording**, on by default — the original audio (both sides) is
-  recorded in sync with the transcript. Revisit any past session in the
+  recorded as portable, high-quality AAC-LC `.m4a` files in sync with the transcript.
+  Revisit any past session in the
   **history**: a visual waveform player where tapping a transcript line seeks
   and plays the audio from that moment, and the active line highlights live as
-  it plays back. Sessions can be copied/exported as JSON.
+  it plays back. Every session keeps JSON state plus a human-readable Markdown copy.
 
 Example (interview in English, native Portuguese):
 

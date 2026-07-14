@@ -47,7 +47,10 @@ private struct LiveWorkspace: View {
         VStack(spacing: 0) {
             CaptureHealthAlert()
 
-            if app.brief.mode.isPassive {
+            if isPristineIdle {
+                SessionLaunchView()
+                    .frame(maxHeight: .infinity)
+            } else if app.brief.mode.isPassive {
                 MeetingPanel()
                     .frame(maxHeight: .infinity)
             } else {
@@ -58,11 +61,71 @@ private struct LiveWorkspace: View {
                     .frame(maxHeight: .infinity)
             }
 
-            CollapsiblePanels()
-            if !app.brief.mode.isPassive { InputBar() }
-            LiveTransportBar()
+            if !isPristineIdle {
+                CollapsiblePanels()
+                if !app.brief.mode.isPassive { InputBar() }
+            }
+            if app.sessionStartTime != nil {
+                LiveTransportBar()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.snappy(duration: 0.24), value: app.sessionStartTime != nil)
+    }
+
+    private var isPristineIdle: Bool {
+        app.sessionState == .idle && app.transcript.isEmpty && app.coachCards.isEmpty
+    }
+}
+
+private struct SessionLaunchView: View {
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        VStack(spacing: 22) {
+            Spacer()
+            ZStack {
+                Circle().fill(Theme.violet.opacity(0.06)).frame(width: 150, height: 150)
+                Circle().strokeBorder(Theme.violet.opacity(0.12), lineWidth: 1).frame(width: 112, height: 112)
+                Image(systemName: "waveform.badge.mic")
+                    .font(.system(size: 34, weight: .medium))
+                    .foregroundStyle(Theme.brand)
+                    .symbolEffect(.breathe, options: .repeating.speed(0.45))
+            }
+
+            VStack(spacing: 7) {
+                Text(app.brief.mode.isPassive ? "Sua reunião, lembrada." : "Converse. O CueMe acompanha.")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                Text(app.brief.mode.isPassive
+                     ? "Áudio nítido, transcrição e próximos passos."
+                     : "Dicas ao vivo e uma memória completa depois.")
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 8) {
+                capability("waveform", "Grava")
+                capability("captions.bubble", "Transcreve")
+                capability("brain.head.profile", "Lembra")
+            }
+
+            Label("⌘ ↩ para iniciar", systemImage: "keyboard")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(.tertiary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+    }
+
+    private func capability(_ icon: String, _ label: String) -> some View {
+        Label(label, systemImage: icon)
+            .font(.system(size: 10.5, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .background(Theme.interactive, in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.divider))
     }
 }
 
@@ -109,7 +172,7 @@ private struct PanelToggle<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.3)) { isExpanded.toggle() }
+                withAnimation(.snappy(duration: 0.2)) { isExpanded.toggle() }
             } label: {
                 HStack(spacing: 7) {
                     Image(systemName: icon)
@@ -174,7 +237,7 @@ struct QuestionBanner: View {
                     .strokeBorder(Theme.violet.opacity(0.25), lineWidth: 1)
             )
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            .animation(.spring(duration: 0.3), value: q.id)
+            .animation(.snappy(duration: 0.22), value: q.id)
             .help(q.text)
         }
     }

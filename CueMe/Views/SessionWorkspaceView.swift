@@ -12,15 +12,21 @@ struct SessionWorkspaceView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
-            WaveformPlayerView(player: player, envelope: envelope, loading: loadingWaveform)
-                .padding(.horizontal, 14).padding(.bottom, 8)
-            tabBar
-            Divider().opacity(0.35)
+            VStack(spacing: 0) {
+                header
+                WaveformPlayerView(player: player, envelope: envelope, loading: loadingWaveform)
+                    .padding(.horizontal, 16).padding(.bottom, 10)
+                tabBar
+            }
+            .background(Theme.sidebar)
+            Rectangle().fill(Theme.divider).frame(height: 1)
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .id(tab)
+                .transition(.opacity)
         }
         .background(Theme.background)
+        .animation(.snappy(duration: 0.18), value: tab)
         .task(id: record.id) { await loadAudio() }
         .onDisappear { player.teardown() }
     }
@@ -29,10 +35,18 @@ struct SessionWorkspaceView: View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(record.title)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
                     .lineLimit(1)
-                Text(record.startedAt.formatted(date: .long, time: .shortened))
-                    .font(.system(size: 10.5)).foregroundStyle(.secondary)
+                HStack(spacing: 7) {
+                    Label(record.startedAt.formatted(date: .abbreviated, time: .shortened), systemImage: "calendar")
+                    Label(SessionArchive.clock(record.duration), systemImage: "clock")
+                    if record.hasAudio {
+                        Label(audioFormatLabel, systemImage: "waveform")
+                            .foregroundStyle(Theme.mint)
+                    }
+                }
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(.secondary)
             }
             Spacer()
             Button(action: app.revealArchive) {
@@ -41,31 +55,20 @@ struct SessionWorkspaceView: View {
             .buttonStyle(IconButtonStyle())
             .help("Mostrar arquivos da sessão")
         }
-        .padding(.horizontal, 14).padding(.vertical, 9)
+        .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
     }
 
     private var tabBar: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             ForEach(SessionWorkspaceTab.allCases) { item in
-                Button { tab = item } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: item.icon)
-                        if tab == item { Text(item.label) }
-                        if let count = badge(for: item), count > 0 {
-                            Text("\(count)").font(.system(size: 8, weight: .heavy))
-                        }
-                    }
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(tab == item ? item.color : .secondary)
-                    .padding(.horizontal, 9).padding(.vertical, 6)
-                    .background(tab == item ? item.color.opacity(0.12) : .clear, in: Capsule())
+                SessionTabButton(item: item, count: badge(for: item), selected: tab == item) {
+                    withAnimation(.snappy(duration: 0.18)) { tab = item }
                 }
-                .buttonStyle(.plain)
-                .help(item.label)
             }
-            Spacer()
         }
-        .padding(.horizontal, 14).padding(.bottom, 8)
+        .padding(4)
+        .background(Theme.interactive, in: RoundedRectangle(cornerRadius: 11))
+        .padding(.horizontal, 16).padding(.bottom, 12)
     }
 
     @ViewBuilder
@@ -102,7 +105,7 @@ struct SessionWorkspaceView: View {
                 if record.summaryBullets.isEmpty { emptyState("Resumo ainda não gerado", icon: "text.alignleft") }
                 ForEach(Array(record.summaryBullets.enumerated()), id: \.offset) { _, bullet in
                     HStack(alignment: .top, spacing: 8) {
-                        Circle().fill(Theme.cyan).frame(width: 5, height: 5).padding(.top, 6)
+                        Circle().fill(Theme.violet).frame(width: 5, height: 5).padding(.top, 6)
                         Text(bullet).font(.system(size: 13)).textSelection(.enabled)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -144,7 +147,7 @@ struct SessionWorkspaceView: View {
                                 Text(note.text).font(.system(size: 12.5)).foregroundStyle(.primary)
                                 Spacer()
                             }
-                            .padding(9).background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 9))
+                            .padding(9).background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 9))
                         }
                         .buttonStyle(.plain)
                     }
@@ -205,7 +208,8 @@ struct SessionWorkspaceView: View {
                             Text(artifact.body).font(.system(size: 12.5)).textSelection(.enabled)
                         }
                         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                        .glassPanel(cornerRadius: 10)
+                        .background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.divider))
                     }
                     processingError
                 }
@@ -236,7 +240,7 @@ struct SessionWorkspaceView: View {
                 .disabled(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(.horizontal, 12).padding(.vertical, 9)
-        .background(Theme.surface).overlay(alignment: .top) { Divider().opacity(0.4) }
+        .background(Theme.panel).overlay(alignment: .top) { Rectangle().fill(Theme.divider).frame(height: 1) }
     }
 
     private func generationButton(
@@ -255,14 +259,28 @@ struct SessionWorkspaceView: View {
     }
 
     private func emptyState(_ text: String, icon: String) -> some View {
-        Label(text, systemImage: icon)
-            .font(.system(size: 11.5)).foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, minHeight: 80)
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .light))
+                .foregroundStyle(Theme.violet.opacity(0.7))
+            Text(text).font(.system(size: 11.5)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 110)
     }
 
     private var activeLineID: UUID? {
         let target = record.audioTimelineStart.addingTimeInterval(player.currentTime)
         return record.transcript.filter { $0.isFinal && $0.ts <= target }.max { $0.ts < $1.ts }?.id
+    }
+
+    private var audioFormatLabel: String {
+        let urls = [MeetingRecording.selfURL(for: record), MeetingRecording.otherURL(for: record)]
+        let existing = urls.first { FileManager.default.fileExists(atPath: $0.path) }
+        switch existing?.pathExtension.lowercased() {
+        case "m4a": return "M4A · AAC"
+        case "caf": return "CAF · legado"
+        default: return "Áudio local"
+        }
     }
 
     private func badge(for tab: SessionWorkspaceTab) -> Int? {
@@ -293,85 +311,5 @@ struct SessionWorkspaceView: View {
             WaveformGenerator.envelope(selfURL: selfURL, otherURL: otherURL, buckets: 300)
         }.value
         loadingWaveform = false
-    }
-}
-
-private enum SessionWorkspaceTab: String, CaseIterable, Identifiable {
-    case coach, summary, transcript, notes, takeaways, generated
-    var id: String { rawValue }
-    var label: String {
-        switch self {
-        case .coach: return "Coach"
-        case .summary: return "Resumo"
-        case .transcript: return "Transcrição"
-        case .notes: return "Notas"
-        case .takeaways: return "Pendências"
-        case .generated: return "Memória"
-        }
-    }
-    var icon: String {
-        switch self {
-        case .coach: return "sparkles"
-        case .summary: return "text.alignleft"
-        case .transcript: return "waveform"
-        case .notes: return "note.text"
-        case .takeaways: return "checklist"
-        case .generated: return "brain.head.profile"
-        }
-    }
-    var color: Color {
-        switch self {
-        case .coach, .generated: return Theme.violet
-        case .summary, .transcript: return Theme.cyan
-        case .notes: return Theme.amber
-        case .takeaways: return Theme.mint
-        }
-    }
-}
-
-private struct MemoryCoachCard: View {
-    let card: CoachCard
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if !card.guidePT.isEmpty { Text(card.guidePT).font(.system(size: 12)).foregroundStyle(.secondary) }
-            if let phrase = card.sayConversation ?? (card.sayNative.isEmpty ? nil : card.sayNative) {
-                Text(phrase).font(.system(size: 14, weight: .semibold)).textSelection(.enabled)
-            }
-            if !card.keytermsConversation.isEmpty {
-                Text(card.keytermsConversation.joined(separator: " · "))
-                    .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(Theme.mint)
-            }
-        }
-        .padding(10).frame(maxWidth: .infinity, alignment: .leading).glassPanel(cornerRadius: 10)
-    }
-}
-
-private struct MemoryTranscriptLine: View {
-    let line: TranscriptLine
-    let foreign: Bool
-    let active: Bool
-    let onTap: (() -> Void)?
-
-    var body: some View {
-        Button(action: { onTap?() }) {
-            HStack(alignment: .top, spacing: 8) {
-                Image(systemName: active ? "speaker.wave.2.fill" : "play.fill")
-                    .font(.system(size: 8)).foregroundStyle(active ? Theme.mint : Color.white.opacity(0.22))
-                    .frame(width: 11).opacity(onTap == nil ? 0 : 1)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(line.speaker.label.uppercased())
-                        .font(.system(size: 8.5, weight: .heavy))
-                        .foregroundStyle(line.speaker == .self ? Theme.cyan : Theme.violet)
-                    Text(line.text).font(.system(size: 12.5)).foregroundStyle(.primary).textSelection(.enabled)
-                    if foreign, let translation = line.translation, !translation.isEmpty {
-                        Text(translation).font(.system(size: 11.5)).foregroundStyle(.secondary).textSelection(.enabled)
-                    }
-                }
-                Spacer()
-            }
-            .padding(7).background(active ? Theme.mint.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 7))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 }

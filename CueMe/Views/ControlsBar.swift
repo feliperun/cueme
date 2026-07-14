@@ -9,14 +9,19 @@ struct HeaderBar: View {
         @Bindable var app = app
 
         HStack(spacing: 8) {
-            // Espaço pros semáforos da janela (título escondido).
-            Spacer().frame(width: 58)
-
-            PulseDot(active: app.isRunning, health: app.runtimeHealth.level)
-            Text(app.statusText)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(app.isRunning ? .primary : .secondary)
-                .lineLimit(1)
+            if app.selectedSession != nil, !app.isSessionBusy {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.violet)
+                Text("Biblioteca")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+            } else {
+                PulseDot(active: app.isRunning, health: app.runtimeHealth.level)
+                Text(app.statusText)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(app.isRunning ? .primary : .secondary)
+                    .lineLimit(1)
+            }
 
             if app.isRunning || app.sessionState == .preparing {
                 ChannelHealthButton(
@@ -85,15 +90,23 @@ struct HeaderBar: View {
                 .disabled(app.sessionState == .preparing || app.sessionState == .stopping)
             }
 
-            Button(app.sessionState == .stopping ? "Salvando" : (app.isRunning ? "Parar" : "Iniciar")) {
+            Button(primaryTitle) {
                 app.isRunning ? app.stop() : app.start()
             }
             .buttonStyle(PrimaryButtonStyle(danger: app.isRunning))
             .keyboardShortcut(.return, modifiers: [.command])
             .disabled(app.sessionState == .preparing || app.sessionState == .stopping)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Theme.canvas.opacity(0.94))
+        .overlay(alignment: .bottom) { Rectangle().fill(Theme.divider).frame(height: 1) }
+    }
+
+    private var primaryTitle: String {
+        if app.sessionState == .stopping { return "Salvando" }
+        if app.isRunning { return "Parar" }
+        return app.selectedSession == nil ? "Iniciar" : "Gravar"
     }
 }
 

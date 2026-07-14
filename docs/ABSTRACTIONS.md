@@ -16,7 +16,7 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 2. **Understand** (`STT/`, `Audio/MeetingRecorder`) — turns `AudioChunk` into
    meaning or a persisted artifact: `NativeTranscriber` → `TranscriptEvent`
    (on-device `SpeechAnalyzer`), `TranslationPipe` → translated text (on-device
-   `Translation`), `MeetingRecorder` → two timestamp-synced `.caf` files.
+   `Translation`), `MeetingRecorder` → two timestamp-synced AAC-LC `.m4a` files.
 3. **Bus** (`Bus/TranscriptBus`) — the single actor all `TranscriptEvent`s pass
    through. Fans out to subscribers (coach, summary, UI) and keeps the rolling
    window (`[Turn]`) that lanes read for context. Nothing downstream talks to
@@ -89,6 +89,9 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 - **Audio replay uses the recorder's clock, not the Start-button clock.**
   `SessionRecord.recordingStartedAt` is persisted with the stop result; legacy
   records fall back to `startedAt`.
+- **New recordings use portable, speech-quality AAC-LC.** Each speaker is stored
+  separately as mono 48 kHz/128 kbps `.m4a`; STT keeps its independent 16 kHz
+  conversion. `MeetingRecording` must continue resolving legacy `.caf` files.
 - **A session is never silently healthy.** Mic and system channel states are
   independent; digital-zero mic data and an interrupted `SCStream` must be
   surfaced and repaired or remain visibly unavailable ([ADR 0014](adr/0014-per-channel-capture-health.md)).

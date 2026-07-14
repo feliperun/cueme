@@ -29,7 +29,7 @@ struct CoachingPane: View {
             }
             .padding(12)
             .frame(maxHeight: .infinity, alignment: .top)
-            .animation(.spring(duration: 0.35), value: latest?.id)
+            .animation(.snappy(duration: 0.24), value: latest?.id)
         }
     }
 }
@@ -114,9 +114,8 @@ private struct HeroCard: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(accent.opacity(0.45), lineWidth: 1.5))
-        .shadow(color: accent.opacity(0.14), radius: 10, y: 3)
+        .background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(accent.opacity(0.32)))
     }
 
     /// Realça a frase (língua da conversa) — termos-chave/nomes/números destacam.
@@ -195,7 +194,8 @@ private struct EmptyCoachHint: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassPanel()
+        .background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.divider))
     }
 }
 

@@ -12,7 +12,22 @@ import OSLog
 actor MeetingRecorder {
     private let log = Logger(subsystem: "CueMe", category: "MeetingRecorder")
 
-    static let format = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 16_000, channels: 1, interleaved: true)!
+    static let format = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: 48_000,
+        channels: 1,
+        interleaved: false
+    )!
+
+    private static func fileSettings() -> [String: Any] {
+        [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderBitRateKey: 128_000,
+            AVEncoderAudioQualityKey: AVAudioQuality.max.rawValue
+        ]
+    }
 
     private var selfFile: AVAudioFile?
     private var otherFile: AVAudioFile?
@@ -32,14 +47,17 @@ actor MeetingRecorder {
     @discardableResult
     func start(directory: URL) throws -> Date {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let settings = Self.format.settings
         selfFile = try AVAudioFile(
             forWriting: directory.appendingPathComponent(MeetingRecording.selfFilename),
-            settings: settings, commonFormat: .pcmFormatInt16, interleaved: true
+            settings: Self.fileSettings(),
+            commonFormat: .pcmFormatFloat32,
+            interleaved: false
         )
         otherFile = try AVAudioFile(
             forWriting: directory.appendingPathComponent(MeetingRecording.otherFilename),
-            settings: settings, commonFormat: .pcmFormatInt16, interleaved: true
+            settings: Self.fileSettings(),
+            commonFormat: .pcmFormatFloat32,
+            interleaved: false
         )
         let startedAt = Date()
         recordingStart = startedAt
@@ -101,7 +119,7 @@ actor MeetingRecorder {
 
     private func padSilence(into file: AVAudioFile, frameCount: AVAudioFramePosition) {
         var remaining = frameCount
-        let step: AVAudioFrameCount = 80_000   // ~5s por bloco, evita alocar demais em silêncios longos
+        let step: AVAudioFrameCount = 240_000   // ~5s per block; bounds allocations across long gaps.
         while remaining > 0 {
             let n = AVAudioFrameCount(min(AVAudioFramePosition(step), remaining))
             guard let silence = AVAudioPCMBuffer(pcmFormat: Self.format, frameCapacity: n) else { return }
@@ -122,8 +140,10 @@ actor MeetingRecorder {
 /// persistido — reconstruído a partir do id da sessão, pra manter o export
 /// portável entre máquinas).
 enum MeetingRecording {
-    static let selfFilename = "self.caf"
-    static let otherFilename = "other.caf"
+    static let selfFilename = "self.m4a"
+    static let otherFilename = "other.m4a"
+    private static let legacySelfFilename = "self.caf"
+    private static let legacyOtherFilename = "other.caf"
 
     static func directory(for sessionID: UUID) -> URL {
         legacyDirectory(for: sessionID)
@@ -147,16 +167,22 @@ enum MeetingRecording {
     static func otherURL(for sessionID: UUID) -> URL { directory(for: sessionID).appendingPathComponent(otherFilename) }
 
     static func selfURL(for record: SessionRecord) -> URL {
-        preferredURL(filename: selfFilename, record: record)
+        preferredURL(filename: selfFilename, legacyFilename: legacySelfFilename, record: record)
     }
 
     static func otherURL(for record: SessionRecord) -> URL {
-        preferredURL(filename: otherFilename, record: record)
+        preferredURL(filename: otherFilename, legacyFilename: legacyOtherFilename, record: record)
     }
 
     static func exists(for sessionID: UUID) -> Bool {
         FileManager.default.fileExists(atPath: selfURL(for: sessionID).path)
             || FileManager.default.fileExists(atPath: otherURL(for: sessionID).path)
+            || FileManager.default.fileExists(
+                atPath: directory(for: sessionID).appendingPathComponent(legacySelfFilename).path
+            )
+            || FileManager.default.fileExists(
+                atPath: directory(for: sessionID).appendingPathComponent(legacyOtherFilename).path
+            )
     }
 
     static func delete(for sessionID: UUID) {
@@ -167,9 +193,17 @@ enum MeetingRecording {
         try? FileManager.default.removeItem(at: legacyDirectory(for: sessionID))
     }
 
-    private static func preferredURL(filename: String, record: SessionRecord) -> URL {
-        let archived = directory(for: record).appendingPathComponent(filename)
-        if FileManager.default.fileExists(atPath: archived.path) { return archived }
-        return legacyDirectory(for: record.id).appendingPathComponent(filename)
+    private static func preferredURL(filename: String, legacyFilename: String, record: SessionRecord) -> URL {
+        let archive = directory(for: record)
+        let legacy = legacyDirectory(for: record.id)
+        for candidate in [
+            archive.appendingPathComponent(filename),
+            archive.appendingPathComponent(legacyFilename),
+            legacy.appendingPathComponent(filename),
+            legacy.appendingPathComponent(legacyFilename)
+        ] where FileManager.default.fileExists(atPath: candidate.path) {
+            return candidate
+        }
+        return archive.appendingPathComponent(filename)
     }
 }

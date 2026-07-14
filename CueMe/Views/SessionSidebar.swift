@@ -4,32 +4,45 @@ struct SessionSidebar: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
+        VStack(spacing: 10) {
+            HStack(spacing: 9) {
                 if !app.sidebarCollapsed {
-                    Text("SESSÕES")
-                        .font(.system(size: 9, weight: .heavy, design: .rounded))
-                        .tracking(1.2)
-                        .foregroundStyle(.secondary)
+                    Image(systemName: "waveform.badge.mic")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.violet)
+                        .frame(width: 28, height: 28)
+                        .background(Theme.violet.opacity(0.13), in: RoundedRectangle(cornerRadius: 8))
+                    Text("CueMe")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                 }
                 Spacer(minLength: 0)
                 Button {
-                    withAnimation(.spring(duration: 0.28)) { app.sidebarCollapsed.toggle() }
+                    withAnimation(.snappy(duration: 0.24)) { app.sidebarCollapsed.toggle() }
                 } label: {
-                    Image(systemName: app.sidebarCollapsed ? "sidebar.left" : "sidebar.left")
+                    Image(systemName: "sidebar.left")
                 }
                 .buttonStyle(IconButtonStyle())
                 .help(app.sidebarCollapsed ? "Abrir histórico" : "Recolher histórico")
             }
-            .padding(.horizontal, app.sidebarCollapsed ? 8 : 12)
-            .padding(.top, 10)
+            .padding(.horizontal, app.sidebarCollapsed ? 14 : 12)
+            .padding(.top, 12)
 
             liveButton
 
             if !app.sidebarCollapsed {
-                Divider().opacity(0.4).padding(.horizontal, 10)
+                HStack {
+                    Text("RECENTES")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(0.9)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Text("\(app.history.count)")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 13).padding(.top, 5)
                 ScrollView {
-                    LazyVStack(spacing: 4) {
+                    LazyVStack(spacing: 3) {
                         ForEach(app.history) { record in
                             sessionButton(record)
                         }
@@ -63,48 +76,59 @@ struct SessionSidebar: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .padding(10)
+            .padding(.horizontal, 12).padding(.vertical, 11)
             .help(app.archivePath)
         }
-        .frame(width: app.sidebarCollapsed ? 52 : 226)
-        .background(Theme.surface.opacity(0.72))
+        .frame(width: app.sidebarCollapsed ? 58 : 242)
+        .background(Theme.sidebar)
+        .animation(.snappy(duration: 0.24), value: app.sidebarCollapsed)
     }
 
     private var liveButton: some View {
         Button(action: app.showLiveSession) {
             HStack(spacing: 9) {
                 ZStack {
-                    Circle().fill(app.isRunning ? Theme.mint.opacity(0.22) : Color.white.opacity(0.06))
-                    Image(systemName: app.isRunning ? "waveform" : "record.circle")
-                        .foregroundStyle(app.isRunning ? Theme.mint : .secondary)
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(app.isRunning ? Theme.mint.opacity(0.15) : Theme.violet.opacity(0.16))
+                    Image(systemName: app.isRunning ? "waveform" : "plus")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(app.isRunning ? Theme.mint : Theme.violet)
+                        .symbolEffect(.pulse.byLayer, options: .repeating, isActive: app.isRunning)
                 }
-                .frame(width: 30, height: 30)
+                .frame(width: 32, height: 32)
                 if !app.sidebarCollapsed {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(app.isRunning ? "Agora · ao vivo" : "Nova sessão")
+                        Text(app.isRunning ? "Sessão ao vivo" : "Nova gravação")
                             .font(.system(size: 12, weight: .bold, design: .rounded))
-                        Text(app.isRunning ? "gravando e transcrevendo" : "gravar reunião")
+                        Text(app.isRunning ? "gravando agora" : "começar uma conversa")
                             .font(.system(size: 9.5)).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
             }
-            .padding(app.sidebarCollapsed ? 7 : 8)
+            .padding(app.sidebarCollapsed ? 8 : 9)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(app.selectedSessionID == nil ? Theme.cyan.opacity(0.10) : .clear,
-                        in: RoundedRectangle(cornerRadius: 10))
+            .background(app.selectedSessionID == nil ? Theme.panelRaised : Theme.panel,
+                        in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(app.selectedSessionID == nil ? Theme.violet.opacity(0.32) : Theme.divider)
+            )
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, app.sidebarCollapsed ? 4 : 7)
+        .padding(.horizontal, app.sidebarCollapsed ? 5 : 8)
     }
 
     private func sessionButton(_ record: SessionRecord) -> some View {
         Button { app.selectSession(record.id) } label: {
             HStack(spacing: 8) {
-                Image(systemName: record.hasAudio ? "waveform" : "text.bubble")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(record.hasAudio ? Theme.cyan : .secondary)
-                    .frame(width: 18)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(app.selectedSessionID == record.id ? Theme.violet : .clear)
+                    .frame(width: 3, height: 24)
+                Image(systemName: record.hasAudio ? "waveform" : "doc.text")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(app.selectedSessionID == record.id ? Theme.violet : .secondary)
+                    .frame(width: 16)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(record.title).lineLimit(1)
                         .font(.system(size: 11.5, weight: .semibold))
@@ -113,12 +137,14 @@ struct SessionSidebar: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8).padding(.vertical, 7)
+            .padding(.horizontal, 7).padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(app.selectedSessionID == record.id ? Theme.violet.opacity(0.14) : .clear,
+            .background(app.selectedSessionID == record.id ? Theme.panelRaised : .clear,
                         in: RoundedRectangle(cornerRadius: 9))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .animation(.snappy(duration: 0.18), value: app.selectedSessionID)
         .contextMenu {
             Button("Apagar", systemImage: "trash", role: .destructive) { app.deleteHistory(record.id) }
         }
