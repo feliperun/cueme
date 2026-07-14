@@ -4,6 +4,9 @@ import SwiftUI
 struct HeaderBar: View {
     @Environment(AppModel.self) private var app
     @Environment(\.openWindow) private var openWindow
+    @State private var showParticipants = false
+    @State private var selfName = ""
+    @State private var otherName = ""
 
     var body: some View {
         @Bindable var app = app
@@ -44,6 +47,33 @@ struct HeaderBar: View {
             Spacer()
 
             if app.isRunning {
+                Button {
+                    selfName = app.participantNames[.self] ?? "Você"
+                    otherName = app.participantNames[.other] ?? "Interlocutor"
+                    showParticipants.toggle()
+                } label: {
+                    Image(systemName: "person.2")
+                }
+                .buttonStyle(IconButtonStyle())
+                .help("Nomear participantes")
+                .popover(isPresented: $showParticipants) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Participantes", systemImage: "person.2.fill")
+                            .font(.system(size: 12, weight: .bold))
+                        TextField("Você", text: $selfName)
+                        TextField("Interlocutor", text: $otherName)
+                        Button("Salvar") {
+                            app.setParticipantName(selfName, for: .self)
+                            app.setParticipantName(otherName, for: .other)
+                            showParticipants = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .textFieldStyle(.roundedBorder)
+                    .padding(14)
+                    .frame(width: 240)
+                }
+
                 Toggle(isOn: Binding(get: { app.silenceMode }, set: { _ in app.toggleSilence() })) {
                     Image(systemName: app.silenceMode ? "moon.fill" : "moon")
                 }

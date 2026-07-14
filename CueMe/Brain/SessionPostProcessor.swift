@@ -55,7 +55,10 @@ enum SessionPostProcessor {
             "Objetivo: \(record.goal)",
             "Data: \(record.startedAt.formatted(date: .long, time: .shortened))"
         ]
-        if !record.summaryBullets.isEmpty {
+        if !record.minutes.isEmpty {
+            let topics = record.minutes.topics.map { "- \($0.title): \($0.summary)" }.joined(separator: "\n")
+            parts.append("Ata atual:\n\(record.minutes.overview)\n\(topics)")
+        } else if !record.summaryBullets.isEmpty {
             parts.append("Resumo atual:\n" + record.summaryBullets.map { "- \($0)" }.joined(separator: "\n"))
         }
         if !record.notes.isEmpty {
@@ -65,7 +68,7 @@ enum SessionPostProcessor {
             parts.append("Anotações:\n\(notes)")
         }
         let transcript = record.transcript.filter(\.isFinal).map { line in
-            let speaker = line.speaker == .self ? "VOCÊ" : "INTERLOCUTOR"
+            let speaker = record.participantName(for: line.speaker).uppercased()
             let translation = line.translation.map { " | Tradução: \($0)" } ?? ""
             return "[\(speaker)] \(line.text)\(translation)"
         }.joined(separator: "\n")
@@ -97,7 +100,9 @@ enum SessionPostProcessor {
         let format: String
         switch kind {
         case .summary:
-            format = "Produza 3 a 7 bullets curtos, um por linha, começando com '- '."
+            format = """
+            Responda SOMENTE JSON válido: {"overview":"um parágrafo","topics":[{"title":"Assunto","summary":"mini resumo"}]}. Use no máximo 12 assuntos.
+            """
         case .takeaways:
             format = "Liste apenas ações ainda pendentes como '- [ ] ação'. Se não houver, responda NENHUMA."
         case .answer, .custom:

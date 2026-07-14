@@ -5,6 +5,7 @@ struct BriefProfile: Codable, Identifiable, Sendable, Equatable {
     var name: String
     var brief: SessionBrief
     var coachModel: CoachModel
+    var summaryModel: CoachModel?
     var echoCancellation: Bool
     var recordAudio: Bool
 
@@ -13,6 +14,7 @@ struct BriefProfile: Codable, Identifiable, Sendable, Equatable {
         name: String,
         brief: SessionBrief,
         coachModel: CoachModel,
+        summaryModel: CoachModel? = nil,
         echoCancellation: Bool,
         recordAudio: Bool
     ) {
@@ -20,6 +22,7 @@ struct BriefProfile: Codable, Identifiable, Sendable, Equatable {
         self.name = name
         self.brief = brief
         self.coachModel = coachModel
+        self.summaryModel = summaryModel
         self.echoCancellation = echoCancellation
         self.recordAudio = recordAudio
     }

@@ -6,6 +6,7 @@ struct SttConfig: Sendable {
     var speaker: Speaker
     var localeIdentifier: String   // ex.: "en-US"
     var keyterms: [String]         // usado por providers de nuvem (ignorado pelo nativo)
+    var replacements: [String: String] = [:]
 }
 
 /// Protocolo plugável de STT. Cada sessão transcreve um fluxo e emite eventos

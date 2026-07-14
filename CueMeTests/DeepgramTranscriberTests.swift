@@ -7,7 +7,8 @@ final class DeepgramTranscriberTests: XCTestCase {
         let config = SttConfig(
             speaker: .other,
             localeIdentifier: "pt-BR",
-            keyterms: ["CueMe", "Ramon Silva"]
+            keyterms: ["CueMe", "Ramon Silva"],
+            replacements: ["mono rapo": "monorepo", "centrics": "Sentry"]
         )
 
         let url = try DeepgramLiveRequest.url(config: config)
@@ -24,7 +25,11 @@ final class DeepgramTranscriberTests: XCTestCase {
         XCTAssertTrue(items.contains(.init(name: "interim_results", value: "true")))
         XCTAssertTrue(items.contains(.init(name: "endpointing", value: "300")))
         XCTAssertTrue(items.contains(.init(name: "utterance_end_ms", value: "1000")))
-        XCTAssertEqual(items.filter { $0.name == "keyterm" }.map(\.value), ["CueMe", "Ramon Silva"])
+        XCTAssertEqual(items.filter { $0.name == "keyterm" }.compactMap(\.value), ["CueMe", "Ramon Silva"])
+        XCTAssertEqual(
+            items.filter { $0.name == "replace" }.compactMap(\.value).sorted(),
+            ["centrics:Sentry", "mono rapo:monorepo"]
+        )
     }
 
     func testAssemblerCombinesFinalSegmentsUntilSpeechFinal() throws {

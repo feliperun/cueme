@@ -18,6 +18,9 @@ enum DeepgramLiveRequest {
             URLQueryItem(name: "smart_format", value: "true")
         ]
         items += sanitizedKeyterms(config.keyterms).map { URLQueryItem(name: "keyterm", value: $0) }
+        items += sanitizedReplacements(config.replacements).map {
+            URLQueryItem(name: "replace", value: "\($0.key):\($0.value)")
+        }
         components?.queryItems = items
         guard let url = components?.url else { throw DeepgramError.invalidEndpoint }
         return url
@@ -30,6 +33,18 @@ enum DeepgramLiveRequest {
             .map { String($0.prefix(120)) }
             .prefix(100)
             .map { $0 }
+    }
+
+    private static func sanitizedReplacements(_ values: [String: String]) -> [(key: String, value: String)] {
+        var result: [(key: String, value: String)] = []
+        for (rawKey, rawValue) in values {
+            let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, !value.isEmpty, !key.contains(":"), !value.contains(":") else { continue }
+            result.append((String(key.prefix(120)), String(value.prefix(120))))
+        }
+        result.sort { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
+        return Array(result.prefix(200))
     }
 }
 

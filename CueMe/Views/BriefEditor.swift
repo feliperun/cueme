@@ -74,6 +74,9 @@ struct BriefEditor: View {
                     Picker("Modelo do live coach", selection: $app.coachModel) {
                         ForEach(CoachModel.allCases) { Text($0.label).tag($0) }
                     }
+                    Picker("Modelo da ata", selection: $app.summaryModel) {
+                        ForEach(CoachModel.allCases) { Text($0.label).tag($0) }
+                    }
                     Picker("Transcrição (STT)", selection: $app.sttSource) {
                         ForEach(SttSource.allCases) { Text($0.label).tag($0) }
                     }
@@ -129,7 +132,7 @@ struct BriefEditor: View {
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                 }
 
-                if app.coachModel.isDeepSeek {
+                if app.coachModel.isDeepSeek || app.summaryModel.isDeepSeek {
                     Section {
                         SecureField("API key (sk-…)", text: $deepseekKey)
                             .textContentType(.password)
@@ -164,10 +167,29 @@ struct BriefEditor: View {
                         )
                         .font(.system(size: 11))
                         .foregroundStyle(app.deepgramAvailable ? Theme.mint : Theme.amber)
+                        TextField("Glossário (separe por vírgulas)", text: Binding(
+                            get: { app.vocabulary.keyterms.joined(separator: ", ") },
+                            set: { value in
+                                var vocabulary = app.vocabulary
+                                vocabulary.keyterms = value.split(separator: ",")
+                                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                                    .filter { !$0.isEmpty }
+                                app.vocabulary = vocabulary
+                            }
+                        ), axis: .vertical)
+                        .lineLimit(2...4)
+                        if !app.vocabulary.replacements.isEmpty {
+                            Label(
+                                "\(app.vocabulary.replacements.count) correções aprendidas",
+                                systemImage: "text.badge.checkmark"
+                            )
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.secondary)
+                        }
                     } header: {
                         Text("Deepgram Nova-3")
                     } footer: {
-                        Text("A chave fica no Keychain. O áudio PCM da conversa e os termos da pauta são enviados ao Deepgram durante a sessão.")
+                        Text("A chave fica no Keychain. O glossário prioriza nomes e termos; correções feitas na transcrição são reaproveitadas nas próximas sessões.")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }

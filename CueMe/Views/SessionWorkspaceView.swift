@@ -9,6 +9,9 @@ struct SessionWorkspaceView: View {
     @State private var loadingWaveform = false
     @State private var noteText = ""
     @State private var takeawayText = ""
+    @State private var showParticipants = false
+    @State private var selfName = ""
+    @State private var otherName = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,6 +52,27 @@ struct SessionWorkspaceView: View {
                 .foregroundStyle(.secondary)
             }
             Spacer()
+            Button {
+                selfName = record.participantName(for: .self)
+                otherName = record.participantName(for: .other)
+                showParticipants.toggle()
+            } label: { Image(systemName: "person.2") }
+            .buttonStyle(IconButtonStyle())
+            .help("Nomear participantes")
+            .popover(isPresented: $showParticipants) {
+                VStack(alignment: .leading, spacing: 9) {
+                    TextField("Você", text: $selfName)
+                    TextField("Interlocutor", text: $otherName)
+                    Button("Salvar") {
+                        app.setParticipantName(selfName, for: .self, sessionID: record.id)
+                        app.setParticipantName(otherName, for: .other, sessionID: record.id)
+                        showParticipants = false
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .textFieldStyle(.roundedBorder)
+                .padding(14).frame(width: 240)
+            }
             Button(action: app.revealArchive) {
                 Image(systemName: "folder")
             }
@@ -86,6 +110,17 @@ struct SessionWorkspaceView: View {
     private var coachPane: some View {
         ScrollView {
             LazyVStack(spacing: 8) {
+                HStack {
+                    Text("Modelo").font(.system(size: 10)).foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("Coach", selection: Binding(
+                        get: { app.coachModel },
+                        set: { app.coachModel = $0 }
+                    )) {
+                        ForEach(CoachModel.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden().pickerStyle(.menu).controlSize(.small)
+                }
                 if record.coachCards.isEmpty { emptyState("Sem dicas nesta sessão", icon: "sparkles") }
                 ForEach(record.coachCards.reversed()) { card in MemoryCoachCard(card: card) }
             }
@@ -97,18 +132,31 @@ struct SessionWorkspaceView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
+                    Picker("Ata", selection: Binding(
+                        get: { app.summaryModel },
+                        set: { app.summaryModel = $0 }
+                    )) {
+                        ForEach(CoachModel.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden().pickerStyle(.menu).controlSize(.small)
                     Spacer()
                     generationButton("Atualizar", icon: "arrow.clockwise") {
                         await app.generateSummary(for: record.id)
                     }
                 }
-                if record.summaryBullets.isEmpty { emptyState("Resumo ainda não gerado", icon: "text.alignleft") }
-                ForEach(Array(record.summaryBullets.enumerated()), id: \.offset) { _, bullet in
-                    HStack(alignment: .top, spacing: 8) {
-                        Circle().fill(Theme.violet).frame(width: 5, height: 5).padding(.top, 6)
-                        Text(bullet).font(.system(size: 13)).textSelection(.enabled)
+                if record.minutes.isEmpty { emptyState("Ata ainda não gerada", icon: "text.alignleft") }
+                if !record.minutes.overview.isEmpty {
+                    Text(record.minutes.overview)
+                        .font(.system(size: 13, weight: .medium))
+                        .textSelection(.enabled)
+                }
+                ForEach(record.minutes.topics) { topic in
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(topic.title).font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.violet)
+                        Text(topic.summary).font(.system(size: 12.5)).textSelection(.enabled)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(9).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 9))
                 }
                 processingError
             }
@@ -123,9 +171,11 @@ struct SessionWorkspaceView: View {
                 ForEach(record.transcript) { line in
                     MemoryTranscriptLine(
                         line: line,
+                        speakerName: record.participantName(for: line.speaker),
                         foreign: record.isForeign,
                         active: line.id == activeLineID,
-                        onTap: player.isReady ? { seek(to: line) } : nil
+                        onTap: player.isReady ? { seek(to: line) } : nil,
+                        onCorrect: { app.correctTranscript(sessionID: record.id, lineID: line.id, text: $0) }
                     )
                 }
             }
@@ -139,17 +189,9 @@ struct SessionWorkspaceView: View {
                 LazyVStack(spacing: 7) {
                     if record.notes.isEmpty { emptyState("Anote sem sair da timeline", icon: "note.text") }
                     ForEach(record.notes.sorted { $0.timeOffset < $1.timeOffset }) { note in
-                        Button { player.seek(to: note.timeOffset) } label: {
-                            HStack(alignment: .top, spacing: 9) {
-                                Text(SessionArchive.clock(note.timeOffset))
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(Theme.amber)
-                                Text(note.text).font(.system(size: 12.5)).foregroundStyle(.primary)
-                                Spacer()
-                            }
-                            .padding(9).background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 9))
+                        EditableMemoryNote(sessionID: record.id, note: note) {
+                            player.seek(to: note.timeOffset)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(14)
@@ -286,7 +328,7 @@ struct SessionWorkspaceView: View {
     private func badge(for tab: SessionWorkspaceTab) -> Int? {
         switch tab {
         case .coach: return record.coachCards.count
-        case .summary: return record.summaryBullets.count
+        case .summary: return record.minutes.topics.count
         case .transcript: return record.transcript.filter(\.isFinal).count
         case .notes: return record.notes.count
         case .takeaways: return record.takeaways.filter { !$0.isDone }.count

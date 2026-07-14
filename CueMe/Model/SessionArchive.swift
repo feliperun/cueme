@@ -39,9 +39,19 @@ enum SessionArchive {
     }
 
     private static func appendSummary(_ record: SessionRecord, to lines: inout [String]) {
-        guard !record.summaryBullets.isEmpty else { return }
-        lines += ["## Resumo", ""]
-        lines += record.summaryBullets.map { "- \($0)" }
+        guard !record.minutes.isEmpty || !record.summaryBullets.isEmpty else { return }
+        lines += ["## Ata", ""]
+        if !record.minutes.overview.isEmpty {
+            lines += [record.minutes.overview, ""]
+        }
+        if !record.minutes.topics.isEmpty {
+            lines += ["### Assuntos", ""]
+            for topic in record.minutes.topics {
+                lines += ["#### \(topic.title)", "", topic.summary, ""]
+            }
+        } else {
+            lines += record.summaryBullets.map { "- \($0)" }
+        }
         lines.append("")
     }
 
@@ -83,8 +93,12 @@ enum SessionArchive {
         lines += ["## Transcrição", ""]
         for line in record.transcript where line.isFinal {
             let offset = line.ts.timeIntervalSince(record.audioTimelineStart)
-            lines.append("**\(line.speaker.label) · \(clock(offset))**")
+            lines.append("**\(record.participantName(for: line.speaker)) · \(clock(offset))**")
             lines.append(line.text)
+            if line.wasEdited, let original = line.originalText {
+                lines.append("")
+                lines.append("_Corrigido. Original: \(original)_")
+            }
             if let translation = line.translation, !translation.isEmpty {
                 lines.append("")
                 lines.append("_\(translation)_")

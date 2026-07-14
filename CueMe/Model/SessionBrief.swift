@@ -5,6 +5,7 @@ enum Mode: String, Codable, CaseIterable, Sendable, Identifiable {
     case sales
     case difficult
     case meeting
+    case recording
     case custom
 
     var id: String { rawValue }
@@ -14,13 +15,14 @@ enum Mode: String, Codable, CaseIterable, Sendable, Identifiable {
         case .interview: return "Entrevista"
         case .sales: return "Vendas"
         case .difficult: return "Conversa difícil"
-        case .meeting: return "Gravar reunião"
+        case .meeting: return "Reunião assistida"
+        case .recording: return "Somente gravação"
         case .custom: return "Custom"
         }
     }
 
-    /// Modo de captura/transcrição pura — o coach fica de fora.
-    var isPassive: Bool { self == .meeting }
+    /// Captura/transcrição pura. Reuniões normais mantêm um coach pouco intrusivo.
+    var isPassive: Bool { self == .recording }
 }
 
 enum CoachModel: String, Codable, CaseIterable, Sendable, Identifiable {
@@ -52,6 +54,10 @@ enum CoachModel: String, Codable, CaseIterable, Sendable, Identifiable {
         case .opus: return "Opus (profundo)"
         case .sonnet: return "Sonnet (rápido)"
         }
+    }
+
+    static func defaultSummaryModel(for coachModel: CoachModel) -> CoachModel {
+        coachModel.isDeepSeek ? .deepseekPro : .opus
     }
 
     /// Resolve uma preferência persistida sem deixar o app apontando para um

@@ -15,6 +15,33 @@ struct CoachingPane: View {
                 BackendErrorBanner(error: error)
             }
 
+            if !app.coachCards.filter(\.hasContent).isEmpty {
+                HStack(spacing: 7) {
+                    Button(action: app.showPreviousCoach) { Image(systemName: "chevron.left") }
+                    if let position = app.activeCoachPosition {
+                        Text("\(position.index)/\(position.count)")
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    Button(action: app.showNextCoach) { Image(systemName: "chevron.right") }
+                    Spacer()
+                    Picker("Coach", selection: Binding(
+                        get: { app.coachModel },
+                        set: { app.coachModel = $0 }
+                    )) {
+                        ForEach(CoachModel.allCases) { Text($0.label).tag($0) }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .controlSize(.mini)
+                    Button(action: app.dismissActiveCoach) { Image(systemName: "xmark") }
+                        .help("Ocultar dica")
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+            }
+
             Group {
                 if let latest {
                     HeroCard(card: latest, convLang: app.brief.conversationLang, keyterms: app.brief.keyterms)

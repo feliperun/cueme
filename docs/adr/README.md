@@ -63,9 +63,10 @@ proposed → active → superseded
 | [0014](0014-per-channel-capture-health.md) | Per-channel capture health and self-recovery | active |
 | [0015](0015-glance-first-live-ui.md) | Glance-first live coaching UI | active |
 | [0016](0016-observable-non-cancelling-coach-lanes.md) | Observable, non-cancelling coach lanes | active |
-| [0017](0017-fast-coach-two-speed.md) | Two-speed Fast Coach with an instant local cue | active |
+| [0017](0017-fast-coach-two-speed.md) | Two-speed Fast Coach with an instant local cue | superseded by 0023 |
 | [0018](0018-glanceable-runtime-and-signed-updates.md) | Glanceable runtime and signed updates | active |
 | [0019](0019-reliability-watchdog-and-provider-failover.md) | Runtime watchdog, provider failover, and post-session quality | active |
 | [0020](0020-session-memory-workspace-and-portable-archive.md) | Session memory workspace and portable human-readable archive | active |
 | [0021](0021-portable-high-quality-meeting-audio.md) | Portable high-quality meeting audio | active |
 | [0022](0022-optional-deepgram-streaming-stt.md) | Optional Deepgram streaming STT | active |
+| [0023](0023-adaptive-coach-and-incremental-minutes.md) | Adaptive coach and incremental meeting minutes | active |

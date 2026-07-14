@@ -17,6 +17,11 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
     var transcript: [TranscriptLine]
     var coachCards: [CoachCard]
     var summaryBullets: [String]
+    var minutes: MeetingMinutes
+    var participantNames: [Speaker: String]
+    var coachModel: CoachModel?
+    var summaryModel: CoachModel?
+    var vocabulary: CustomVocabulary
     var hasAudio: Bool
     var audioDuration: TimeInterval
     var diagnostics: SessionDiagnostics
@@ -39,6 +44,11 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
         transcript: [TranscriptLine],
         coachCards: [CoachCard],
         summaryBullets: [String],
+        minutes: MeetingMinutes = .empty,
+        participantNames: [Speaker: String] = [.self: "Você", .other: "Interlocutor"],
+        coachModel: CoachModel? = nil,
+        summaryModel: CoachModel? = nil,
+        vocabulary: CustomVocabulary = .init(),
         hasAudio: Bool = false,
         audioDuration: TimeInterval = 0,
         diagnostics: SessionDiagnostics = .init(),
@@ -60,6 +70,11 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
         self.transcript = transcript
         self.coachCards = coachCards
         self.summaryBullets = summaryBullets
+        self.minutes = minutes
+        self.participantNames = participantNames
+        self.coachModel = coachModel
+        self.summaryModel = summaryModel
+        self.vocabulary = vocabulary
         self.hasAudio = hasAudio
         self.audioDuration = audioDuration
         self.diagnostics = diagnostics
@@ -85,6 +100,13 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
         transcript = try c.decode([TranscriptLine].self, forKey: .transcript)
         coachCards = try c.decode([CoachCard].self, forKey: .coachCards)
         summaryBullets = try c.decode([String].self, forKey: .summaryBullets)
+        minutes = try c.decodeIfPresent(MeetingMinutes.self, forKey: .minutes)
+            ?? (summaryBullets.isEmpty ? .empty : MeetingMinutes(overview: summaryBullets.joined(separator: " ")))
+        participantNames = try c.decodeIfPresent([Speaker: String].self, forKey: .participantNames)
+            ?? [.self: "Você", .other: "Interlocutor"]
+        coachModel = try c.decodeIfPresent(CoachModel.self, forKey: .coachModel)
+        summaryModel = try c.decodeIfPresent(CoachModel.self, forKey: .summaryModel)
+        vocabulary = try c.decodeIfPresent(CustomVocabulary.self, forKey: .vocabulary) ?? .init()
         hasAudio = try c.decodeIfPresent(Bool.self, forKey: .hasAudio) ?? false
         audioDuration = try c.decodeIfPresent(TimeInterval.self, forKey: .audioDuration) ?? 0
         diagnostics = try c.decodeIfPresent(SessionDiagnostics.self, forKey: .diagnostics) ?? .init()
@@ -109,6 +131,12 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
 
     var turnCount: Int { transcript.filter { $0.isFinal }.count }
     var isForeign: Bool { SessionBrief.baseCode(conversationLang) != SessionBrief.baseCode(nativeLang) }
+
+    func participantName(for speaker: Speaker) -> String {
+        let fallback = speaker.label
+        let value = participantNames[speaker]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return value.isEmpty ? fallback : value
+    }
 
     /// Nome de arquivo sugerido pra exportação.
     var exportFilename: String {

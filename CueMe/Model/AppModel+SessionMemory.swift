@@ -34,6 +34,55 @@ extension AppModel {
         }
     }
 
+    func updateLiveNote(_ noteID: UUID, text rawText: String) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, let index = sessionNotes.firstIndex(where: { $0.id == noteID }) else { return }
+        sessionNotes[index].text = text
+        persistLiveSnapshot()
+    }
+
+    func deleteLiveNote(_ noteID: UUID) {
+        sessionNotes.removeAll { $0.id == noteID }
+        persistLiveSnapshot()
+    }
+
+    func updateNote(sessionID: UUID, noteID: UUID, text rawText: String) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        mutateRecord(sessionID) { record in
+            guard let index = record.notes.firstIndex(where: { $0.id == noteID }) else { return }
+            record.notes[index].text = text
+        }
+    }
+
+    func deleteNote(sessionID: UUID, noteID: UUID) {
+        mutateRecord(sessionID) { $0.notes.removeAll { $0.id == noteID } }
+    }
+
+    func setParticipantName(_ rawName: String, for speaker: Speaker, sessionID: UUID) {
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        mutateRecord(sessionID) { record in
+            record.participantNames[speaker] = name.isEmpty ? speaker.label : name
+            if !name.isEmpty { record.vocabulary.addKeyterm(name) }
+        }
+        if !name.isEmpty { vocabulary.addKeyterm(name) }
+    }
+
+    func correctTranscript(sessionID: UUID, lineID: UUID, text rawText: String, learn: Bool = true) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        mutateRecord(sessionID) { record in
+            guard let index = record.transcript.firstIndex(where: { $0.id == lineID }) else { return }
+            let original = record.transcript[index].text
+            record.transcript[index].applyCorrection(text)
+            if record.isForeign { record.transcript[index].translation = nil }
+            if learn, original != record.transcript[index].text {
+                _ = record.vocabulary.learnCorrection(from: original, to: record.transcript[index].text)
+                _ = vocabulary.learnCorrection(from: original, to: record.transcript[index].text)
+            }
+        }
+    }
+
     func addTakeaway(to sessionID: UUID, text rawText: String) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -120,13 +169,16 @@ extension AppModel {
                 record: record,
                 request: request,
                 kind: kind,
-                model: coachModel
+                model: kind == .summary ? summaryModel : coachModel
             )
             mutateRecord(sessionID) { updated in
                 updated.artifacts.append(.init(kind: kind, title: title, body: output))
                 switch kind {
                 case .summary:
-                    updated.summaryBullets = Self.parseBullets(output)
+                    if let minutes = MeetingMinutes.parse(modelOutput: output, preserving: updated.minutes) {
+                        updated.minutes = minutes
+                        updated.summaryBullets = minutes.topics.map { "\($0.title): \($0.summary)" }
+                    }
                 case .takeaways:
                     let generated = SessionPostProcessor.parseTakeaways(output)
                     let existing = Set(updated.takeaways.map { $0.text.lowercased() })
@@ -153,7 +205,7 @@ extension AppModel {
         SessionStore.save(history[index])
     }
 
-    private func persistLiveSnapshot() {
+    func persistLiveSnapshot() {
         guard let startedAt = sessionStartTime, let id = currentSessionID else { return }
         let record = SessionRecord(
             id: id,
@@ -167,6 +219,11 @@ extension AppModel {
             transcript: transcript,
             coachCards: coachCards.filter(\.hasContent),
             summaryBullets: summaryBullets,
+            minutes: minutes,
+            participantNames: participantNames,
+            coachModel: coachModel,
+            summaryModel: summaryModel,
+            vocabulary: vocabulary,
             hasAudio: recordAudio,
             audioDuration: Date().timeIntervalSince(startedAt),
             diagnostics: diagnostics,

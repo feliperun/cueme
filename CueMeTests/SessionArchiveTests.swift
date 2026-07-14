@@ -18,13 +18,14 @@ final class SessionArchiveTests: XCTestCase {
 
     func testSaveWritesPortableJSONAndMarkdownInsideTimestampedFolder() throws {
         let startedAt = Date(timeIntervalSince1970: 1_704_110_400)
-        let line = TranscriptLine(
+        var line = TranscriptLine(
             speaker: .other,
-            text: "Vamos entregar na sexta.",
+            text: "Vamos entregar no mono rapo na sexta.",
             translation: "We will deliver on Friday.",
             isFinal: true,
             ts: startedAt.addingTimeInterval(12)
         )
+        line.applyCorrection("Vamos entregar no monorepo na sexta-feira.", at: startedAt.addingTimeInterval(20))
         let record = SessionRecord(
             id: UUID(uuidString: "12345678-1234-1234-1234-1234567890AB")!,
             startedAt: startedAt,
@@ -37,6 +38,11 @@ final class SessionArchiveTests: XCTestCase {
             transcript: [line],
             coachCards: [],
             summaryBullets: ["Entrega combinada para sexta."],
+            minutes: MeetingMinutes(
+                overview: "Entrega e responsáveis foram alinhados.",
+                topics: [.init(title: "Cronograma", summary: "Entrega combinada para sexta-feira.")]
+            ),
+            participantNames: [.self: "Felipe", .other: "Marcelo"],
             notes: [.init(timeOffset: 9, text: "Confirmar responsável")],
             takeaways: [.init(text: "Enviar cronograma")],
             artifacts: [.init(kind: .answer, title: "Follow-up", body: "Mandar e-mail amanhã.")]
@@ -48,12 +54,16 @@ final class SessionArchiveTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("session.json").path))
         let markdownURL = directory.appendingPathComponent("session.md")
         let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
-        XCTAssertTrue(markdown.contains("# Vamos entregar na sexta."))
+        XCTAssertTrue(markdown.contains("# Vamos entregar no monorepo na sexta-feira."))
         XCTAssertTrue(markdown.contains("## Anotações"))
         XCTAssertTrue(markdown.contains("[00:09] Confirmar responsável"))
         XCTAssertTrue(markdown.contains("- [ ] Enviar cronograma"))
         XCTAssertTrue(markdown.contains("## Transcrição"))
-        XCTAssertTrue(markdown.contains("**Interlocutor · 00:12**"))
+        XCTAssertTrue(markdown.contains("## Ata"))
+        XCTAssertTrue(markdown.contains("#### Cronograma"))
+        XCTAssertTrue(markdown.contains("**Marcelo · 00:12**"))
+        XCTAssertTrue(markdown.localizedCaseInsensitiveContains("corrigido"))
+        XCTAssertTrue(markdown.contains("mono rapo"))
         XCTAssertTrue(markdown.contains("We will deliver on Friday."))
         XCTAssertTrue(markdown.contains("## Conteúdo gerado"))
         XCTAssertTrue(markdown.contains("Mandar e-mail amanhã."))

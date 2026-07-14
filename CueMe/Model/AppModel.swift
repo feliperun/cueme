@@ -11,6 +11,7 @@ import Sparkle
 final class AppModel {
     var transcript: [TranscriptLine] = []
     var summaryBullets: [String] = []
+    var minutes: MeetingMinutes = .empty
     var coachCards: [CoachCard] = []
     var diagnostics = SessionDiagnostics()
     var runtimeHealth: RuntimeHealth = .healthy
@@ -30,9 +31,21 @@ final class AppModel {
         didSet { UserDefaults.standard.set(sttSource.rawValue, forKey: Self.sttSourceKey) }
     }
     var coachModel: CoachModel = .sonnet {        // default keyless; DeepSeek é opt-in
-        didSet { UserDefaults.standard.set(coachModel.rawValue, forKey: Self.coachModelKey) }
+        didSet {
+            UserDefaults.standard.set(coachModel.rawValue, forKey: Self.coachModelKey)
+            guard coachModel != oldValue, isRunning else { return }
+            Task { [coordinator, coachModel] in await coordinator?.switchCoachModel(to: coachModel) }
+        }
+    }
+    var summaryModel: CoachModel = .opus {
+        didSet {
+            UserDefaults.standard.set(summaryModel.rawValue, forKey: Self.summaryModelKey)
+            guard summaryModel != oldValue, isRunning else { return }
+            Task { [coordinator, summaryModel] in await coordinator?.switchSummaryModel(to: summaryModel) }
+        }
     }
     private static let coachModelKey = "coachModel"
+    private static let summaryModelKey = "summaryModel"
     private static let sttSourceKey = "sttSource"
     var echoCancellation: Bool = false     // AEC experimental (sem fones); default off
     var trainingMode: Bool = false         // entrevistador por voz (teste e2e + prep solo)
@@ -73,6 +86,10 @@ final class AppModel {
     var sessionNotes: [SessionNote] = []
     var sessionTakeaways: [SessionTakeaway] = []
     var sessionArtifacts: [SessionArtifact] = []
+    var participantNames: [Speaker: String] = [.self: "Você", .other: "Interlocutor"]
+    var vocabulary: CustomVocabulary = .init() {
+        didSet { CustomVocabularyStore.save(vocabulary) }
+    }
     var noteDraft = ""
     var postSessionPrompt = ""
     var postProcessingSessionID: UUID?
@@ -123,6 +140,15 @@ final class AppModel {
             claudeAvailable: hasClaude,
             deepSeekAvailable: hasDeepSeek
         )
+        let defaultSummary = CoachModel.defaultSummaryModel(for: self.coachModel)
+        let savedSummary = UserDefaults.standard.string(forKey: Self.summaryModelKey)
+            .flatMap(CoachModel.init(rawValue:)) ?? defaultSummary
+        self.summaryModel = CoachModel.resolved(
+            preferred: savedSummary,
+            claudeAvailable: hasClaude,
+            deepSeekAvailable: hasDeepSeek
+        )
+        self.vocabulary = CustomVocabularyStore.load()
         translationPipe.onResult = { [weak self] id, text in
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
@@ -209,6 +235,7 @@ final class AppModel {
         activeCoachCardID = nil
         dismissedCoachCardIDs = []
         summaryBullets = []
+        minutes = .empty
         currentQuestionID = nil
         showTranscript = false
         showSummary = false
@@ -226,6 +253,7 @@ final class AppModel {
         sessionNotes = []
         sessionTakeaways = []
         sessionArtifacts = []
+        participantNames = [.self: "Você", .other: "Interlocutor"]
         noteDraft = ""
         selectedSessionID = nil
         postProcessingError = nil
@@ -292,6 +320,11 @@ final class AppModel {
             transcript: transcript,
             coachCards: coachCards.filter(\.hasContent).map { var c = $0; c.isStreaming = false; return c },
             summaryBullets: summaryBullets,
+            minutes: minutes,
+            participantNames: participantNames,
+            coachModel: coachModel,
+            summaryModel: summaryModel,
+            vocabulary: vocabulary,
             hasAudio: stopResult.audioDuration != nil,
             audioDuration: stopResult.audioDuration ?? 0,
             diagnostics: diagnostics,
@@ -305,7 +338,7 @@ final class AppModel {
         selectedSessionID = record.id
         if backendAvailable, !record.transcript.isEmpty {
             Task {
-                if record.summaryBullets.isEmpty { await generateSummary(for: record.id) }
+                if record.minutes.isEmpty { await generateSummary(for: record.id) }
                 if record.takeaways.isEmpty { await generateTakeaways(for: record.id) }
             }
         }
@@ -349,6 +382,11 @@ final class AppModel {
             claudeAvailable: claudeAvailable,
             deepSeekAvailable: deepSeekAvailable
         )
+        summaryModel = CoachModel.resolved(
+            preferred: profile.summaryModel ?? CoachModel.defaultSummaryModel(for: coachModel),
+            claudeAvailable: claudeAvailable,
+            deepSeekAvailable: deepSeekAvailable
+        )
         echoCancellation = profile.echoCancellation
         recordAudio = profile.recordAudio
     }
@@ -360,6 +398,7 @@ final class AppModel {
         if let index = profiles.firstIndex(where: { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
             profiles[index].brief = brief
             profiles[index].coachModel = coachModel
+            profiles[index].summaryModel = summaryModel
             profiles[index].echoCancellation = echoCancellation
             profiles[index].recordAudio = recordAudio
             activeProfileID = profiles[index].id
@@ -368,6 +407,7 @@ final class AppModel {
                 name: name,
                 brief: brief,
                 coachModel: coachModel,
+                summaryModel: summaryModel,
                 echoCancellation: echoCancellation,
                 recordAudio: recordAudio
             )
@@ -572,18 +612,23 @@ final class AppModel {
         if let idx = transcript.firstIndex(where: { !$0.isFinal && $0.speaker == event.speaker }) {
             transcript[idx].text = event.text
             transcript[idx].isFinal = event.isFinal
+            if event.isFinal { transcript[idx].sourceTurnID = event.id }
             id = transcript[idx].id
         } else {
             let line = TranscriptLine(
                 speaker: event.speaker,
                 text: event.text,
-                isFinal: event.isFinal
+                isFinal: event.isFinal,
+                sourceTurnID: event.id
             )
             transcript.append(line)
             id = line.id
         }
-        if transcript.count > 400 {
-            transcript.removeFirst(transcript.count - 400)
+        // A UI usa LazyVStack; preservar a sessão inteira é mais importante que
+        // uma janela curta. 5k linhas cobre reuniões de muitas horas sem crescer
+        // sem limite em uma captura acidentalmente deixada aberta.
+        if transcript.count > 5_000 {
+            transcript.removeFirst(transcript.count - 5_000)
         }
         return id
     }
@@ -612,11 +657,15 @@ final class AppModel {
         } else {
             coachCards.append(card)
         }
-        if coachCards.count > 30 {
-            coachCards.removeFirst(coachCards.count - 30)
+        if coachCards.count > 100 {
+            coachCards.removeFirst(coachCards.count - 100)
         }
         if !dismissedCoachCardIDs.contains(card.id) {
-            activeCoachCardID = card.id
+            let current = activeCoachCard
+            let mayAdvance = current == nil
+                || current?.id == card.id
+                || (current?.isStreaming == false && Date().timeIntervalSince(current?.ts ?? Date()) >= 12)
+            if mayAdvance { activeCoachCardID = card.id }
         }
     }
 
@@ -636,6 +685,49 @@ final class AppModel {
         guard let activeCoachCardID else { return }
         dismissedCoachCardIDs.insert(activeCoachCardID)
         self.activeCoachCardID = nil
+    }
+
+    var activeCoachPosition: (index: Int, count: Int)? {
+        let visible = coachCards.filter(\.hasContent)
+        guard let activeCoachCardID,
+              let index = visible.firstIndex(where: { $0.id == activeCoachCardID }) else { return nil }
+        return (index + 1, visible.count)
+    }
+
+    func showPreviousCoach() { moveCoach(by: -1) }
+    func showNextCoach() { moveCoach(by: 1) }
+
+    private func moveCoach(by offset: Int) {
+        let visible = coachCards.filter(\.hasContent)
+        guard !visible.isEmpty else { return }
+        let current = activeCoachCardID.flatMap { id in visible.firstIndex(where: { $0.id == id }) }
+            ?? (offset < 0 ? visible.count : -1)
+        let target = min(max(current + offset, 0), visible.count - 1)
+        activeCoachCardID = visible[target].id
+    }
+
+    func setParticipantName(_ rawName: String, for speaker: Speaker) {
+        let fallback = speaker.label
+        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        participantNames[speaker] = name.isEmpty ? fallback : name
+        if !name.isEmpty { vocabulary.addKeyterm(name) }
+        persistLiveSnapshot()
+    }
+
+    func correctTranscript(lineID: UUID, text: String, learn: Bool = true) {
+        guard let index = transcript.firstIndex(where: { $0.id == lineID }) else { return }
+        let original = transcript[index].text
+        transcript[index].applyCorrection(text)
+        guard transcript[index].text != original else { return }
+        if brief.isForeign {
+            transcript[index].translation = nil
+            enqueueTranslation(id: lineID, text: transcript[index].text)
+        }
+        if learn { _ = vocabulary.learnCorrection(from: original, to: transcript[index].text) }
+        let turnID = transcript[index].sourceTurnID
+        let corrected = transcript[index].text
+        Task { [coordinator] in await coordinator?.correctTurn(id: turnID, text: corrected) }
+        persistLiveSnapshot()
     }
 }
 
