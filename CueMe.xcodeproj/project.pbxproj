@@ -390,7 +390,7 @@
 				CODE_SIGN_ENTITLEMENTS = CueMe/CueMe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 0.10.0; // x-release-please-version
+				CURRENT_PROJECT_VERSION = 0.11.0; // x-release-please-version
 				DEVELOPMENT_TEAM = C8D46BZNT3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -405,7 +405,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0; // x-release-please-version
+				MARKETING_VERSION = 0.11.0; // x-release-please-version
 				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.CueMe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -421,7 +421,7 @@
 				CODE_SIGN_ENTITLEMENTS = CueMe/CueMe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 0.10.0; // x-release-please-version
+				CURRENT_PROJECT_VERSION = 0.11.0; // x-release-please-version
 				DEVELOPMENT_TEAM = C8D46BZNT3;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -436,7 +436,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.10.0; // x-release-please-version
+				MARKETING_VERSION = 0.11.0; // x-release-please-version
 				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.CueMe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -480,7 +480,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = CueMeShare/CueMeShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 0.10.0; // x-release-please-version
+				CURRENT_PROJECT_VERSION = 0.11.0; // x-release-please-version
 				DEVELOPMENT_TEAM = C8D46BZNT3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CueMeShare/Info.plist;
@@ -490,7 +490,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.10.0; // x-release-please-version
+				MARKETING_VERSION = 0.11.0; // x-release-please-version
 				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.CueMe.Share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -505,7 +505,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = CueMeShare/CueMeShare.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 0.10.0; // x-release-please-version
+				CURRENT_PROJECT_VERSION = 0.11.0; // x-release-please-version
 				DEVELOPMENT_TEAM = C8D46BZNT3;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = CueMeShare/Info.plist;
@@ -515,7 +515,7 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.10.0; // x-release-please-version
+				MARKETING_VERSION = 0.11.0; // x-release-please-version
 				PRODUCT_BUNDLE_IDENTIFIER = com.feliperun.CueMe.Share;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

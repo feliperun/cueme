@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/feliperun/cueme/compare/v0.10.0...v0.11.0) (2026-07-15)
+
+
+### Features
+
+* add supported Voice Memos sharing ([9f510d3](https://github.com/feliperun/cueme/commit/9f510d3cb6bc424472827ae34bc83b09b65781d7))
+
 ## [0.10.0](https://github.com/feliperun/cueme/compare/v0.9.1...v0.10.0) (2026-07-15)
 
 
