@@ -98,8 +98,91 @@ extension AppModel {
         }
     }
 
+    func updateTakeaway(sessionID: UUID, takeawayID: UUID, text rawText: String) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        mutateRecord(sessionID) { record in
+            guard let index = record.takeaways.firstIndex(where: { $0.id == takeawayID }) else { return }
+            record.takeaways[index].text = text
+        }
+    }
+
+    func deleteTakeaway(sessionID: UUID, takeawayID: UUID) {
+        mutateRecord(sessionID) { $0.takeaways.removeAll { $0.id == takeawayID } }
+    }
+
+    func updateMeetingOverview(sessionID: UUID, text rawText: String) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        mutateRecord(sessionID) { $0.minutes.overview = text }
+    }
+
+    func updateMeetingTopic(sessionID: UUID, topicID: UUID, title: String, summary: String) {
+        let cleanTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanTitle.isEmpty, !cleanSummary.isEmpty else { return }
+        mutateRecord(sessionID) { record in
+            guard let index = record.minutes.topics.firstIndex(where: { $0.id == topicID }) else { return }
+            record.minutes.topics[index].title = cleanTitle
+            record.minutes.topics[index].summary = cleanSummary
+            record.minutes.topics[index].updatedAt = Date()
+        }
+    }
+
+    func updateReviewDecision(sessionID: UUID, itemID: UUID, text rawText: String) {
+        updateReviewItem(sessionID: sessionID, itemID: itemID, text: rawText, openQuestion: false)
+    }
+
+    func updateReviewQuestion(sessionID: UUID, itemID: UUID, text rawText: String) {
+        updateReviewItem(sessionID: sessionID, itemID: itemID, text: rawText, openQuestion: true)
+    }
+
+    func updateReviewFollowUp(sessionID: UUID, text: String) {
+        mutateRecord(sessionID) { $0.review.followUp = text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+
+    func deleteReviewItem(sessionID: UUID, itemID: UUID, openQuestion: Bool) {
+        mutateRecord(sessionID) { record in
+            if openQuestion {
+                record.review.openQuestions.removeAll { $0.id == itemID }
+            } else {
+                record.review.decisions.removeAll { $0.id == itemID }
+            }
+        }
+    }
+
+    func addReviewItem(sessionID: UUID, text rawText: String, openQuestion: Bool) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        mutateRecord(sessionID) { record in
+            if openQuestion {
+                record.review.openQuestions.append(.init(text: text))
+            } else {
+                record.review.decisions.append(.init(text: text))
+            }
+        }
+    }
+
+    private func updateReviewItem(
+        sessionID: UUID,
+        itemID: UUID,
+        text rawText: String,
+        openQuestion: Bool
+    ) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        mutateRecord(sessionID) { record in
+            if openQuestion,
+               let index = record.review.openQuestions.firstIndex(where: { $0.id == itemID }) {
+                record.review.openQuestions[index].text = text
+            } else if !openQuestion,
+                      let index = record.review.decisions.firstIndex(where: { $0.id == itemID }) {
+                record.review.decisions[index].text = text
+            }
+        }
+    }
+
     func chooseArchiveRoot() {
-        guard !isSessionBusy else { return }
+        guard !isSessionBusy, audioImportStatus?.isActive != true else { return }
         let panel = NSOpenPanel()
         panel.title = "Escolha onde salvar suas reuniões"
         panel.prompt = "Usar esta pasta"
@@ -131,12 +214,30 @@ extension AppModel {
         )
     }
 
+    func generateReview(for sessionID: UUID) async {
+        await generateArtifact(
+            for: sessionID,
+            request: "Gere a revisão final completa desta reunião.",
+            kind: .review,
+            title: "Revisão final"
+        )
+    }
+
     func generateTakeaways(for sessionID: UUID) async {
         await generateArtifact(
             for: sessionID,
             request: "Extraia apenas ações, tarefas e combinados que ainda precisam ser feitos.",
             kind: .takeaways,
             title: "Pendências extraídas"
+        )
+    }
+
+    func generateFollowUp(for sessionID: UUID, format: FollowUpFormat) async {
+        await generateArtifact(
+            for: sessionID,
+            request: format.request,
+            kind: .custom,
+            title: format.label
         )
     }
 
@@ -169,11 +270,21 @@ extension AppModel {
                 record: record,
                 request: request,
                 kind: kind,
-                model: kind == .summary ? summaryModel : coachModel
+                model: (kind == .summary || kind == .review) ? summaryModel : coachModel
             )
             mutateRecord(sessionID) { updated in
                 updated.artifacts.append(.init(kind: kind, title: title, body: output))
                 switch kind {
+                case .review:
+                    if let extraction = SessionPostProcessor.parseReview(output, preserving: updated.minutes) {
+                        updated.minutes = extraction.minutes
+                        updated.summaryBullets = extraction.minutes.topics.map { "\($0.title): \($0.summary)" }
+                        let existing = Set(updated.takeaways.map { $0.text.lowercased() })
+                        updated.takeaways.append(contentsOf: extraction.takeaways.filter {
+                            !existing.contains($0.text.lowercased())
+                        })
+                        updated.review = extraction.review
+                    }
                 case .summary:
                     if let minutes = MeetingMinutes.parse(modelOutput: output, preserving: updated.minutes) {
                         updated.minutes = minutes
@@ -230,6 +341,7 @@ extension AppModel {
             coachFeedback: coachFeedback,
             notes: sessionNotes,
             takeaways: sessionTakeaways,
+            review: meetingReview,
             artifacts: sessionArtifacts
         )
         SessionStore.save(record)

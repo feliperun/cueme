@@ -10,6 +10,7 @@
 AVAudioEngine (mic, .self) ─────┐                                        ┌─▶ NativeTranscriber (SpeechAnalyzer)
                                 ├─▶ SttProvider (→16k mono PCM16) ────────┤
 ScreenCaptureKit (system, .other)┘        │                               └─▶ DeepgramTranscriber (Nova-3 WebSocket)
+Imported audio / Voice Memos ────────────┴─▶ AudioImportService ──────────▶ Native file STT / Deepgram batch
                                            ▼                                   ▼
                                     MeetingRecorder                     TranscriptBus (actor)
                                   (synced dual .m4a files,     ┌────────────┬────────────┬────────────┐
@@ -45,11 +46,14 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
   files at 48 kHz/128 kbps for later playback), `MeetingPlayer` (two
   `AVAudioPlayer`s synced via
   `deviceCurrentTime`), `WaveformGenerator` (background amplitude envelope for
-  the player UI).
+  the player UI), `AudioImportService` (read-only source import and portable
+  AAC/M4A normalization).
 - **STT/** — provider abstraction with `NativeTranscriber`
   (`SpeechAnalyzer`/`SpeechTranscriber`, default and on-device) or opt-in
   `DeepgramTranscriber` (Nova-3 WebSocket, continuous mono PCM16 resampling,
   endpointed partial/final assembly and Keychain credential), plus
+  `PrerecordedAudioTranscriber` (native file ranges or Deepgram batch utterances
+  with diarization), plus
   `TranslationPipe` (feeds Apple `Translation` from the `.translationTask`).
 - **Bus/** — `TranscriptBus` actor: fan-out `AsyncStream`, durable turn context,
   incremental cursors and correction updates.
@@ -59,7 +63,7 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
   non-thinking; keyed via `DeepSeekCredential` in the Keychain, see
   [ADR 0013](adr/0013-deepseek-coach-via-direct-api.md)) — both behind the
   `CoachSession` protocol, `Summary` and `Coaching` lanes, `SessionPostProcessor`
-  (saved-session summaries, takeaways and questions), `Prompts` (expert-panel
+  (structured session review, follow-ups and questions), `Prompts` (expert-panel
   coach persona + per-mode playbooks, see [ADR 0011](adr/0011-expert-coach-persona-and-playbooks.md)).
 - **Context preflight** — reusable `MeetingContext` documents are selected per
   profile/session; `ContextGlossaryGenerator` asks the chosen LLM for bounded
@@ -67,16 +71,18 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
   inputs are unchanged ([ADR 0024](adr/0024-reusable-contexts-and-preflight-glossary.md)).
 - **Model/** — `AppModel` (state + commands), `SessionCoordinator` (wires
   capture → STT → bus → lanes → UI, partial/final echo dedup, independently
-  swappable coach/minutes models, semantic per-mode triggers, stable navigable
-  cards, incremental structured minutes, latest-pending coalescing, independent capture/STT
+  swappable coach/minutes models, detected conversation styles, high-confidence
+  semantic triggers, user-controlled navigable cards, incremental structured
+  minutes, latest-pending coalescing, independent capture/STT
   watchdog recovery, provider failover, latency telemetry, recording and training),
   `TrainingCoordinator` (voice interviewer for practice/e2e testing),
   `HotkeyManager` (global ⌥Space show/hide), `SessionBrief` (+ `BriefStore`),
-  reusable `BriefProfile`s, `SessionRecord` (+ notes, takeaways, generated artifacts),
+  reusable `BriefProfile`s, `SessionRecord` (+ notes, review, takeaways and generated artifacts),
   `SessionArchive`/`SessionStore` (portable JSON + Markdown history persistence),
-  metadata-only runtime health/report policies, `Types`.
+  `SessionKnowledgeIndex` (weighted local full-archive search),
+  `LiveHealthMonitor`/`SessionIntegrityReport` metadata-only health policies, `Types`.
 - **Views/** — glance-first SwiftUI: `HeaderBar` with live channel meters,
-  compact `QuestionBanner`, latest-only `CoachingPane`,
+  compact `QuestionBanner`, user-controlled `CoachingPane`, compact live health,
   `MeetingPanel` (passive-mode status when the coach is off), `TranscriptPane`,
   `SummaryPane`, `BriefEditor`, `SessionSidebar`, `SessionWorkspaceView`
   (+ `WaveformPlayerView` and the live transport),
@@ -86,9 +92,10 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
 ## Session modes
 
 `Mode`: `interview` / `sales` / `difficult` / `meeting` / `recording` / `custom`.
-Meeting mode uses a selective playbook for questions, decisions, risks and
-ownership; `recording` is the sole live-passive mode. See
-[ADR 0023](adr/0023-adaptive-coach-and-incremental-minutes.md).
+Recent final turns refine the live conversation style to interview, one-on-one,
+technical, sales or open meeting. Automatic coaching is limited to
+high-confidence opportunities; `recording` is the sole live-passive mode. See
+[ADR 0025](adr/0025-adaptive-live-experience-and-session-review.md).
 
 `trainingMode` is an orthogonal toggle (any non-passive mode): a
 `TrainingCoordinator` session plays the interviewer, speaking questions via
@@ -106,10 +113,17 @@ the same directory. The JSON stores a portable directory name, never an absolute
 path. `SessionSidebar` keeps history visible and `SessionWorkspaceView` provides
 the same coach/summary/transcript navigation after the event, plus timeline notes,
 takeaways, editable timestamped notes, named participants, auditable transcript
-corrections and persisted post-session generation. `recordingStartedAt` anchors
+corrections, editable decisions/open questions/follow-up, integrity diagnostics
+and persisted post-session generation. `recordingStartedAt` anchors
 transcript seeking to the audio clock. Legacy `.caf` and Application Support
 JSON/audio are still discovered and played back during migration. Deleting a session removes
 its complete directory and any legacy counterpart.
+
+Audio files and best-effort read-only Voice Memos discovery create passive
+`SessionOrigin.audioFile`/`.voiceMemo` records in the same archive. The selected
+STT provider transcribes them before the normal review lane extracts minutes and
+actions. The sidebar's local knowledge index searches every durable memory field
+with date and session-type filters ([ADR 0026](adr/0026-imported-audio-and-local-knowledge-search.md)).
 
 ## Runtime & hosting
 

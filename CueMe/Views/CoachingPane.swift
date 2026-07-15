@@ -17,6 +17,10 @@ struct CoachingPane: View {
 
             if !app.coachCards.filter(\.hasContent).isEmpty {
                 HStack(spacing: 7) {
+                    Label(app.conversationStyle.label, systemImage: "scope")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.violet)
+                        .labelStyle(.titleAndIcon)
                     Button(action: app.showPreviousCoach) { Image(systemName: "chevron.left") }
                     if let position = app.activeCoachPosition {
                         Text("\(position.index)/\(position.count)")
@@ -34,6 +38,16 @@ struct CoachingPane: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .controlSize(.mini)
+                    Button(action: app.toggleActiveCoachPin) {
+                        Image(systemName: app.isActiveCoachPinned ? "pin.fill" : "pin")
+                            .foregroundStyle(app.isActiveCoachPinned ? Theme.amber : .secondary)
+                    }
+                    .help(app.isActiveCoachPinned ? "Desafixar dica" : "Manter esta dica visível")
+                    Button(action: app.useActiveCoach) {
+                        Image(systemName: "checkmark.circle")
+                            .foregroundStyle(Theme.mint)
+                    }
+                    .help("Marcar como usada e ver a próxima")
                     Button(action: app.dismissActiveCoach) { Image(systemName: "xmark") }
                         .help("Ocultar dica")
                 }

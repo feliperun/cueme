@@ -173,6 +173,7 @@ enum CoachTriggerPolicy {
     static func shouldTrigger(
         text: String,
         mode: Mode,
+        style: ConversationStyle? = nil,
         speakerCertain: Bool,
         now: Date = Date(),
         lastTriggeredAt: Date?,
@@ -183,41 +184,20 @@ enum CoachTriggerPolicy {
         guard normalized.split(separator: " ").count >= 4,
               normalized != lastFingerprint else { return false }
 
-        let directQuestion = looksLikeQuestion(text)
-            || ["concorda", "o que você acha", "alguma sugestão", "faz sentido", "pode ser"]
-                .contains(where: normalized.contains)
-        let meetingMoment = [
-            "ficou combinado", "próximo passo", "responsável", "prazo", "risco",
-            "dependência", "bloqueio", "decisão", "vamos fazer", "a gente precisa",
-        ].contains(where: normalized.contains)
+        let resolvedStyle = style ?? .fallback(for: mode)
+        let opportunity = CoachOpportunity.evaluate(text: text, style: resolvedStyle)
+        guard opportunity.isHighConfidence else { return false }
 
         let cooldown: TimeInterval
-        switch mode {
-        case .interview: cooldown = directQuestion ? 5 : 30
-        case .sales, .difficult: cooldown = directQuestion ? 10 : 30
-        case .meeting, .custom: cooldown = directQuestion ? 15 : 45
-        case .recording: return false
+        switch resolvedStyle {
+        case .interview: cooldown = opportunity.kind == .question ? 5 : 30
+        case .sales: cooldown = opportunity.kind == .question ? 10 : 30
+        case .oneOnOne: cooldown = 30
+        case .technical: cooldown = opportunity.kind == .question ? 12 : 30
+        case .openMeeting: cooldown = opportunity.kind == .question ? 20 : 45
         }
         if let lastTriggeredAt, now.timeIntervalSince(lastTriggeredAt) < cooldown { return false }
-
-        switch mode {
-        case .interview, .sales, .difficult: return directQuestion
-        case .meeting: return directQuestion || meetingMoment
-        case .custom: return directQuestion || meetingMoment
-        case .recording: return false
-        }
-    }
-
-    private static func looksLikeQuestion(_ value: String) -> Bool {
-        if value.contains("?") { return true }
-        let lower = value.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let starters = [
-            "what", "why", "how", "when", "where", "which", "who", "could you",
-            "can you", "tell me", "walk me", "describe", "would you", "do you",
-            "have you", "o que", "por que", "como", "quando", "onde", "qual",
-            "quem", "me conta", "me fala", "descreva", "você pode",
-        ]
-        return starters.contains(where: lower.hasPrefix)
+        return true
     }
 }
 

@@ -31,12 +31,7 @@ struct RootView: View {
             nonisolated(unsafe) let s = session
             await pipe.run(session: s)
         }
-        .sheet(isPresented: $app.showSettings) {
-            BriefEditor()
-        }
-        .sheet(isPresented: $app.showPreflight) {
-            PreflightView()
-        }
+        .modifier(RootSheetsModifier(app: app))
     }
 }
 
@@ -61,9 +56,8 @@ private struct LiveWorkspace: View {
                     .frame(maxHeight: .infinity)
             }
 
-            if !isPristineIdle {
+            if !isPristineIdle, !app.isRunning {
                 CollapsiblePanels()
-                if !app.brief.mode.isPassive { InputBar() }
             }
             if app.sessionStartTime != nil {
                 LiveTransportBar()

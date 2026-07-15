@@ -17,6 +17,7 @@ final class CoachingLane: Sendable {
         window: [Turn],
         latest: String,
         manual: Bool,
+        style: ConversationStyle,
         speakerCertain: Bool = true,
         cardID: UUID = UUID(),
         initialGuide: String? = nil
@@ -26,7 +27,13 @@ final class CoachingLane: Sendable {
                 continuation.finish()
                 return
             }
-            let user = Prompts.coachUser(window: window, latest: latest, manual: manual, speakerCertain: speakerCertain)
+            let user = Prompts.coachUser(
+                window: window,
+                latest: latest,
+                manual: manual,
+                style: style,
+                speakerCertain: speakerCertain
+            )
 
             // O coordinator pode ter mostrado uma dica local antes da chamada. Reusa
             // o mesmo id para a resposta remota substituir o frame, sem criar outro card.

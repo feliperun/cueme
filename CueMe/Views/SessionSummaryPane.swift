@@ -19,17 +19,9 @@ struct SessionSummaryPane: View {
                     generationButton
                 }
                 if record.minutes.isEmpty { emptyState }
-                if !record.minutes.overview.isEmpty {
-                    Text(record.minutes.overview)
-                        .font(.system(size: 13, weight: .medium)).textSelection(.enabled)
-                }
+                if !record.minutes.overview.isEmpty { EditableOverview(record: record) }
                 ForEach(record.minutes.topics) { topic in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(topic.title).font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.violet)
-                        Text(topic.summary).font(.system(size: 12.5)).textSelection(.enabled)
-                    }
-                    .padding(9).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 9))
+                    EditableMeetingTopic(sessionID: record.id, topic: topic)
                 }
                 if let error = app.postProcessingError {
                     Label(error, systemImage: "exclamationmark.circle")

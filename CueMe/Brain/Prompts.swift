@@ -234,7 +234,13 @@ enum Prompts {
         """
     }
 
-    static func coachUser(window: [Turn], latest: String, manual: Bool, speakerCertain: Bool = true) -> String {
+    static func coachUser(
+        window: [Turn],
+        latest: String,
+        manual: Bool,
+        style: ConversationStyle,
+        speakerCertain: Bool = true
+    ) -> String {
         var lines = window.suffix(6).map { turn -> String in
             let who = turn.speaker == .other ? "OUTRO" : "USUÁRIO"
             return "[\(who)] \(turn.text)"
@@ -246,6 +252,8 @@ enum Prompts {
             TRANSCRIPT DA CONVERSA AO VIVO (contexto):
             \(lines)
 
+            TIPO DETECTADO: \(style.label). ESTRATÉGIA: \(style.coachingInstruction)
+
             >> O USUÁRIO te fez esta pergunta direta. Responda no formato do card, ajudando-o:
             \(latest)
             """
@@ -255,6 +263,8 @@ enum Prompts {
             TRANSCRIPT DA CONVERSA AO VIVO ("OUTRO" = interlocutor; "USUÁRIO" = quem você ajuda):
             \(lines)
 
+            TIPO DETECTADO: \(style.label). ESTRATÉGIA: \(style.coachingInstruction)
+
             >> Ouvido agora no áudio (locutor INCERTO — pode ser o interlocutor falando pelo
             alto-falante). Se for pergunta/deixa dirigida ao USUÁRIO, gere o card; senão NADA:
             \(latest)
@@ -263,6 +273,8 @@ enum Prompts {
         return """
         TRANSCRIPT DA CONVERSA AO VIVO ("OUTRO" = interlocutor; "USUÁRIO" = quem você ajuda):
         \(lines)
+
+        TIPO DETECTADO: \(style.label). ESTRATÉGIA: \(style.coachingInstruction)
 
         >> O INTERLOCUTOR acabou de dizer isto. Gere o card pra ajudar o USUÁRIO a responder (ou NADA):
         \(latest)

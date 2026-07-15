@@ -56,6 +56,7 @@ final class SessionCoordinator {
         let window: [Turn]
         let latest: String
         let manual: Bool
+        let style: ConversationStyle
         let speakerCertain: Bool
         let cardID: UUID
         let instantGuide: String?
@@ -725,6 +726,7 @@ final class SessionCoordinator {
                 }
             }
         }
+        app.updateConversationStyle()
         app.recordDiagnostic(kind: .transcription, name: "stt_final", speaker: event.speaker)
         if app.diagnostics.count("stt_final").isMultiple(of: 25) {
             app.persistLiveSnapshot()
@@ -793,6 +795,7 @@ final class SessionCoordinator {
                     guard CoachTriggerPolicy.shouldTrigger(
                         text: event.text,
                         mode: self.app.brief.mode,
+                        style: self.app.conversationStyle,
                         speakerCertain: true,
                         now: now,
                         lastTriggeredAt: self.lastCoachTriggeredAt,
@@ -829,6 +832,7 @@ final class SessionCoordinator {
             window: window,
             latest: latest,
             manual: manual,
+            style: app.conversationStyle,
             speakerCertain: speakerCertain,
             cardID: cardID,
             instantGuide: instantGuide,
@@ -931,6 +935,7 @@ final class SessionCoordinator {
             window: request.window,
             latest: request.latest,
             manual: request.manual,
+            style: request.style,
             speakerCertain: request.speakerCertain,
             cardID: request.cardID,
             initialGuide: request.instantGuide

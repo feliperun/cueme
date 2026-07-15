@@ -12,6 +12,7 @@ final class AppModel {
     var transcript: [TranscriptLine] = []
     var summaryBullets: [String] = []
     var minutes: MeetingMinutes = .empty
+    var meetingReview: MeetingReview = .empty
     var coachCards: [CoachCard] = []
     var diagnostics = SessionDiagnostics()
     var runtimeHealth: RuntimeHealth = .healthy
@@ -19,6 +20,8 @@ final class AppModel {
     var coachFeedback: [UUID: CoachFeedback] = [:]
     var activeCoachCardID: UUID?
     private var dismissedCoachCardIDs: Set<UUID> = []
+    private var pinnedCoachCardIDs: Set<UUID> = []
+    var conversationStyle: ConversationStyle = .interview
     var sessionState: SessionState = .idle
 
     var brief: SessionBrief {
@@ -103,10 +106,18 @@ final class AppModel {
     var permissionDiagnosis: PermissionDiagnosis?
     var currentQuestionID: UUID?           // última pergunta/deixa do interlocutor
 
-    // Histórico de sessões.
-    var history: [SessionRecord] = []
+    // Histórico de sessões e índice local pré-normalizado para busca instantânea.
+    @ObservationIgnored private var knowledgeIndex = SessionKnowledgeIndex()
+    var history: [SessionRecord] = [] {
+        didSet { knowledgeIndex.rebuild(history) }
+    }
     var selectedSessionID: UUID?
     var sidebarCollapsed = false
+    var historySearch = ""
+    var historyDateFilter: HistoryDateFilter = .all
+    var historyTypeFilter: HistoryTypeFilter = .all
+    var audioImportStatus: AudioImportStatus?
+    var showVoiceMemoImporter = false
     var sessionNotes: [SessionNote] = []
     var sessionTakeaways: [SessionTakeaway] = []
     var sessionArtifacts: [SessionArtifact] = []
@@ -184,6 +195,7 @@ final class AppModel {
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
         self.history = SessionStore.loadAll()
+        self.knowledgeIndex.rebuild(history)
         self.profiles = BriefProfileStore.load()
         self.contexts = MeetingContextStore.load()
         let availableIDs = Set(contexts.map(\.id))
@@ -257,10 +269,30 @@ final class AppModel {
         return coachCards.first(where: { $0.id == activeCoachCardID })
     }
 
+    var historySearchResults: [SessionSearchResult] {
+        knowledgeIndex.search(
+            query: historySearch,
+            date: historyDateFilter,
+            type: historyTypeFilter
+        )
+    }
+
+    var filteredHistory: [SessionRecord] {
+        let records = Dictionary(uniqueKeysWithValues: history.map { ($0.id, $0) })
+        return historySearchResults.compactMap { records[$0.recordID] }
+    }
+
+    func historySnippet(for recordID: UUID) -> String? {
+        guard !historySearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return historySearchResults.first { $0.recordID == recordID }?.snippet
+    }
+
     // MARK: - Comandos
 
     func start() {
-        guard !isSessionBusy, glossaryGenerationState != .generating else { return }
+        guard !isSessionBusy,
+              audioImportStatus?.isActive != true,
+              glossaryGenerationState != .generating else { return }
         guard sttSource != .deepgram || deepgramAvailable else {
             sessionState = .error("Configure a chave da Deepgram.")
             showSettings = true
@@ -288,8 +320,11 @@ final class AppModel {
         coachCards = []
         activeCoachCardID = nil
         dismissedCoachCardIDs = []
+        pinnedCoachCardIDs = []
         summaryBullets = []
         minutes = .empty
+        meetingReview = .empty
+        conversationStyle = .fallback(for: brief.mode)
         currentQuestionID = nil
         showTranscript = false
         showSummary = false
@@ -385,6 +420,7 @@ final class AppModel {
             coachFeedback: coachFeedback,
             notes: sessionNotes,
             takeaways: sessionTakeaways,
+            review: meetingReview,
             artifacts: sessionArtifacts
         )
         SessionStore.save(record)
@@ -392,8 +428,9 @@ final class AppModel {
         selectedSessionID = record.id
         if backendAvailable, !record.transcript.isEmpty {
             Task {
-                if record.minutes.isEmpty { await generateSummary(for: record.id) }
-                if record.takeaways.isEmpty { await generateTakeaways(for: record.id) }
+                if record.minutes.isEmpty || record.takeaways.isEmpty || record.review.isEmpty {
+                    await generateReview(for: record.id)
+                }
             }
         }
     }
@@ -726,9 +763,7 @@ final class AppModel {
         }
         if !dismissedCoachCardIDs.contains(card.id) {
             let current = activeCoachCard
-            let mayAdvance = current == nil
-                || current?.id == card.id
-                || (current?.isStreaming == false && Date().timeIntervalSince(current?.ts ?? Date()) >= 12)
+            let mayAdvance = current == nil || current?.id == card.id
             if mayAdvance { activeCoachCardID = card.id }
         }
     }
@@ -738,6 +773,7 @@ final class AppModel {
         let removed = Set(coachCards.filter { !$0.hasContent }.map(\.id))
         coachCards.removeAll { removed.contains($0.id) }
         dismissedCoachCardIDs.subtract(removed)
+        pinnedCoachCardIDs.subtract(removed)
         if let activeCoachCardID, removed.contains(activeCoachCardID) {
             self.activeCoachCardID = nil
         }
@@ -748,7 +784,39 @@ final class AppModel {
     func dismissActiveCoach() {
         guard let activeCoachCardID else { return }
         dismissedCoachCardIDs.insert(activeCoachCardID)
-        self.activeCoachCardID = nil
+        pinnedCoachCardIDs.remove(activeCoachCardID)
+        self.activeCoachCardID = nextAvailableCoach(after: activeCoachCardID)?.id
+    }
+
+    var pendingCoachCount: Int {
+        guard let activeCoachCardID,
+              let activeIndex = coachCards.firstIndex(where: { $0.id == activeCoachCardID }) else {
+            return coachCards.filter { $0.hasContent && !dismissedCoachCardIDs.contains($0.id) }.count
+        }
+        return coachCards[(activeIndex + 1)...].filter {
+            $0.hasContent && !dismissedCoachCardIDs.contains($0.id)
+        }.count
+    }
+
+    var isActiveCoachPinned: Bool {
+        activeCoachCardID.map(pinnedCoachCardIDs.contains) ?? false
+    }
+
+    func toggleActiveCoachPin() {
+        guard let activeCoachCardID else { return }
+        if pinnedCoachCardIDs.contains(activeCoachCardID) {
+            pinnedCoachCardIDs.remove(activeCoachCardID)
+        } else {
+            pinnedCoachCardIDs.insert(activeCoachCardID)
+        }
+    }
+
+    func useActiveCoach() {
+        guard let activeCoachCardID else { return }
+        setCoachFeedback(cardID: activeCoachCardID, feedback: .helpful)
+        dismissedCoachCardIDs.insert(activeCoachCardID)
+        pinnedCoachCardIDs.remove(activeCoachCardID)
+        self.activeCoachCardID = nextAvailableCoach(after: activeCoachCardID)?.id
     }
 
     var activeCoachPosition: (index: Int, count: Int)? {
@@ -762,12 +830,21 @@ final class AppModel {
     func showNextCoach() { moveCoach(by: 1) }
 
     private func moveCoach(by offset: Int) {
-        let visible = coachCards.filter(\.hasContent)
+        let visible = coachCards.filter { $0.hasContent && !dismissedCoachCardIDs.contains($0.id) }
         guard !visible.isEmpty else { return }
         let current = activeCoachCardID.flatMap { id in visible.firstIndex(where: { $0.id == id }) }
             ?? (offset < 0 ? visible.count : -1)
         let target = min(max(current + offset, 0), visible.count - 1)
         activeCoachCardID = visible[target].id
+    }
+
+    private func nextAvailableCoach(after id: UUID) -> CoachCard? {
+        let visible = coachCards.filter { $0.hasContent && !dismissedCoachCardIDs.contains($0.id) }
+        guard let index = coachCards.firstIndex(where: { $0.id == id }) else { return visible.first }
+        return visible.first { card in
+            guard let candidateIndex = coachCards.firstIndex(where: { $0.id == card.id }) else { return false }
+            return candidateIndex > index
+        } ?? visible.last
     }
 
     func setParticipantName(_ rawName: String, for speaker: Speaker) {

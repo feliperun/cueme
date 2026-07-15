@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SessionWorkspaceView: View {
     let record: SessionRecord
-    @State private var tab: SessionWorkspaceTab = .coach
+    @State private var tab: SessionWorkspaceTab = .review
     @State private var player = MeetingPlayer()
     @State private var envelope: [Float] = []
     @State private var loadingWaveform = false

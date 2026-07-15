@@ -32,3 +32,25 @@ struct SessionPerformanceReport: Sendable, Equatable {
         return values[max(0, min(values.count - 1, index))]
     }
 }
+
+struct SessionIntegrityReport: Sendable, Equatable {
+    let recordingExpected: Bool
+    let audioCoveragePercent: Int
+    let transcriptTurns: Int
+    let recoveries: Int
+    let errors: Int
+
+    init(record: SessionRecord) {
+        recordingExpected = record.hasAudio
+        if record.hasAudio, record.duration > 0 {
+            audioCoveragePercent = min(100, max(0, Int((record.audioDuration / record.duration * 100).rounded())))
+        } else {
+            audioCoveragePercent = 0
+        }
+        transcriptTurns = record.transcript.filter(\.isFinal).count
+        recoveries = record.diagnostics.count(kind: .recovery)
+        errors = record.diagnostics.count(kind: .error)
+    }
+
+    var isHealthy: Bool { errors == 0 && (!recordingExpected || audioCoveragePercent >= 95) }
+}

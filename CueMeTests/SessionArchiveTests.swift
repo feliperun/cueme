@@ -45,6 +45,11 @@ final class SessionArchiveTests: XCTestCase {
             participantNames: [.self: "Felipe", .other: "Marcelo"],
             notes: [.init(timeOffset: 9, text: "Confirmar responsável")],
             takeaways: [.init(text: "Enviar cronograma")],
+            review: MeetingReview(
+                decisions: [.init(text: "Entregar na sexta-feira")],
+                openQuestions: [.init(text: "Quem revisa o deploy?")],
+                followUp: "Enviar a ata no Slack."
+            ),
             artifacts: [.init(kind: .answer, title: "Follow-up", body: "Mandar e-mail amanhã.")]
         )
 
@@ -58,6 +63,12 @@ final class SessionArchiveTests: XCTestCase {
         XCTAssertTrue(markdown.contains("## Anotações"))
         XCTAssertTrue(markdown.contains("[00:09] Confirmar responsável"))
         XCTAssertTrue(markdown.contains("- [ ] Enviar cronograma"))
+        XCTAssertTrue(markdown.contains("## Decisões"))
+        XCTAssertTrue(markdown.contains("- Entregar na sexta-feira"))
+        XCTAssertTrue(markdown.contains("## Questões em aberto"))
+        XCTAssertTrue(markdown.contains("## Follow-up"))
+        XCTAssertTrue(markdown.contains("## Integridade da sessão"))
+        XCTAssertTrue(markdown.contains("Cobertura de áudio"))
         XCTAssertTrue(markdown.contains("## Transcrição"))
         XCTAssertTrue(markdown.contains("## Ata"))
         XCTAssertTrue(markdown.contains("#### Cronograma"))
