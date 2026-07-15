@@ -5,7 +5,6 @@
 
 ### Features
 
-* add longitudinal semantic meeting memory ([60e3677](https://github.com/feliperun/cueme/commit/60e367769dff349bfbdb4c1391f2b1ec0f3f0e6e))
 * add longitudinal semantic meeting memory ([4a560de](https://github.com/feliperun/cueme/commit/4a560de0558315bed08c49f4206f79808fcef11b))
 
 ## [0.11.0](https://github.com/feliperun/cueme/compare/v0.10.0...v0.11.0) (2026-07-15)
