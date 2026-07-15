@@ -209,8 +209,12 @@ final class CueMeMemoryE2ETests: XCTestCase {
         label.typeText("crescimento")
         app.buttons["note.label.add"].click()
         XCTAssertTrue(app.buttons["note.label.crescimento"].waitForExistence(timeout: 3))
+        app.typeKey(.escape, modifierFlags: [])
 
-        app.buttons["note.editor.preview"].click()
+        let preview = app.buttons["note.editor.preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 3))
+        XCTAssertTrue(preview.isHittable)
+        preview.click()
         let readingView = app.descendants(matching: .any)["note.editor.reading"]
         XCTAssertTrue(readingView.waitForExistence(timeout: 3))
         let renderedText = readingView.value as? String ?? ""
