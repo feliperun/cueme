@@ -29,6 +29,7 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
     var archiveFolderName: String
     var notes: [SessionNote]
     var takeaways: [SessionTakeaway]
+    var review: MeetingReview
     var artifacts: [SessionArtifact]
 
     init(
@@ -56,6 +57,7 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
         archiveFolderName: String? = nil,
         notes: [SessionNote] = [],
         takeaways: [SessionTakeaway] = [],
+        review: MeetingReview = .empty,
         artifacts: [SessionArtifact] = []
     ) {
         self.id = id
@@ -82,6 +84,7 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
         self.archiveFolderName = archiveFolderName ?? SessionArchive.folderName(startedAt: startedAt, id: id)
         self.notes = notes
         self.takeaways = takeaways
+        self.review = review
         self.artifacts = artifacts
     }
 
@@ -115,6 +118,7 @@ struct SessionRecord: Codable, Identifiable, Sendable, Hashable {
             ?? SessionArchive.folderName(startedAt: startedAt, id: id)
         notes = try c.decodeIfPresent([SessionNote].self, forKey: .notes) ?? []
         takeaways = try c.decodeIfPresent([SessionTakeaway].self, forKey: .takeaways) ?? []
+        review = try c.decodeIfPresent(MeetingReview.self, forKey: .review) ?? .empty
         artifacts = try c.decodeIfPresent([SessionArtifact].self, forKey: .artifacts) ?? []
     }
 

@@ -95,10 +95,65 @@ enum SessionPostProcessor {
         }
     }
 
+    static func parseReview(
+        _ output: String,
+        preserving existingMinutes: MeetingMinutes
+    ) -> SessionReviewExtraction? {
+        struct Payload: Decodable {
+            struct Topic: Decodable { let title: String; let summary: String }
+            let overview: String
+            let topics: [Topic]
+            let decisions: [String]
+            let actions: [String]
+            let openQuestions: [String]
+            let followUp: String
+        }
+
+        var value = output
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let start = value.firstIndex(of: "{"), let end = value.lastIndex(of: "}") else { return nil }
+        value = String(value[start...end])
+        guard let payload = try? JSONDecoder().decode(Payload.self, from: Data(value.utf8)) else { return nil }
+
+        let oldByTitle = Dictionary(uniqueKeysWithValues: existingMinutes.topics.map {
+            ($0.title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current), $0)
+        })
+        let topics = payload.topics.prefix(12).compactMap { topic -> MeetingTopic? in
+            let title = topic.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let summary = topic.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty, !summary.isEmpty else { return nil }
+            let key = title.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            return MeetingTopic(id: oldByTitle[key]?.id ?? UUID(), title: title, summary: summary)
+        }
+        let clean: (String) -> String = { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let decisions = payload.decisions.prefix(20).map(clean).filter { !$0.isEmpty }
+            .map { MeetingReviewItem(text: $0) }
+        let questions = payload.openQuestions.prefix(20).map(clean).filter { !$0.isEmpty }
+            .map { MeetingReviewItem(text: $0) }
+        let actions = payload.actions.prefix(30).map(clean).filter { !$0.isEmpty }
+            .map { SessionTakeaway(text: $0) }
+        let minutes = MeetingMinutes(overview: clean(payload.overview), topics: topics, updatedAt: Date())
+        let review = MeetingReview(
+            decisions: decisions,
+            openQuestions: questions,
+            followUp: clean(payload.followUp)
+        )
+        guard !minutes.isEmpty || !actions.isEmpty || !review.isEmpty else { return nil }
+        return .init(minutes: minutes, takeaways: actions, review: review)
+    }
+
     private static func systemPrompt(language: String, kind: SessionArtifactKind) -> String {
         let native = Prompts.langName(language)
         let format: String
         switch kind {
+        case .review:
+            format = """
+            Responda SOMENTE JSON válido no formato:
+            {"overview":"um parágrafo","topics":[{"title":"Assunto","summary":"mini resumo"}],"decisions":["decisão confirmada"],"actions":["ação pendente com responsável/prazo somente quando explícitos"],"openQuestions":["questão não resolvida"],"followUp":"próximo contato recomendado"}.
+            Use no máximo 12 assuntos e separe rigorosamente decisão, ação e dúvida.
+            """
         case .summary:
             format = """
             Responda SOMENTE JSON válido: {"overview":"um parágrafo","topics":[{"title":"Assunto","summary":"mini resumo"}]}. Use no máximo 12 assuntos.

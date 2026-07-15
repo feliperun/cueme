@@ -21,10 +21,12 @@ enum SessionArchive {
         ]
         appendSummary(record, to: &lines)
         appendTakeaways(record, to: &lines)
+        appendReview(record, to: &lines)
         appendNotes(record, to: &lines)
         appendCoach(record, to: &lines)
         appendTranscript(record, to: &lines)
         appendArtifacts(record, to: &lines)
+        appendHealth(record, to: &lines)
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -63,6 +65,23 @@ enum SessionArchive {
             lines += record.takeaways.map { "- [\($0.isDone ? "x" : " ")] \($0.text)" }
         }
         lines.append("")
+    }
+
+    private static func appendReview(_ record: SessionRecord, to lines: inout [String]) {
+        guard !record.review.isEmpty else { return }
+        if !record.review.decisions.isEmpty {
+            lines += ["## Decisões", ""]
+            lines += record.review.decisions.map { "- \($0.text)" }
+            lines.append("")
+        }
+        if !record.review.openQuestions.isEmpty {
+            lines += ["## Questões em aberto", ""]
+            lines += record.review.openQuestions.map { "- \($0.text)" }
+            lines.append("")
+        }
+        if !record.review.followUp.isEmpty {
+            lines += ["## Follow-up", "", record.review.followUp, ""]
+        }
     }
 
     private static func appendNotes(_ record: SessionRecord, to lines: inout [String]) {
@@ -113,6 +132,18 @@ enum SessionArchive {
         for artifact in record.artifacts {
             lines += ["### \(artifact.title)", "", artifact.body, ""]
         }
+    }
+
+    private static func appendHealth(_ record: SessionRecord, to lines: inout [String]) {
+        let report = SessionIntegrityReport(record: record)
+        let audioCoverage = report.recordingExpected ? "\(report.audioCoveragePercent)%" : "desativada"
+        lines += [
+            "## Integridade da sessão", "",
+            "- Cobertura de áudio: \(audioCoverage)",
+            "- Falas transcritas: \(report.transcriptTurns)",
+            "- Recuperações automáticas: \(report.recoveries)",
+            "- Erros registrados: \(report.errors)", ""
+        ]
     }
 }
 

@@ -52,6 +52,52 @@ final class ReliabilityPolicyTests: XCTestCase {
         XCTAssertEqual(report.recoveries, 1)
     }
 
+    func testLiveHealthSnapshotKeepsEverySubsystemVisible() {
+        let items = LiveHealthMonitor.snapshot(
+            mic: .active,
+            system: .recovering,
+            recordingEnabled: true,
+            runtime: .init(level: .degraded, reason: "Recuperando áudio da chamada"),
+            sttSource: .deepgram,
+            sttTurns: 12,
+            coachEnabled: true,
+            coachReady: true,
+            coachError: nil,
+            summaryHasContent: false,
+            summaryError: nil
+        )
+
+        XCTAssertEqual(items.map(\.subsystem), LiveSubsystem.allCases)
+        XCTAssertEqual(items.first { $0.subsystem == .microphone }?.state, .healthy)
+        XCTAssertEqual(items.first { $0.subsystem == .callAudio }?.state, .recovering)
+        XCTAssertEqual(items.first { $0.subsystem == .transcription }?.state, .healthy)
+        XCTAssertEqual(items.first { $0.subsystem == .coach }?.state, .healthy)
+        XCTAssertEqual(items.first { $0.subsystem == .summary }?.state, .waiting)
+    }
+
+    func testIntegrityReportDistinguishesDisabledFromMissingRecording() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        func record(hasAudio: Bool) -> SessionRecord {
+            SessionRecord(
+                startedAt: start,
+                endedAt: start.addingTimeInterval(60),
+                mode: .meeting,
+                training: false,
+                conversationLang: "pt-BR",
+                nativeLang: "pt-BR",
+                goal: "",
+                transcript: [],
+                coachCards: [],
+                summaryBullets: [],
+                hasAudio: hasAudio,
+                audioDuration: 0
+            )
+        }
+
+        XCTAssertTrue(SessionIntegrityReport(record: record(hasAudio: false)).isHealthy)
+        XCTAssertFalse(SessionIntegrityReport(record: record(hasAudio: true)).isHealthy)
+    }
+
     func testPermissionDiagnosisDetectsChangedIdentity() {
         XCTAssertEqual(
             PermissionDiagnosis.evaluate(

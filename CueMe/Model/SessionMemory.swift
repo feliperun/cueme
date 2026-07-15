@@ -28,7 +28,78 @@ struct SessionTakeaway: Codable, Identifiable, Sendable, Hashable {
     }
 }
 
+struct MeetingReviewItem: Codable, Identifiable, Sendable, Hashable {
+    let id: UUID
+    var text: String
+
+    init(id: UUID = UUID(), text: String) {
+        self.id = id
+        self.text = text
+    }
+}
+
+struct MeetingReview: Codable, Sendable, Hashable {
+    var decisions: [MeetingReviewItem]
+    var openQuestions: [MeetingReviewItem]
+    var followUp: String
+
+    init(
+        decisions: [MeetingReviewItem] = [],
+        openQuestions: [MeetingReviewItem] = [],
+        followUp: String = ""
+    ) {
+        self.decisions = decisions
+        self.openQuestions = openQuestions
+        self.followUp = followUp
+    }
+
+    static let empty = MeetingReview()
+    var isEmpty: Bool {
+        decisions.isEmpty && openQuestions.isEmpty
+            && followUp.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+struct SessionReviewExtraction: Sendable, Equatable {
+    var minutes: MeetingMinutes
+    var takeaways: [SessionTakeaway]
+    var review: MeetingReview
+}
+
+enum FollowUpFormat: String, CaseIterable, Sendable, Identifiable {
+    case email, slack, minutes
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .email: return "E-mail"
+        case .slack: return "Slack"
+        case .minutes: return "Ata"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .email: return "envelope"
+        case .slack: return "bubble.left.and.bubble.right"
+        case .minutes: return "doc.text"
+        }
+    }
+
+    var request: String {
+        switch self {
+        case .email:
+            return "Escreva um e-mail de follow-up curto com decisões, ações e dúvidas abertas."
+        case .slack:
+            return "Escreva uma atualização curta para Slack com decisões, responsáveis e próximos passos."
+        case .minutes:
+            return "Gere uma ata formal em Markdown com resumo, assuntos, decisões, ações e questões abertas."
+        }
+    }
+}
+
 enum SessionArtifactKind: String, Codable, Sendable, Hashable {
+    case review
     case summary
     case takeaways
     case answer

@@ -15,20 +15,7 @@ struct SessionTakeawaysPane: View {
                     }
                     if record.takeaways.isEmpty { emptyState }
                     ForEach(record.takeaways) { item in
-                        Button {
-                            app.toggleTakeaway(sessionID: record.id, takeawayID: item.id)
-                        } label: {
-                            HStack(alignment: .top, spacing: 9) {
-                                Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(item.isDone ? Theme.mint : .secondary)
-                                Text(item.text)
-                                    .strikethrough(item.isDone)
-                                    .foregroundStyle(item.isDone ? .secondary : .primary)
-                                Spacer()
-                            }
-                            .font(.system(size: 12.5)).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                        EditableTakeawayRow(sessionID: record.id, item: item)
                     }
                     if let error = app.postProcessingError {
                         Label(error, systemImage: "exclamationmark.circle")

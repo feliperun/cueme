@@ -61,9 +61,8 @@ private struct LiveWorkspace: View {
                     .frame(maxHeight: .infinity)
             }
 
-            if !isPristineIdle {
+            if !isPristineIdle, !app.isRunning {
                 CollapsiblePanels()
-                if !app.brief.mode.isPassive { InputBar() }
             }
             if app.sessionStartTime != nil {
                 LiveTransportBar()

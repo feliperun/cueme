@@ -19,6 +19,9 @@ struct SessionWorkspaceTabs: View {
 
     private func badge(for tab: SessionWorkspaceTab) -> Int? {
         switch tab {
+        case .review:
+            return record.review.decisions.count + record.review.openQuestions.count
+                + record.takeaways.filter { !$0.isDone }.count
         case .coach: return record.coachCards.count
         case .summary: return record.minutes.topics.count
         case .transcript: return record.transcript.filter(\.isFinal).count
@@ -37,6 +40,7 @@ struct SessionWorkspacePane: View {
     @ViewBuilder
     var body: some View {
         switch selection {
+        case .review: SessionReviewPane(record: record)
         case .coach: SessionCoachPane(record: record)
         case .summary: SessionSummaryPane(record: record)
         case .transcript: SessionTranscriptPane(record: record, player: player)

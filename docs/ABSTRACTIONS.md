@@ -28,6 +28,7 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
    `ClaudeClient.makeCoachSession` picks by the selected `CoachModel`.
    `CoachingLane`/`SummaryLane` wrap a session with a specific prompt
    (`Prompts.swift`) and parsing (`CoachCardParser`), backend-agnostic.
+   `SessionPostProcessor` parses durable review/follow-up output for saved sessions.
   `TrainingCoordinator` is a sibling brain that *speaks* (via
   `AVSpeechSynthesizer`) instead of coaching.
    `ContextGlossaryGenerator` is a bounded preflight brain: it turns selected
@@ -84,6 +85,10 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 - **Coach output is always the 4-line card format or the literal string `NADA`.**
   `CoachCardParser` depends on the exact labels (`GUIA:`/`DIGA:`/`PT:`/`KEY:`); a
   prompt change that alters the format must update the parser in the same commit.
+- **Automatic coach cards are opportunities, not a feed.** Recent final turns
+  choose a `ConversationStyle`; only high-confidence moments trigger a request.
+  The active card changes only through explicit use, dismissal or navigation,
+  while newer results wait in the bounded history ([ADR 0025](adr/0025-adaptive-live-experience-and-session-review.md)).
 - **Manual coach input has its own lane.** Automatic STT activity cannot cancel a
   manual request. Live requests use the fast tier and coalesce while one provider
   call is in flight; explicit questions bypass debounce and get a deterministic
@@ -103,12 +108,14 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 - **A session is never silently healthy.** Mic and system channel states are
   independent; digital-zero mic data and an interrupted `SCStream` must be
   surfaced and repaired or remain visibly unavailable ([ADR 0014](adr/0014-per-channel-capture-health.md)).
+  `LiveHealthMonitor` also derives recording, STT, Coach and summary status from
+  existing runtime state; it does not own or duplicate recovery.
 - **Recordings are located by a portable session directory name, never by an
   absolute stored path.** `SessionRecord.archiveFolderName` combines timestamp
   and short UUID; `MeetingRecording` resolves it against the current archive root
   and falls back to the legacy UUID directory.
 - **Markdown mirrors durable session state.** Any saved mutation to notes,
-  takeaways, summary or generated artifacts goes through `SessionStore.save`,
+  review, takeaways, summary or generated artifacts goes through `SessionStore.save`,
   which rewrites `session.json` and `session.md` together.
 - **`ClaudeSession` always spawns from an isolated empty cwd with hooks
   disabled.** This is the containment boundary against the CLI leaking the

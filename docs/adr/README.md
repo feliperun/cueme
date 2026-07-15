@@ -69,5 +69,6 @@ proposed → active → superseded
 | [0020](0020-session-memory-workspace-and-portable-archive.md) | Session memory workspace and portable human-readable archive | active |
 | [0021](0021-portable-high-quality-meeting-audio.md) | Portable high-quality meeting audio | active |
 | [0022](0022-optional-deepgram-streaming-stt.md) | Optional Deepgram streaming STT | active |
-| [0023](0023-adaptive-coach-and-incremental-minutes.md) | Adaptive coach and incremental meeting minutes | active |
+| [0023](0023-adaptive-coach-and-incremental-minutes.md) | Adaptive coach and incremental meeting minutes | superseded by 0025 |
 | [0024](0024-reusable-contexts-and-preflight-glossary.md) | Reusable contexts and cached preflight glossary | active |
+| [0025](0025-adaptive-live-experience-and-session-review.md) | Adaptive live experience and durable session review | active |

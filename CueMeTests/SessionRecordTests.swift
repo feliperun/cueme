@@ -87,6 +87,7 @@ final class SessionRecordTests: XCTestCase {
         object.removeValue(forKey: "participantNames")
         object.removeValue(forKey: "coachModel")
         object.removeValue(forKey: "summaryModel")
+        object.removeValue(forKey: "review")
         let legacy = try JSONSerialization.data(withJSONObject: object)
 
         let decoded = try JSONDecoder().decode(SessionRecord.self, from: legacy)
@@ -99,6 +100,7 @@ final class SessionRecordTests: XCTestCase {
         XCTAssertEqual(decoded.participantName(for: .self), "Você")
         XCTAssertNil(decoded.coachModel)
         XCTAssertNil(decoded.summaryModel)
+        XCTAssertEqual(decoded.review, .empty)
     }
 
     func testTranscriptCorrectionPreservesOriginalAndIsCodable() throws {
