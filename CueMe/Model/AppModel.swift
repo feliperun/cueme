@@ -226,13 +226,15 @@ final class AppModel {
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
         let entities = KnowledgeEntityStore.load()
-        self.projects = entities.projects
+        let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
+        self.projects = fileProjects
         self.people = entities.people
         let loadedHistory = SessionStore.loadAll()
         self.history = isTesting
             ? loadedHistory
-            : SessionStore.migrateToWorkspace(loadedHistory, projects: entities.projects)
+            : SessionStore.migrateToWorkspace(loadedHistory, projects: fileProjects)
         self.knowledgeIndex.rebuild(history)
+        if !isTesting { try? KnowledgeEntityStore.save(projects: fileProjects, people: entities.people) }
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             let fixture = UITestFixtures.memory
             self.history = fixture.records

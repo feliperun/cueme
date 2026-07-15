@@ -2,6 +2,8 @@ import SwiftUI
 
 struct SessionSidebar: View {
     @Environment(AppModel.self) private var app
+    @State private var showCreateProject = false
+    @State private var newProjectName = ""
 
     var body: some View {
         @Bindable var app = app
@@ -128,6 +130,29 @@ struct SessionSidebar: View {
                     }
                     .buttonStyle(.plain).font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.violet)
                 }
+                Button { showCreateProject = true } label: {
+                    Image(systemName: "folder.badge.plus")
+                }
+                .buttonStyle(.plain).foregroundStyle(Theme.violet)
+                .help("Novo projeto")
+                .popover(isPresented: $showCreateProject) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Novo projeto").font(.headline)
+                        Text("Uma pasta soberana para um contexto contínuo.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        TextField("Nome do projeto", text: $newProjectName)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit(createProject)
+                        Button("Criar", action: createProject)
+                            .buttonStyle(.borderedProminent)
+                    }
+                    .padding(14).frame(width: 280)
+                }
+                Button { app.reloadWorkspaceFromDisk() } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .help("Recarregar arquivos")
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 5) {
@@ -397,6 +422,15 @@ struct SessionSidebar: View {
         if !record.labels.isEmpty { return record.labels.prefix(2).map { "#\($0)" }.joined(separator: "  ") }
         if let project = app.project(for: record) { return project.name }
         return record.startedAt.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func createProject() {
+        guard let id = app.createProject(named: newProjectName) else { return }
+        app.activeProjectID = id
+        app.libraryProjectFilterID = id
+        app.libraryLabelFilter = nil
+        newProjectName = ""
+        showCreateProject = false
     }
 }
 

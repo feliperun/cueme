@@ -14,6 +14,15 @@ extension AppModel {
         return snapshot
     }
 
+    func reloadWorkspaceFromDisk() {
+        guard !isSessionBusy else { return }
+        projects = ProjectWorkspaceStore.loadAll()
+        history = SessionStore.loadAll()
+        if let selectedSessionID, !history.contains(where: { $0.id == selectedSessionID }) {
+            self.selectedSessionID = nil
+        }
+    }
+
     @discardableResult
     func createMemoryNote(kind: MemoryNoteKind = .note) -> UUID {
         let now = Date()

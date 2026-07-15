@@ -139,4 +139,22 @@ final class MemoryNoteTests: XCTestCase {
 
         XCTAssertEqual(note.labels, ["pessoal", "trabalho"])
     }
+
+    func testProjectMarkdownIsDiscoveredAsCanonicalFilesystemMetadata() throws {
+        let project = KnowledgeProject(
+            id: UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!,
+            name: "Projeto original"
+        )
+        let directory = try XCTUnwrap(ProjectWorkspaceStore.save(project))
+        let url = directory.appendingPathComponent("project.md")
+        let markdown = try String(contentsOf: url, encoding: .utf8)
+            .replacingOccurrences(of: "name: \"Projeto original\"", with: "name: \"Projeto soberano\"")
+        try markdown.write(to: url, atomically: true, encoding: .utf8)
+
+        let loaded = try XCTUnwrap(ProjectWorkspaceStore.loadAll().first)
+
+        XCTAssertEqual(loaded.id, project.id)
+        XCTAssertEqual(loaded.name, "Projeto soberano")
+        XCTAssertEqual(loaded.folderName, directory.lastPathComponent)
+    }
 }
