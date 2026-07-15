@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/feliperun/cueme/compare/v0.11.0...v0.14.0) (2026-07-15)
+
+
+### Features
+
+* add longitudinal semantic meeting memory ([4a560de](https://github.com/feliperun/cueme/commit/4a560de0558315bed08c49f4206f79808fcef11b))
+
 ## [0.11.0](https://github.com/feliperun/cueme/compare/v0.10.0...v0.11.0) (2026-07-15)
 
 
