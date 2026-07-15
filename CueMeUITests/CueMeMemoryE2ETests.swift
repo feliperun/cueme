@@ -211,8 +211,11 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(app.buttons["note.label.crescimento"].waitForExistence(timeout: 3))
 
         app.buttons["note.editor.preview"].click()
-        XCTAssertTrue(app.staticTexts["Aprendizados"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Coragem também é memória disponível na hora certa."].exists)
+        let readingView = app.scrollViews["note.editor.reading"]
+        XCTAssertTrue(readingView.waitForExistence(timeout: 3))
+        let renderedText = readingView.value as? String ?? ""
+        XCTAssertTrue(renderedText.contains("Aprendizados"))
+        XCTAssertTrue(renderedText.contains("Coragem também é memória disponível na hora certa."))
         XCTAssertTrue(app.staticTexts["Mapa da minha jornada"].exists)
     }
 

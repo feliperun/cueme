@@ -111,9 +111,12 @@ private struct MarkdownReadingView: View {
             .padding(.vertical, 44)
         }
         .background(Theme.canvas)
+        .accessibilityIdentifier("note.editor.reading")
+        .accessibilityValue(accessibleText)
     }
 
     private var blocks: [MarkdownReadingBlock] { MarkdownReadingBlock.parse(markdown) }
+    private var accessibleText: String { blocks.map(\.text).joined(separator: "\n") }
 
     @ViewBuilder
     private func blockView(_ block: MarkdownReadingBlock) -> some View {
