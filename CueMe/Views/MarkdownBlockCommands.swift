@@ -110,14 +110,22 @@ struct MarkdownBlockCommandMenu: View {
 }
 
 extension MarkdownBlockKind {
+    /// Reading serif — Literata when bundled, else New York, else system serif.
+    static func reading(_ size: CGFloat, _ weight: NSFont.Weight = .regular) -> NSFont {
+        let base = NSFont(name: "Literata", size: size)
+            ?? NSFont(name: "New York", size: size)
+            ?? .systemFont(ofSize: size, weight: weight)
+        return NSFontManager.shared.convert(base, toHaveTrait: weight >= .semibold ? .boldFontMask : [])
+    }
+
     var editorFont: NSFont {
         switch self {
-        case .heading1: .systemFont(ofSize: 30, weight: .bold)
-        case .heading2: .systemFont(ofSize: 24, weight: .bold)
-        case .heading3: .systemFont(ofSize: 20, weight: .semibold)
+        case .heading1: Self.reading(30, .bold)
+        case .heading2: Self.reading(24, .bold)
+        case .heading3: Self.reading(20, .semibold)
         case .code: .monospacedSystemFont(ofSize: 14.5, weight: .regular)
-        case .quote: NSFont(name: "New York", size: 17.5) ?? .systemFont(ofSize: 17.5)
-        default: NSFont(name: "New York", size: 17.5) ?? .systemFont(ofSize: 17.5)
+        case .quote: Self.reading(17.5)
+        default: Self.reading(17.5)
         }
     }
 

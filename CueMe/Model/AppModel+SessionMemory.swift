@@ -118,6 +118,47 @@ extension AppModel {
         KnowledgeEntityStore.timeline(projectID: projectID, records: history)
     }
 
+    // MARK: - Live memory drawer (⌘K over the call)
+
+    /// Past notes matching `query`, scoped to the active project when one is set.
+    /// Goes through the same index as the sidebar — nothing is sent to a provider.
+    func searchPastNotes(_ query: String) -> [SessionSearchResult] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        let projectID = activeProjectID ?? libraryProjectFilterID
+        let scoped = history.filter { record in
+            record.id != currentSessionID
+                && (projectID == nil || record.projectID == projectID)
+        }
+        return Array(SemanticMemoryIndex.shared.search(
+            query: trimmed, date: .all, type: .all, records: scoped
+        ).prefix(6))
+    }
+
+    /// Drop an evidence-linked reference to a past note into the live note.
+    /// Explicit, bounded — never sends the memory to a provider.
+    func insertLiveReference(to recordID: UUID) {
+        guard let startedAt = sessionStartTime,
+              let source = history.first(where: { $0.id == recordID }) else { return }
+        let snippet = source.minutes.overview.isEmpty
+            ? (source.summaryBullets.first ?? source.title)
+            : source.minutes.overview
+        let text = "↪ Ref · \(source.title): \(String(snippet.prefix(160)))"
+        sessionNotes.append(.init(timeOffset: Date().timeIntervalSince(startedAt), text: text))
+        persistLiveSnapshot()
+    }
+
+    /// Send a past-note snippet to the coach as bounded context for the next card.
+    /// Same explicit-invocation rule as "Use relevant memory in Coach".
+    func sendMemoryToCoach(_ recordID: UUID) {
+        guard let source = history.first(where: { $0.id == recordID }) else { return }
+        let snippet = source.minutes.overview.isEmpty
+            ? (source.summaryBullets.first ?? source.title)
+            : source.minutes.overview
+        manualInput = "Contexto de \"\(source.title)\": \(String(snippet.prefix(240)))"
+        ask()
+    }
+
     func correctTranscript(sessionID: UUID, lineID: UUID, text rawText: String, learn: Bool = true) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }

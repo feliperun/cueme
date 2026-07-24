@@ -25,7 +25,7 @@ struct SessionWorkspaceHeader: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(Theme.violet)
                         Text(record.title)
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .font(.read(20, .semibold))
                             .lineLimit(1)
                         Image(systemName: "pencil")
                             .font(.system(size: 8, weight: .bold))
