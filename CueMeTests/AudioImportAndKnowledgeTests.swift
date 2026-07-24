@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import UniformTypeIdentifiers
 import XCTest
 @testable import CueMe
 
@@ -167,6 +168,22 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         XCTAssertTrue(ExternalAudioInbox.isSupported(filename: "meeting.mp3"))
         XCTAssertFalse(ExternalAudioInbox.isSupported(filename: "Voice Memos.sqlite"))
         XCTAssertFalse(ExternalAudioInbox.isSupported(filename: "notes.pdf"))
+    }
+
+    func testExternalAudioInboxPrefersConcreteVoiceMemoTypeOverGenericAudio() {
+        let selected = ExternalAudioInbox.preferredAudioTypeIdentifier(
+            from: [UTType.audio.identifier, UTType.mpeg4Audio.identifier]
+        )
+
+        XCTAssertEqual(selected, UTType.mpeg4Audio.identifier)
+    }
+
+    func testExternalAudioInboxPrefersM4AOverOtherAudioRepresentations() {
+        let selected = ExternalAudioInbox.preferredAudioTypeIdentifier(
+            from: [UTType.mp3.identifier, UTType.mpeg4Audio.identifier]
+        )
+
+        XCTAssertEqual(selected, UTType.mpeg4Audio.identifier)
     }
 
     func testExternalAudioInboxQueuesAtomicallyAndPreservesDisplayName() throws {

@@ -44,7 +44,11 @@ final class ShareViewController: NSViewController {
     private func importAttachments() async {
         let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
             .flatMap { $0.attachments ?? [] }
-            .filter { $0.hasItemConformingToTypeIdentifier(UTType.audio.identifier) }
+            .filter {
+                ExternalAudioInbox.preferredAudioTypeIdentifier(
+                    from: $0.registeredTypeIdentifiers
+                ) != nil
+            }
         guard !providers.isEmpty else {
             await fail(ExternalAudioInboxError.unsupportedAudio)
             return
@@ -71,15 +75,76 @@ final class ShareViewController: NSViewController {
 
     private func enqueue(_ provider: NSItemProvider) async throws {
         let suggestedName = provider.suggestedName
+        let typeIdentifiers = ExternalAudioInbox.audioTypeIdentifiers(
+            from: provider.registeredTypeIdentifiers
+        )
+        guard !typeIdentifiers.isEmpty else {
+            throw ExternalAudioInboxError.unsupportedAudio
+        }
+
+        var lastError: Error?
+        for typeIdentifier in typeIdentifiers {
+            do {
+                let url = try await loadFileRepresentation(
+                    from: provider,
+                    typeIdentifier: typeIdentifier
+                )
+                try ExternalAudioInbox.enqueueCopy(from: url, filename: suggestedName)
+                return
+            } catch {
+                lastError = error
+            }
+        }
+
+        for typeIdentifier in typeIdentifiers {
+            guard let filename = ExternalAudioInbox.filename(
+                suggestedName: suggestedName,
+                typeIdentifier: typeIdentifier
+            ) else { continue }
+            do {
+                let data = try await loadDataRepresentation(
+                    from: provider,
+                    typeIdentifier: typeIdentifier
+                )
+                try ExternalAudioInbox.enqueue(data: data, filename: filename)
+                return
+            } catch {
+                lastError = error
+            }
+        }
+
+        throw lastError ?? ExternalAudioInboxError.unsupportedAudio
+    }
+
+    private func loadFileRepresentation(
+        from provider: NSItemProvider,
+        typeIdentifier: String
+    ) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
-            provider.loadFileRepresentation(forTypeIdentifier: UTType.audio.identifier) { url, error in
-                do {
-                    if let error { throw error }
-                    guard let url else { throw ExternalAudioInboxError.unsupportedAudio }
-                    try ExternalAudioInbox.enqueueCopy(from: url, filename: suggestedName)
-                    continuation.resume()
-                } catch {
+            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, error in
+                if let error {
                     continuation.resume(throwing: error)
+                } else if let url {
+                    continuation.resume(returning: url)
+                } else {
+                    continuation.resume(throwing: ExternalAudioInboxError.unsupportedAudio)
+                }
+            }
+        }
+    }
+
+    private func loadDataRepresentation(
+        from provider: NSItemProvider,
+        typeIdentifier: String
+    ) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            provider.loadDataRepresentation(forTypeIdentifier: typeIdentifier) { data, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let data {
+                    continuation.resume(returning: data)
+                } else {
+                    continuation.resume(throwing: ExternalAudioInboxError.unsupportedAudio)
                 }
             }
         }

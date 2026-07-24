@@ -29,3 +29,6 @@ CueMe.xcodeproj/xcuserdata/
 
 # build artifacts
 dist/
+
+# Scratch / prototype (not shipped)
+temp/

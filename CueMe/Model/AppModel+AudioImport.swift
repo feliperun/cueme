@@ -102,6 +102,25 @@ extension AppModel {
 
     private func processImportedRecord(_ initialRecord: SessionRecord) async {
         var record = initialRecord
+        if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1",
+           record.origin == .voiceMemo {
+            record.transcript = [.init(
+                speaker: .other,
+                text: "Planejamento semanal compartilhado pelo Voice Memos.",
+                isFinal: true,
+                ts: record.audioTimelineStart
+            )]
+            record.participantNames[.other] = "Gravação"
+            replaceHistoryRecord(record)
+            SessionStore.save(record)
+            audioImportStatus = .init(
+                phase: .completed,
+                title: record.title,
+                detail: "Transcrição pronta. Configure um modelo para gerar a ata.",
+                sessionID: record.id
+            )
+            return
+        }
         audioImportStatus = .init(
             phase: .transcribing,
             title: record.title,

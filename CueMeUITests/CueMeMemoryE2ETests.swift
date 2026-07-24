@@ -281,4 +281,14 @@ final class CueMeMemoryE2ETests: XCTestCase {
         light.click()
         XCTAssertEqual(theme.value as? String, "light")
     }
+
+    func testVoiceMemoSharedIntoCueMeAppearsInTheLibrary() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_VOICE_MEMO_IMPORT": "1"])
+        defer { app.terminate() }
+
+        let importedMemo = app.buttons["note.rename"]
+        XCTAssertTrue(importedMemo.waitForExistence(timeout: 8))
+        XCTAssertTrue(importedMemo.label.contains("Planejamento semanal do Voice Memos"))
+    }
 }
