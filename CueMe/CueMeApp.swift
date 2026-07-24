@@ -6,6 +6,10 @@ struct CueMeApp: App {
     @State private var app = AppModel()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
+    init() {
+        AppFonts.registerBundled()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

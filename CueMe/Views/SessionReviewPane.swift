@@ -9,7 +9,7 @@ struct SessionReviewPane: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
                 toolbar
-                SessionIntegrityCard(record: record)
+                CoachCuesBlock(record: record)
                 EditableOverview(record: record)
                 topics
                 EditableTakeawaysSection(record: record, player: player)
@@ -17,6 +17,7 @@ struct SessionReviewPane: View {
                 ReviewItemsSection(record: record, player: player, openQuestion: true)
                 EditableFollowUp(record: record)
                 generationActions
+                SessionHealthDisclosure(record: record)
                 if let error = app.postProcessingError {
                     Label(error, systemImage: "exclamationmark.circle")
                         .font(.system(size: 10.5)).foregroundStyle(Theme.rose)
@@ -93,40 +94,79 @@ struct ReviewSection<Content: View>: View {
     }
 }
 
-private struct SessionIntegrityCard: View {
+/// Session health behind a collapsed row. Coach P50/P95 is dev jargon inside a
+/// note — expanded by default only when the session had recoveries or errors.
+private struct SessionHealthDisclosure: View {
     let record: SessionRecord
-    private var report: SessionIntegrityReport { .init(record: record) }
+    @State private var expanded: Bool
 
-    var body: some View {
-        HStack(spacing: 14) {
-            IntegrityMetric(
-                icon: "waveform",
-                value: report.recordingExpected ? "\(report.audioCoveragePercent)%" : "off",
-                label: "áudio"
-            )
-            IntegrityMetric(icon: "captions.bubble", value: "\(report.transcriptTurns)", label: "falas")
-            IntegrityMetric(icon: "arrow.clockwise", value: "\(report.recoveries)", label: "recup.")
-            IntegrityMetric(icon: "exclamationmark.triangle", value: "\(report.errors)", label: "erros")
-            Spacer()
-            Circle().fill(report.isHealthy ? Theme.mint : Theme.amber).frame(width: 8, height: 8)
-        }
-        .padding(10)
-        .background(Theme.panelRaised, in: RoundedRectangle(cornerRadius: 11))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.divider))
+    private let integrity: SessionIntegrityReport
+    private let performance: SessionPerformanceReport
+
+    init(record: SessionRecord) {
+        self.record = record
+        let integrity = SessionIntegrityReport(record: record)
+        let performance = SessionPerformanceReport(diagnostics: record.diagnostics)
+        self.integrity = integrity
+        self.performance = performance
+        _expanded = State(initialValue: performance.recoveries > 0 || performance.errors > 0)
     }
-}
 
-private struct IntegrityMetric: View {
-    let icon: String
-    let value: String
-    let label: String
+    private var summary: String {
+        let recoveries = "\(performance.recoveries) recuperaç\(performance.recoveries == 1 ? "ão" : "ões")"
+        let errors = performance.errors == 0 ? "sem erros" : "\(performance.errors) erros"
+        return "\(recoveries), \(errors)"
+    }
 
     var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon).font(.system(size: 9)).foregroundStyle(Theme.cyan)
-            Text(value).font(.system(size: 11, weight: .bold, design: .monospaced))
-            Text(label).font(.system(size: 9)).foregroundStyle(.tertiary)
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.2)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 9) {
+                    Circle().fill(integrity.isHealthy ? Theme.mint : Theme.amber).frame(width: 7, height: 7)
+                    Text("Session health").font(.ui(12, .semibold)).foregroundStyle(Theme.ink2)
+                    Text(summary).font(.ui(11.5)).foregroundStyle(Theme.faint)
+                    Spacer()
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10)).foregroundStyle(Theme.faint)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("note.session-health")
+
+            if expanded {
+                let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
+                LazyVGrid(columns: columns, spacing: 8) {
+                    metric("COACH P50", latency(performance.firstPhraseP50Ms), tint: Theme.ink)
+                    metric("P95", latency(performance.firstPhraseP95Ms), tint: Theme.ink)
+                    metric("RECOVERIES", "\(performance.recoveries)", tint: performance.recoveries > 0 ? Theme.amberText : Theme.ink)
+                    metric("ERRORS", "\(performance.errors)", tint: performance.errors > 0 ? Theme.rose : Theme.mintDeep)
+                }
+                .padding(.horizontal, 14).padding(.bottom, 12)
+                .overlay(alignment: .top) { Rectangle().fill(Theme.line2).frame(height: 1) }
+            }
         }
+        .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 11))
+        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.line))
+    }
+
+    private func metric(_ label: String, _ value: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label).font(.ui(9.5, .semibold)).foregroundStyle(Theme.faint)
+            Text(value).font(.ui(18, .semibold)).foregroundStyle(tint)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Theme.paper, in: RoundedRectangle(cornerRadius: 9))
+        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.line))
+    }
+
+    private func latency(_ ms: Int64?) -> String {
+        guard let ms else { return "—" }
+        return String(format: "%.1fs", Double(ms) / 1000)
     }
 }
 
@@ -349,5 +389,50 @@ struct ReviewEmptyRow: View {
     let text: String
     var body: some View {
         Text(text).font(.system(size: 11)).foregroundStyle(.tertiary).padding(.vertical, 4)
+    }
+}
+
+/// Post-hoc coach cues as a collapsed log block (mint = coach). Expands to the
+/// card carousel; loud hero treatment is reserved for the live layout.
+private struct CoachCuesBlock: View {
+    let record: SessionRecord
+    @State private var expanded = false
+
+    private var cards: [CoachCard] { record.coachCards.filter(\.hasContent) }
+    private var usedCount: Int { record.coachFeedback.values.filter { $0 == .helpful }.count }
+
+    var body: some View {
+        if cards.isEmpty {
+            EmptyView()
+        } else {
+            VStack(spacing: 0) {
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { expanded.toggle() }
+                } label: {
+                    HStack(spacing: 9) {
+                        Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(Theme.mintDeep)
+                        Text("COACH CUES").font(.ui(11, .bold)).tracking(1).foregroundStyle(Theme.mintDeep)
+                        Text("\(cards.count) durante a conversa · \(usedCount) usadas")
+                            .font(.ui(12)).foregroundStyle(Theme.ink2)
+                        Spacer(minLength: 8)
+                        Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 10)).foregroundStyle(Theme.faint)
+                    }
+                    .padding(.horizontal, 14).padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("note.coach-cues")
+
+                if expanded {
+                    VStack(spacing: 8) {
+                        ForEach(cards) { MemoryCoachCard(card: $0) }
+                    }
+                    .padding(.horizontal, 12).padding(.bottom, 12)
+                }
+            }
+            .background(Theme.paper, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.line))
+        }
     }
 }

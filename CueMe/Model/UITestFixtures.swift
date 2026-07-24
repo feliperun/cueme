@@ -1,8 +1,43 @@
+import AVFoundation
 import Foundation
 
 /// Deterministic, in-memory archive used only when the UI-test runner explicitly
 /// launches CueMe with CUEME_UI_TESTING=1. It never writes into the user's archive.
 enum UITestFixtures {
+    static func enqueueVoiceMemoImport() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeUITests-voice-memo-source", isDirectory: true)
+        try? FileManager.default.removeItem(at: root)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let source = root.appendingPathComponent("Voice Memo.m4a")
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: 48_000,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderBitRateKey: 128_000
+        ]
+        var file: AVAudioFile? = try AVAudioFile(forWriting: source, settings: settings)
+        guard let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 1,
+            interleaved: false
+        ) else { throw CocoaError(.fileWriteUnknown) }
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        buffer.frameLength = 4_800
+        try file?.write(from: buffer)
+        file = nil
+
+        try ExternalAudioInbox.enqueueCopy(
+            from: source,
+            filename: "Planejamento semanal do Voice Memos"
+        )
+    }
+
     struct Embedding: EmbeddingProvider {
         let modelID = "ui-test-semantic-v1"
         let dimensions = 512

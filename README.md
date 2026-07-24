@@ -9,6 +9,9 @@
 **🌐 [feliperun.github.io/cueme](https://feliperun.github.io/cueme/)**
 
 <p align="center">
+  <img src="docs/assets/redesign.gif" alt="CueMe's note-first three-column workspace cycling through the structured meeting note, the live coaching layout, the recorded review, and the blank-note capture surface" width="900">
+</p>
+<p align="center">
   <img src="docs/assets/demo.gif" alt="CueMe live: the interlocutor's question appears with translation, then the coach card streams in with what to say and the key words" width="620">
 </p>
 <p align="center">

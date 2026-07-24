@@ -32,35 +32,6 @@ enum SessionWorkspaceTab: String, CaseIterable, Identifiable {
     }
 }
 
-struct SessionTabButton: View {
-    let item: SessionWorkspaceTab
-    let count: Int?
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: item.icon)
-                Text(item.label)
-                if let count, count > 0 {
-                    Text("\(count)")
-                        .font(.system(size: 8, weight: .heavy))
-                        .foregroundStyle(selected ? Color.white.opacity(0.85) : Color.secondary.opacity(0.7))
-                }
-            }
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(selected ? Color.white : Color.secondary)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 7).padding(.vertical, 7)
-            .background(selected ? Theme.violet.opacity(0.28) : .clear, in: RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("session.tab.\(item.rawValue)")
-        .help(item.label)
-    }
-}
-
 struct MemoryCoachCard: View {
     let card: CoachCard
 

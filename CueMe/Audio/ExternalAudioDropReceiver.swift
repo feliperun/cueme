@@ -5,7 +5,9 @@ import UniformTypeIdentifiers
 enum ExternalAudioDropReceiver {
     static func enqueue(_ providers: [NSItemProvider]) async -> Int {
         var imported = 0
-        for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.audio.identifier) {
+        for provider in providers where ExternalAudioInbox.preferredAudioTypeIdentifier(
+            from: provider.registeredTypeIdentifiers
+        ) != nil {
             if await enqueue(provider) { imported += 1 }
         }
         return imported
@@ -13,8 +15,11 @@ enum ExternalAudioDropReceiver {
 
     private static func enqueue(_ provider: NSItemProvider) async -> Bool {
         let suggestedName = provider.suggestedName
+        guard let typeIdentifier = ExternalAudioInbox.preferredAudioTypeIdentifier(
+            from: provider.registeredTypeIdentifiers
+        ) else { return false }
         return await withCheckedContinuation { continuation in
-            provider.loadFileRepresentation(forTypeIdentifier: UTType.audio.identifier) { url, _ in
+            provider.loadFileRepresentation(forTypeIdentifier: typeIdentifier) { url, _ in
                 guard let url else {
                     continuation.resume(returning: false)
                     return

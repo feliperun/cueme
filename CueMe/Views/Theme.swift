@@ -1,63 +1,153 @@
 import SwiftUI
 import AppKit
+import CoreText
 
-/// Calm, high-contrast workspace tokens. Static layers keep rendering cheap.
+/// Restrained, note-first workspace tokens. Static layers keep rendering cheap.
+///
+/// Palette rules (enforced in review — see docs/adr + temp/IMPLEMENTATION.md):
+/// - `violet` = selection + primary action. Never decorative.
+/// - `mint`   = coach surfaces exclusively.
+/// - `amber`  = live / recording signal only.
+/// - Backgrounds are limited to `canvas` / `tree` / `list` / `paper`.
 enum Theme {
-    static let canvas = adaptive(
-        light: NSColor(srgbRed: 0.965, green: 0.958, blue: 0.945, alpha: 1),
-        dark: NSColor(srgbRed: 0.035, green: 0.043, blue: 0.062, alpha: 1)
-    )
-    static let sidebar = adaptive(
-        light: NSColor(srgbRed: 0.935, green: 0.925, blue: 0.905, alpha: 1),
-        dark: NSColor(srgbRed: 0.046, green: 0.055, blue: 0.078, alpha: 1)
-    )
-    static let panel = adaptive(
-        light: NSColor(srgbRed: 0.992, green: 0.988, blue: 0.978, alpha: 1),
-        dark: NSColor(srgbRed: 0.065, green: 0.076, blue: 0.104, alpha: 1)
-    )
-    static let panelRaised = adaptive(
-        light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1),
-        dark: NSColor(srgbRed: 0.082, green: 0.096, blue: 0.130, alpha: 1)
-    )
+
+    // MARK: Neutrals (warm paper set)
+
+    static let canvas = adaptive(light: 0xF5F3EE, dark: 0x0A0B10)
+    static let tree   = adaptive(light: 0xEDEAE2, dark: 0x0C0E14)
+    static let list   = adaptive(light: 0xF1EFE8, dark: 0x0E1017)
+    static let paper  = adaptive(light: 0xFCFBF7, dark: 0x11131B)
+    static let soft   = adaptive(light: 0xE9E6DD, dark: 0x1A1D26)
+
+    static let ink    = adaptive(light: 0x2C2A26, dark: 0xEBE9E3)
+    static let ink2   = adaptive(light: 0x6D6A62, dark: 0x9E9B91)
+    static let faint  = adaptive(light: 0xA49F93, dark: 0x6B6860)
+
+    static let line   = adaptive(light: NSColor.fromHex(0xE3DFD5), dark: NSColor.white.withAlphaComponent(0.075))
+    static let line2  = adaptive(light: NSColor.fromHex(0xEEEAE1), dark: NSColor.white.withAlphaComponent(0.05))
+
+    // MARK: Accents — one meaning each
+
+    /// Selection + primary action.
+    static let violet = Color(hex: 0x6D79F2)
+    static let violetDeep = Color(hex: 0x565FCA)
+    static let violetSoft = adaptive(light: NSColor.fromHex(0xECECFB),
+                                     dark: NSColor.fromHex(0x6D79F2).withAlphaComponent(0.22))
+
+    /// Coach, and only coach.
+    static let mint = Color(hex: 0x2EB78C)
+    static let mintDeep = Color(hex: 0x1F8A68)
+    static let mintSoft = adaptive(light: NSColor.fromHex(0xE1F3ED),
+                                   dark: NSColor.fromHex(0x2EB78C).withAlphaComponent(0.18))
+
+    /// Live / recording only. Raw amber for dots/fills/transport; `amberText` for copy (AA on paper).
+    static let amber = Color(hex: 0xCF9633)
+    static let amberText = adaptive(light: NSColor.fromHex(0x8A6415), dark: NSColor.fromHex(0xE0B457))
+    static let amberSoft = adaptive(light: NSColor.fromHex(0xF5ECD9),
+                                    dark: NSColor.fromHex(0xCF9633).withAlphaComponent(0.16))
+
+    /// Failure / destructive signalling only.
+    static let rose = Color(red: 0.96, green: 0.39, blue: 0.48)
+
+    // MARK: Legacy aliases (kept while views migrate onto the new tokens)
+
+    static let sidebar = tree
+    static let panel = list
+    static let panelRaised = paper
+    static let surface = paper
+    static let divider = line
+    static let surfaceStroke = line
+    static let cyan = Color(red: 0.32, green: 0.72, blue: 0.98)
     static let interactive = adaptive(
         light: NSColor.black.withAlphaComponent(0.045),
         dark: NSColor.white.withAlphaComponent(0.055)
     )
-    static let divider = adaptive(
-        light: NSColor.black.withAlphaComponent(0.10),
-        dark: NSColor.white.withAlphaComponent(0.075)
-    )
 
-    static let violet = Color(red: 0.48, green: 0.55, blue: 1.0)
-    static let cyan = Color(red: 0.32, green: 0.72, blue: 0.98)
-    static let mint = Color(red: 0.32, green: 0.84, blue: 0.66)
-    static let amber = Color(red: 0.94, green: 0.69, blue: 0.35)
-    static let rose = Color(red: 0.96, green: 0.39, blue: 0.48)
-
-    static let surface = panel
-    static let surfaceStroke = divider
-
-    /// Gradiente de marca (violeta → ciano).
-    static let brand = LinearGradient(
-        colors: [violet, Color(red: 0.43, green: 0.76, blue: 1.0)],
-        startPoint: .leading, endPoint: .trailing
-    )
-
-    /// Gradiente do coach (menta → ciano).
-    static let coach = LinearGradient(
-        colors: [mint, cyan],
-        startPoint: .leading, endPoint: .trailing
-    )
-
+    /// Primary action fill. Solid violet — the brand gradient is retired.
+    static let brand = LinearGradient(colors: [violet, violet], startPoint: .leading, endPoint: .trailing)
+    /// Coach fill.
+    static let coach = LinearGradient(colors: [mint, mint], startPoint: .leading, endPoint: .trailing)
     static let background = LinearGradient(
-        colors: [sidebar.opacity(0.72), canvas],
+        colors: [tree.opacity(0.72), canvas],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
+
+    // MARK: adaptive helpers
 
     private static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
         })
+    }
+
+    private static func adaptive(light: UInt32, dark: UInt32) -> Color {
+        adaptive(light: NSColor.fromHex(light), dark: NSColor.fromHex(dark))
+    }
+}
+
+// MARK: - Fonts
+//
+// Note body (titles, transcript, coach-cue quotes, minutes) uses `.read` (Literata).
+// Chrome (sidebar, tabs, chips, buttons, labels) uses `.ui` (Hanken Grotesk).
+// Fonts fall back to the system-nearest family when the bundled face is absent.
+
+enum AppFonts {
+    /// Registers every bundled `.ttf` (Hanken Grotesk, Literata) with the process
+    /// so `Font.ui` / `Font.read` resolve to the real faces. Call once at launch,
+    /// before any view renders. Idempotent — re-registration is a no-op.
+    static func registerBundled() {
+        guard let resourceURL = Bundle.main.resourceURL,
+              let walker = FileManager.default.enumerator(at: resourceURL, includingPropertiesForKeys: nil)
+        else { return }
+        for case let url as URL in walker where url.pathExtension.lowercased() == "ttf" {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }
+}
+
+private enum FontAssets {
+    static let hasHanken = NSFont(name: "Hanken Grotesk", size: 12) != nil
+    static let hasLiterata = NSFont(name: "Literata", size: 12) != nil
+}
+
+extension Font {
+    /// UI chrome — Hanken Grotesk, falling back to the system sans.
+    static func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        FontAssets.hasHanken
+            ? .custom("Hanken Grotesk", fixedSize: size).weight(weight)
+            : .system(size: size, weight: weight, design: .default)
+    }
+
+    /// Reading body — Literata, falling back to the system serif (New York).
+    static func read(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        FontAssets.hasLiterata
+            ? .custom("Literata", fixedSize: size).weight(weight)
+            : .system(size: size, weight: weight, design: .serif)
+    }
+}
+
+// MARK: - Color / NSColor hex
+
+extension Color {
+    init(hex: UInt32, opacity: Double = 1) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: opacity
+        )
+    }
+}
+
+extension NSColor {
+    static func fromHex(_ hex: UInt32) -> NSColor {
+        NSColor(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
     }
 }
 
@@ -114,7 +204,7 @@ struct IconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(isOn ? Theme.cyan : .secondary)
+            .foregroundStyle(isOn ? Theme.violet : .secondary)
             .frame(width: 28, height: 28)
             .background(Circle().fill(isOn ? Theme.violet.opacity(0.18) : Theme.interactive))
             .overlay(Circle().strokeBorder(isOn ? Theme.violet.opacity(0.45) : Theme.divider, lineWidth: 1))
@@ -124,25 +214,25 @@ struct IconButtonStyle: ButtonStyle {
     }
 }
 
-/// Botão principal (Iniciar/Parar) com gradiente.
+/// Botão principal (Iniciar/Parar).
 struct PrimaryButtonStyle: ButtonStyle {
     var danger: Bool = false
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .bold))
-            .foregroundStyle(danger ? Theme.rose : Color.black.opacity(0.85))
+            .foregroundStyle(danger ? Theme.rose : Color.white)
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
             .background {
                 if danger {
                     Capsule().fill(Theme.rose.opacity(0.16))
                 } else {
-                    Capsule().fill(Theme.brand)
+                    Capsule().fill(Theme.violet)
                 }
             }
             .overlay(Capsule().strokeBorder(danger ? Theme.rose.opacity(0.5) : .clear, lineWidth: 1))
-            .shadow(color: danger ? .clear : Theme.violet.opacity(0.22), radius: configuration.isPressed ? 1 : 5, y: 2)
+            .shadow(color: danger ? .clear : Theme.violet.opacity(0.35), radius: configuration.isPressed ? 1 : 5, y: 2)
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.snappy(duration: 0.16), value: configuration.isPressed)
     }

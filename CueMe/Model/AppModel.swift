@@ -127,6 +127,8 @@ final class AppModel {
     var activeProjectID: UUID?
     var libraryProjectFilterID: UUID?
     var libraryLabelFilter: String?
+    /// Which built-in tree section drives the note list when no project is selected.
+    var librarySection: LibrarySection = .all
     var selectedSessionID: UUID?
     var sidebarCollapsed = false
     var historySearch = ""
@@ -169,6 +171,10 @@ final class AppModel {
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("CueMeUITests-archive", isDirectory: true)
             try? FileManager.default.removeItem(at: root)
             SessionStore.rootOverride = root
+            if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1" {
+                ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
+                try? UITestFixtures.enqueueVoiceMemoImport()
+            }
         }
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             || ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1"

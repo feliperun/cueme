@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 extension Notification.Name {
     static let cueMeExternalAudioReady = Notification.Name("com.feliperun.CueMe.externalAudioReady")
@@ -28,6 +29,40 @@ enum ExternalAudioInbox {
 
     static func isSupported(filename: String) -> Bool {
         supportedExtensions.contains(URL(fileURLWithPath: filename).pathExtension.lowercased())
+    }
+
+    /// Orders concrete, file-backed formats before the generic `public.audio`
+    /// promise. Voice Memos may register an internal audio representation
+    /// first, even though it cannot be materialized by the Share extension.
+    static func audioTypeIdentifiers(from registeredTypeIdentifiers: [String]) -> [String] {
+        registeredTypeIdentifiers
+            .enumerated()
+            .compactMap { offset, identifier -> (offset: Int, identifier: String)? in
+                guard UTType(identifier)?.conforms(to: .audio) == true else { return nil }
+                return (offset, identifier)
+            }
+            .sorted { lhs, rhs in
+                let leftRank = audioTypeRank(lhs.identifier)
+                let rightRank = audioTypeRank(rhs.identifier)
+                return leftRank == rightRank ? lhs.offset < rhs.offset : leftRank < rightRank
+            }
+            .map(\.identifier)
+    }
+
+    static func preferredAudioTypeIdentifier(from registeredTypeIdentifiers: [String]) -> String? {
+        audioTypeIdentifiers(from: registeredTypeIdentifiers).first
+    }
+
+    static func filename(suggestedName: String?, typeIdentifier: String) -> String? {
+        if let suggestedName, isSupported(filename: suggestedName) {
+            return suggestedName
+        }
+        guard let filenameExtension = UTType(typeIdentifier)?.preferredFilenameExtension?.lowercased(),
+              supportedExtensions.contains(filenameExtension) else { return nil }
+        let stem = suggestedName
+            .map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
+            .flatMap { $0.isEmpty ? nil : $0 } ?? "Gravação"
+        return "\(stem).\(filenameExtension)"
     }
 
     @discardableResult
@@ -120,5 +155,16 @@ enum ExternalAudioInbox {
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
         return String((collapsed.isEmpty ? "Gravação" : collapsed).prefix(96))
+    }
+
+    private static func audioTypeRank(_ identifier: String) -> Int {
+        switch identifier {
+        case UTType.mpeg4Audio.identifier, "com.apple.m4a-audio":
+            return 0
+        case UTType.audio.identifier:
+            return 100
+        default:
+            return 10
+        }
     }
 }
