@@ -83,3 +83,4 @@ proposed → active → superseded
 | [0034](0034-native-markdown-block-editor.md) | Native visual blocks with canonical Markdown | active |
 | [0035](0035-automated-release-asset-publishing.md) | Automated release-asset publishing and appcast health | active |
 | [0036](0036-free-personal-team-signing.md) | Free Personal Team signing for auto-update | active |
+| [0037](0037-visible-update-status.md) | Visible update status | active |

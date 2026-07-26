@@ -31,7 +31,7 @@ struct CueMeApp: App {
         }
 
         Window("Sobre o CueMe", id: "about") {
-            AboutView()
+            AboutView().environment(app)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
@@ -135,7 +135,10 @@ private struct MenuBarContent: View {
         }
 
         Divider()
-        Button("Buscar atualizações…") { app.checkForUpdates() }
+        Button(app.updateStatus.isActionable ? app.updateStatus.summary : "Buscar atualizações…") {
+            app.checkForUpdates()
+        }
+        .disabled(app.updateStatus.isBusy)
         Button("Abrir Camera Rail") { openWindow(id: "camera-rail") }
         Button("Testar setup") { app.showPreflight = true }
         Button("Histórico de sessões") {
