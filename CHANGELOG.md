@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/feliperun/cueme/compare/v1.2.0...v1.3.0) (2026-07-26)
+
+
+### Features
+
+* **updates:** show what an update check actually answered ([3de43b5](https://github.com/feliperun/cueme/commit/3de43b5df33f1911b12f5ebec298e5784b9c7474))
+
 ## [1.2.0](https://github.com/feliperun/cueme/compare/v1.1.0...v1.2.0) (2026-07-24)
 
 
