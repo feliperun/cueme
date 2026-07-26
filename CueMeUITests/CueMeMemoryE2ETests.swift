@@ -291,4 +291,55 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(importedMemo.waitForExistence(timeout: 8))
         XCTAssertTrue(importedMemo.label.contains("Planejamento semanal do Voice Memos"))
     }
+
+    /// A SwiftUI `Text` surfaces its string as the element value on macOS.
+    private func readText(_ element: XCUIElement) -> String {
+        let value = element.value as? String ?? ""
+        return value.isEmpty ? element.label : value
+    }
+
+    /// Opens About and returns its update status element. "Sobre o CueMe"
+    /// exists both in the app menu and in the menu-bar extra, so the item is
+    /// resolved inside the app menu to keep the query unambiguous.
+    private func openAboutUpdateStatus(_ app: XCUIApplication) -> XCUIElement {
+        let appMenu = app.menuBars.menuBarItems.element(boundBy: 1)
+        XCTAssertTrue(appMenu.waitForExistence(timeout: 5))
+        appMenu.click()
+        let about = appMenu.menuItems["Sobre o CueMe"]
+        XCTAssertTrue(about.waitForExistence(timeout: 3))
+        about.click()
+        let status = app.staticTexts["about.update.status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 6))
+        return status
+    }
+
+    func testAboutOffersAnAvailableUpdateByVersion() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_UPDATE_STATUS": "available:9.9.9"])
+        defer { app.terminate() }
+
+        let status = openAboutUpdateStatus(app)
+        XCTAssertEqual(readText(status), "Atualização disponível: 9.9.9")
+
+        let action = app.buttons["about.update.check"]
+        XCTAssertTrue(action.waitForExistence(timeout: 3))
+        XCTAssertEqual(readText(action), "Instalar agora")
+    }
+
+    func testAboutReportsAFailedCheckWithoutLeakingTheFeedURL() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_UPDATE_STATUS": "unavailable"])
+        defer { app.terminate() }
+
+        let status = openAboutUpdateStatus(app)
+        let summary = readText(status)
+        XCTAssertEqual(summary, "Nenhuma atualização publicada ainda")
+        // A broken feed must read as a plain sentence, never as a URL or code.
+        XCTAssertFalse(summary.lowercased().contains("http"))
+        XCTAssertFalse(summary.contains("appcast"))
+
+        let action = app.buttons["about.update.check"]
+        XCTAssertTrue(action.waitForExistence(timeout: 3))
+        XCTAssertEqual(readText(action), "Buscar atualizações")
+    }
 }

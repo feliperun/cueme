@@ -3,6 +3,8 @@ import AppKit
 
 /// Tela "Sobre" — ícone, versão, links e créditos.
 struct AboutView: View {
+    @Environment(AppModel.self) private var app
+
     private var version: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
@@ -43,6 +45,8 @@ struct AboutView: View {
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background((cliOK ? Theme.mint : Theme.amber).opacity(0.12), in: Capsule())
 
+            updateRow
+
             HStack(spacing: 10) {
                 LinkButton(title: "GitHub", systemImage: "chevron.left.forwardslash.chevron.right",
                            url: "https://github.com/feliperun/cueme")
@@ -65,6 +69,42 @@ struct AboutView: View {
         .padding(26)
         .frame(width: 360)
         .background(Theme.background)
+    }
+
+    /// Update state + the check itself. Sparkle used to run silently here, so a
+    /// missing feed looked identical to "nothing new".
+    private var updateRow: some View {
+        VStack(spacing: 7) {
+            HStack(spacing: 6) {
+                if app.updateStatus.isBusy {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: app.updateStatus.symbol)
+                        .foregroundStyle(updateTint)
+                }
+                Text(app.updateStatus.summary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("about.update.status")
+            }
+
+            Button(app.updateStatus.isActionable ? "Instalar agora" : "Buscar atualizações") {
+                app.checkForUpdates()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(app.updateStatus.isBusy)
+            .accessibilityIdentifier("about.update.check")
+        }
+    }
+
+    private var updateTint: Color {
+        switch app.updateStatus {
+        case .available: return Theme.violet
+        case .upToDate: return Theme.mint
+        case .failed: return Theme.amber
+        case .idle, .checking: return .secondary
+        }
     }
 }
 

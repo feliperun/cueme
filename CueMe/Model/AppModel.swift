@@ -156,9 +156,13 @@ final class AppModel {
     /// A RootView pluga `.translationTask(translationConfig)`.
     var translationConfig: TranslationSession.Configuration?
     @ObservationIgnored nonisolated let translationPipe = TranslationPipe()
-    @ObservationIgnored private let updater = SPUStandardUpdaterController(
+    /// Outcome of the last update check, surfaced in About and the menus so a
+    /// broken feed is visible instead of silently doing nothing.
+    var updateStatus: AppUpdateStatus = .idle
+    @ObservationIgnored private let updateReporter = UpdateStatusReporter()
+    @ObservationIgnored private lazy var updater = SPUStandardUpdaterController(
         startingUpdater: ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] != "1",
-        updaterDelegate: nil,
+        updaterDelegate: updateReporter,
         userDriverDelegate: nil
     )
 
@@ -178,6 +182,11 @@ final class AppModel {
         }
         let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
             || ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1"
+        // The updater never starts under UI testing, so E2E drives the status
+        // surface through a fixture instead of the network.
+        if let fixture = ProcessInfo.processInfo.environment["CUEME_UI_TEST_UPDATE_STATUS"] {
+            self.updateStatus = Self.uiTestUpdateStatus(fixture)
+        }
         let hasClaude = ClaudeClient().isAvailable
         // An ad-hoc XCTest host has a different Keychain identity and macOS may
         // block waiting for an access dialog before the test bundle is loaded.
@@ -231,6 +240,7 @@ final class AppModel {
         translationPipe.onResult = { [weak self] id, text in
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
+        updateReporter.onChange = { [weak self] status in self?.updateStatus = status }
         let entities = KnowledgeEntityStore.load()
         let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
         self.projects = fileProjects
@@ -640,7 +650,22 @@ final class AppModel {
     }
 
     func checkForUpdates() {
+        guard !updateStatus.isBusy else { return }
+        updateStatus = .checking
         updater.checkForUpdates(nil)
+    }
+
+    /// Maps `CUEME_UI_TEST_UPDATE_STATUS` onto a status so E2E can assert the
+    /// update surface without a network or a running updater.
+    static func uiTestUpdateStatus(_ fixture: String) -> AppUpdateStatus {
+        let parts = fixture.split(separator: ":", maxSplits: 1).map(String.init)
+        switch parts.first {
+        case "available": return .available(version: parts.count > 1 ? parts[1] : "0.0")
+        case "uptodate": return .upToDate(currentVersion: parts.count > 1 ? parts[1] : "0.0")
+        case "offline": return .failed(reason: .offline)
+        case "unavailable": return .failed(reason: .feedUnavailable)
+        default: return .idle
+        }
     }
 
     func runPreflight() {

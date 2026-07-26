@@ -118,7 +118,10 @@ struct HeaderBar: View {
                 Button("Camera Rail") { openWindow(id: "camera-rail") }
                 Button("Testar setup") { app.showPreflight = true }
                     .disabled(app.isSessionBusy)
-                Button("Buscar atualizações…") { app.checkForUpdates() }
+                Button(app.updateStatus.isActionable ? app.updateStatus.summary : "Buscar atualizações…") {
+                    app.checkForUpdates()
+                }
+                .disabled(app.updateStatus.isBusy)
                 Button("Histórico") { app.sidebarCollapsed = false }
                 Button("Configurar sessão") { app.showSettings = true }
                     .disabled(app.isSessionBusy)
