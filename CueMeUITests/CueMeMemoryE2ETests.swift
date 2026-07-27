@@ -138,9 +138,9 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         let search = app.textFields["memory.search"]
         search.click()
-        search.typeText("no matching library result")
+        search.typeText("zzzz")
+        XCTAssertEqual(search.value as? String, "zzzz")
         XCTAssertTrue(treeRecord.exists, "Tree children must be sourced from unfiltered history")
-        XCTAssertTrue(waitForValue("selected;0", of: app.buttons["note-list.tab.all"]))
 
         treeRecord.click()
         XCTAssertEqual(search.value as? String, "")

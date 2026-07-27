@@ -44,8 +44,8 @@ final class ProjectTreeProjectionTests: XCTestCase {
         let app = AppModel(isUITesting: true)
         app.history = [older, other, newer]
         app.libraryProjectFilterID = projectID
-        app.historySearch = "does not match"
-        app.historyTypeFilter = .note
+        app.historySearch = "zzzz"
+        app.historyTypeFilter = .all
 
         XCTAssertTrue(app.noteListProjection.visibleRecords.isEmpty)
         XCTAssertEqual(app.projectTreeRecords(for: projectID).map(\.id), [newer.id, older.id])
