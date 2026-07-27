@@ -140,7 +140,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
         search.click()
         search.typeText("no matching library result")
         XCTAssertTrue(treeRecord.exists, "Tree children must be sourced from unfiltered history")
-        XCTAssertTrue(app.buttons["session.\(recordID)"].waitForNonExistence(timeout: 3))
+        XCTAssertTrue(waitForValue("selected;0", of: app.buttons["note-list.tab.all"]))
 
         treeRecord.click()
         XCTAssertEqual(search.value as? String, "")
