@@ -3,7 +3,7 @@
 > **Repositório:** [`feliperun/cueme`](https://github.com/feliperun/cueme)
 > **Issue:** [#37](https://github.com/feliperun/cueme/issues/37)
 > **Linear:** não aplicável — repositório pessoal, sem credencial/configuração Linear
-> **PR atual:** [#38](https://github.com/feliperun/cueme/pull/38) — draft
+> **PR atual:** [#38](https://github.com/feliperun/cueme/pull/38) — PR 1
 > **Branch atual:** `felipe/gh-37-shell-chrome`
 > **Build:** `xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`
 > **Test:** `xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' test`
@@ -20,7 +20,7 @@
 | p1a | #37 | Implementar titlebar e migrar capacidades do HeaderBar com E2E | — | **completed** |
 | p1b | #37 | Implementar árvore hierárquica e live sintético | p1a | **completed** |
 | p1c | #37 | Corrigir filtros, contagens e identifiers da note list | p1b | **completed** |
-| p1d | #37 | Verificar, documentar e finalizar PR 1 | p1c | **in_progress** |
+| p1d | #37 | Verificar, documentar e finalizar PR 1 | p1c | **completed** |
 | p2 | #37 | Header, masthead e blank note focável | PR 1 merged | **pending** |
 | p3 | #37 | Contrato seguro e lossless dos meeting blocks | PR 2 merged | **pending** |
 | p4 | #37 | Documento único de reunião com paridade do review | PR 3 merged | **pending** |
@@ -34,6 +34,7 @@
 | `3245980` | `docs(gh-37): add reviewed redesign execution plan` |
 | `eb7eda6` | `feat(gh-37): migrate workspace shell chrome` |
 | `8fd165e` | `feat(gh-37): add hierarchical project tree` |
+| `641bd22` | `feat(gh-37): align note list filters and counts` |
 
 ### Baseline local
 
@@ -42,6 +43,15 @@
 - UI E2E: runner não inicializou por autenticação biométrica concorrente
   (`LocalAuthentication Code=-4`); nenhum test case chegou a executar. Repetir após as
   mudanças e usar CI como verificação independente.
+
+### Verificação local da PR 1
+
+- Build: passou.
+- Unit/integration: passou.
+- UI E2E isolado e `xcodebuild test`: o host voltou a bloquear antes de emitir qualquer
+  test case, reproduzindo o problema da baseline; execução encerrada sem processo órfão.
+- Sentrux: `check` passou com 7604; `gate` passou (`7591 → 7604`).
+- `git diff --check`: passou.
 
 ## Context
 
