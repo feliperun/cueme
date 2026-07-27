@@ -48,6 +48,33 @@ final class ConversationIntelligenceTests: XCTestCase {
 
 @MainActor
 final class CoachPresentationPolicyTests: XCTestCase {
+    func testUITestAppModelUsesOnlySyntheticPersonalConfiguration() {
+        let previousArchive = SessionStore.rootOverride
+        let previousInbox = ExternalAudioInbox.rootOverride
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeUITests-archive", isDirectory: true)
+        defer {
+            SessionStore.rootOverride = previousArchive
+            ExternalAudioInbox.rootOverride = previousInbox
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        let app = AppModel(isUITesting: true)
+
+        XCTAssertTrue(app.isUITesting)
+        XCTAssertEqual(app.brief, UITestFixtures.brief)
+        XCTAssertEqual(app.profiles, [UITestFixtures.profile])
+        XCTAssertTrue(app.contexts.isEmpty)
+        XCTAssertTrue(app.selectedContextIDs.isEmpty)
+        XCTAssertTrue(app.generatedContextKeyterms.isEmpty)
+        XCTAssertEqual(app.glossaryGenerationState, .idle)
+        XCTAssertEqual(app.vocabulary, .init())
+
+        app.applyProfile(UITestFixtures.profile.id)
+        XCTAssertEqual(app.brief.goal, "Synthetic profile applied")
+        XCTAssertEqual(app.activeProfileID, UITestFixtures.profile.id)
+    }
+
     func testNewCoachCardWaitsUntilUserReplacesCurrentSuggestion() {
         let app = AppModel()
         let first = CoachCard(guidePT: "Primeira", sayNative: "Primeira resposta", isStreaming: false)

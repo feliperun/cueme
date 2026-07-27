@@ -81,7 +81,7 @@ struct LiveNoteView: View {
                 .keyboardShortcut("k", modifiers: .command)
                 .accessibilityIdentifier("live.past-notes")
 
-                LiveHealthStrip()
+                LiveParticipantButton()
             }
             .padding(.horizontal, 20).padding(.vertical, 10)
         }
@@ -222,12 +222,15 @@ struct LiveNoteView: View {
 
             Menu {
                 Button(app.silenceMode ? "Reativar coach" : "Silenciar coach", action: app.toggleSilence)
+                    .accessibilityIdentifier("live.silence")
+                    .accessibilityValue(app.silenceMode ? "on" : "off")
             } label: {
                 Text("⋯").font(.ui(13, .semibold)).foregroundStyle(Color(hex: 0xE9E4D6))
                     .frame(width: 34, height: 30)
                     .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(.white.opacity(0.28)))
             }
             .menuStyle(.borderlessButton).fixedSize()
+            .accessibilityIdentifier("live.more")
 
             Button(action: app.stop) {
                 Label("Stop & save", systemImage: "stop.fill")

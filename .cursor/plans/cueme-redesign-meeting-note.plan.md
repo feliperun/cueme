@@ -3,7 +3,7 @@
 > **Repositório:** [`feliperun/cueme`](https://github.com/feliperun/cueme)
 > **Issue:** [#37](https://github.com/feliperun/cueme/issues/37)
 > **Linear:** não aplicável — repositório pessoal, sem credencial/configuração Linear
-> **PR atual:** pendente
+> **PR atual:** [#38](https://github.com/feliperun/cueme/pull/38) — draft
 > **Branch atual:** `felipe/gh-37-shell-chrome`
 > **Build:** `xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO`
 > **Test:** `xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' test`
@@ -17,11 +17,10 @@
 
 | ID | Issue | Task | Depends on | Status |
 |---|---|---|---|---|
-| p1a | #37 | Preservar comandos e contratos E2E do shell | — | **pending** |
-| p1b | #37 | Implementar titlebar e migrar capacidades do HeaderBar | p1a | **pending** |
-| p1c | #37 | Implementar árvore hierárquica e live sintético | p1b | **pending** |
-| p1d | #37 | Corrigir filtros, contagens e identifiers da note list | p1c | **pending** |
-| p1e | #37 | Verificar, documentar e abrir PR 1 | p1d | **pending** |
+| p1a | #37 | Implementar titlebar e migrar capacidades do HeaderBar com E2E | — | **completed** |
+| p1b | #37 | Implementar árvore hierárquica e live sintético | p1a | **in_progress** |
+| p1c | #37 | Corrigir filtros, contagens e identifiers da note list | p1b | **pending** |
+| p1d | #37 | Verificar, documentar e finalizar PR 1 | p1c | **pending** |
 | p2 | #37 | Header, masthead e blank note focável | PR 1 merged | **pending** |
 | p3 | #37 | Contrato seguro e lossless dos meeting blocks | PR 2 merged | **pending** |
 | p4 | #37 | Documento único de reunião com paridade do review | PR 3 merged | **pending** |
@@ -32,6 +31,15 @@
 
 | Hash | Mensagem |
 |---|---|
+| `3245980` | `docs(gh-37): add reviewed redesign execution plan` |
+
+### Baseline local
+
+- Build: passou.
+- Unit/integration: passou.
+- UI E2E: runner não inicializou por autenticação biométrica concorrente
+  (`LocalAuthentication Code=-4`); nenhum test case chegou a executar. Repetir após as
+  mudanças e usar CI como verificação independente.
 
 ## Context
 

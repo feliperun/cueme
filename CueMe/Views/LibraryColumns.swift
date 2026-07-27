@@ -43,6 +43,7 @@ extension AppModel {
 
 struct ProjectTreeColumn: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.openWindow) private var openWindow
     @State private var showCreateProject = false
     @State private var newProjectName = ""
 
@@ -91,9 +92,80 @@ struct ProjectTreeColumn: View {
                 .font(.ui(12, .bold)).foregroundStyle(.white)
                 .frame(width: 22, height: 22)
                 .background(Theme.violet, in: RoundedRectangle(cornerRadius: 6))
-            Text("CueMe").font(.ui(13.5, .semibold)).foregroundStyle(Theme.ink)
+            Menu {
+                Button("Nova sessão") { app.newSession() }
+                    .keyboardShortcut("n", modifiers: [.command])
+                    .disabled(app.sessionState == .preparing || app.sessionState == .stopping)
+                    .accessibilityIdentifier("workspace.new-session")
+                Divider()
+                Toggle("Sempre no topo", isOn: Binding(
+                    get: { app.pinned },
+                    set: { app.pinned = $0 }
+                ))
+                .accessibilityIdentifier("workspace.pin")
+                .accessibilityValue(app.pinned ? "on" : "off")
+                Toggle("Modo treino", isOn: Binding(
+                    get: { app.trainingMode },
+                    set: { app.trainingMode = $0 }
+                ))
+                .disabled(app.isSessionBusy || app.brief.mode.isPassive)
+                .accessibilityIdentifier("workspace.training")
+                .accessibilityValue(app.trainingMode ? "on" : "off")
+                if !app.profiles.isEmpty {
+                    Menu("Perfis") {
+                        ForEach(app.profiles) { profile in
+                            Button(profile.name) { app.applyProfile(profile.id) }
+                                .accessibilityIdentifier("workspace.profile.\(profile.id.uuidString)")
+                        }
+                    }
+                    .disabled(app.isSessionBusy)
+                    .accessibilityIdentifier("workspace.profiles")
+                    .accessibilityValue(app.activeProfileID?.uuidString ?? "none")
+                }
+                Divider()
+                Button("Camera Rail") { openWindow(id: "camera-rail") }
+                    .accessibilityIdentifier("workspace.camera-rail")
+                Button("Testar setup") { app.showPreflight = true }
+                    .disabled(app.isSessionBusy)
+                    .accessibilityIdentifier("workspace.setup")
+                Button("Configurar sessão") { app.showSettings = true }
+                    .disabled(app.isSessionBusy)
+                    .accessibilityIdentifier("workspace.settings")
+                Button(app.updateStatus.isActionable ? app.updateStatus.summary : "Buscar atualizações…") {
+                    app.checkForUpdates()
+                }
+                .disabled(app.updateStatus.isBusy)
+                .accessibilityIdentifier("workspace.updates")
+            } label: {
+                HStack(spacing: 5) {
+                    Text("CueMe").font(.ui(13.5, .semibold)).foregroundStyle(Theme.ink)
+                    Image(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(Theme.faint)
+                }
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .accessibilityIdentifier("workspace.menu")
+
             Spacer()
-            Image(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(Theme.faint)
+            Menu {
+                ForEach(AppThemePreference.allCases) { preference in
+                    Button {
+                        app.themePreference = preference
+                    } label: {
+                        Label(preference.label, systemImage: preference.icon)
+                    }
+                    .accessibilityIdentifier("theme.\(preference.rawValue)")
+                }
+            } label: {
+                Image(systemName: app.themePreference.icon)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.ink2)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .accessibilityIdentifier("theme.preference")
+            .accessibilityValue(app.themePreference.rawValue)
+            .help("Aparência: \(app.themePreference.label)")
         }
         .padding(.horizontal, 7).padding(.vertical, 5)
     }
@@ -191,36 +263,56 @@ struct ProjectTreeColumn: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 7) {
-            Button { _ = app.createMemoryNote(kind: .note) } label: {
-                Text("＋ New note").font(.ui(12.5, .semibold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).padding(.vertical, 8)
-                    .background(Theme.violet, in: RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("sidebar.new-note")
-
-            Button(action: app.showLiveSession) {
-                Circle().fill(Theme.amber).frame(width: 8, height: 8)
-                    .padding(9)
-                    .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line))
-            }
-            .buttonStyle(.plain).help("Nova gravação")
-
-            Button { app.chooseAudioFiles() } label: {
-                Image(systemName: "square.and.arrow.down").font(.system(size: 12)).foregroundStyle(Theme.ink2)
-                    .padding(9)
-                    .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line))
+        VStack(spacing: 7) {
+            Button {
+                app.isRunning ? app.stop() : app.start()
+            } label: {
+                Text(primaryTitle)
+                    .font(.ui(12.5, .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(app.isRunning ? Theme.rose : Theme.violet, in: RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
-            .help("Importar áudio")
-            .disabled(app.isSessionBusy || app.audioImportStatus?.isActive == true)
+            .accessibilityIdentifier("session.primary")
+            .accessibilityValue(app.statusText)
+            .keyboardShortcut(.return, modifiers: [.command])
+            .disabled(app.sessionState == .preparing || app.sessionState == .stopping)
+
+            HStack(spacing: 7) {
+                Button { _ = app.createMemoryNote(kind: .note) } label: {
+                    Text("＋ New note").font(.ui(12.5, .semibold)).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 8)
+                        .background(Theme.violet, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain).accessibilityIdentifier("sidebar.new-note")
+
+                Button { app.chooseAudioFiles() } label: {
+                    Image(systemName: "square.and.arrow.down").font(.system(size: 12)).foregroundStyle(Theme.ink2)
+                        .padding(9)
+                        .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line))
+                }
+                .buttonStyle(.plain)
+                .help("Importar áudio")
+                .disabled(app.isSessionBusy || app.audioImportStatus?.isActive == true)
+            }
         }
         .overlay(alignment: .top) {
             if let status = app.audioImportStatus {
                 ImportStatusRow(status: status).offset(y: -58)
             }
+        }
+    }
+
+    private var primaryTitle: String {
+        switch app.sessionState {
+        case .preparing: return "Preparando"
+        case .stopping: return "Salvando"
+        default:
+            if app.isRunning { return "Parar" }
+            return app.selectedSession == nil ? "Iniciar" : "Gravar"
         }
     }
 
@@ -492,14 +584,20 @@ private struct ImportStatusRow: View {
             if status.phase == .failed, let sessionID = status.sessionID {
                 Button { Task { await app.retryImportedProcessing(sessionID: sessionID) } } label: {
                     Image(systemName: "arrow.clockwise")
-                }.help("Tentar novamente")
+                }
+                .accessibilityIdentifier("import.retry")
+                .help("Tentar novamente")
             } else if !status.isActive {
                 Button(action: app.dismissAudioImportStatus) { Image(systemName: "xmark") }
+                    .accessibilityIdentifier("import.dismiss")
             }
         }
         .buttonStyle(.plain)
         .padding(8).frame(width: 206)
         .background(Theme.paper, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.line))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("import.status")
+        .accessibilityValue(status.phase.rawValue)
     }
 }

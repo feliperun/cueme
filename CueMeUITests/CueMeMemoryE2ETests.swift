@@ -99,7 +99,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
         defer { app.terminate() }
         let primary = app.buttons["session.primary"]
         XCTAssertTrue(primary.waitForExistence(timeout: 5))
-        primary.click()
+        app.typeKey(.return, modifierFlags: .command)
         XCTAssertEqual(primary.label, "Parar")
 
         let noteButton = app.buttons["live.note"]
@@ -111,8 +111,8 @@ final class CueMeMemoryE2ETests: XCTestCase {
         note.typeText("Validar entrega final")
         app.buttons["live.note.submit"].click()
 
-        primary.click()
-        XCTAssertTrue(app.staticTexts["Biblioteca"].waitForExistence(timeout: 5))
+        app.typeKey(.return, modifierFlags: .command)
+        XCTAssertTrue(app.groups["workspace.library"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Áudio local"].exists)
         app.buttons["session.tab.transcript"].click()
         XCTAssertTrue(app.staticTexts["Como vamos reduzir o risco da entrega?"].waitForExistence(timeout: 3))
@@ -141,10 +141,189 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let alert = app.buttons["capture.alert"]
         XCTAssertTrue(alert.exists)
         XCTAssertTrue(alert.label.contains("ÁUDIO EXTERNO OFF"))
+        system.click()
+        XCTAssertEqual(system.value as? String, "active")
+        XCTAssertFalse(alert.exists)
 
         primary.click()
-        XCTAssertTrue(app.staticTexts["Biblioteca"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.groups["workspace.library"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Áudio local"].exists)
+    }
+
+    func testSilentMicrophoneCanBeRepairedFromTheMigratedHealthControl() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_MIC_SILENT": "1"])
+        defer { app.terminate() }
+
+        app.buttons["session.primary"].click()
+        let microphone = app.buttons["capture.microphone"]
+        XCTAssertTrue(microphone.waitForExistence(timeout: 3))
+        XCTAssertEqual(microphone.value as? String, "silent")
+        microphone.click()
+        XCTAssertEqual(microphone.value as? String, "active")
+        XCTAssertFalse(app.buttons["capture.alert"].exists)
+    }
+
+    func testPreparingSessionExposesCaptureHealthInTheWorkspaceChrome() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_HOLD_PREPARING": "1"])
+        defer { app.terminate() }
+
+        let primary = app.buttons["session.primary"]
+        XCTAssertTrue(primary.waitForExistence(timeout: 5))
+        primary.click()
+        XCTAssertEqual(primary.label, "Preparando")
+        let microphone = app.buttons["capture.microphone"]
+        let system = app.buttons["capture.system"]
+        XCTAssertTrue(microphone.waitForExistence(timeout: 3))
+        XCTAssertTrue(system.waitForExistence(timeout: 3))
+        XCTAssertEqual(microphone.value as? String, "waiting")
+        XCTAssertEqual(system.value as? String, "waiting")
+    }
+
+    func testPassiveCaptureHasAReachableStopAndSaveAction() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_PASSIVE_MODE": "1"])
+        defer { app.terminate() }
+
+        app.buttons["session.primary"].click()
+        let stop = app.buttons["live.stop"]
+        XCTAssertTrue(stop.waitForExistence(timeout: 5))
+        XCTAssertEqual(stop.label, "Stop & save")
+        stop.click()
+        XCTAssertTrue(app.groups["workspace.library"].waitForExistence(timeout: 5))
+    }
+
+    func testWorkspaceMenuAndLiveParticipantNamingRemainReachable() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let workspaceMenu = app.menuButtons["workspace.menu"]
+        XCTAssertTrue(workspaceMenu.waitForExistence(timeout: 5))
+        workspaceMenu.click()
+        XCTAssertTrue(app.menuItems["workspace.new-session"].exists)
+        XCTAssertTrue(app.menuItems["workspace.setup"].exists)
+        XCTAssertTrue(app.menuItems["workspace.settings"].exists)
+        XCTAssertTrue(app.menuItems["workspace.updates"].exists)
+        XCTAssertTrue(app.menuItems["workspace.camera-rail"].exists)
+        app.typeKey(.escape, modifierFlags: [])
+
+        app.typeKey("n", modifierFlags: .command)
+        XCTAssertEqual(app.buttons["session.primary"].label, "Parar")
+        let participants = app.buttons["live.participants"]
+        XCTAssertTrue(participants.waitForExistence(timeout: 5))
+        participants.click()
+        let selfName = app.textFields["live.participant.self"]
+        let otherName = app.textFields["live.participant.other"]
+        XCTAssertTrue(selfName.waitForExistence(timeout: 3))
+        XCTAssertTrue(otherName.exists)
+        selfName.click()
+        selfName.typeKey("a", modifierFlags: .command)
+        selfName.typeText("Alex")
+        otherName.click()
+        otherName.typeKey("a", modifierFlags: .command)
+        otherName.typeText("Sam")
+        app.buttons["live.participants.save"].click()
+
+        participants.click()
+        XCTAssertEqual(selfName.value as? String, "Alex")
+        XCTAssertEqual(otherName.value as? String, "Sam")
+        app.typeKey(.escape, modifierFlags: [])
+
+        let more = app.menuButtons["live.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 3))
+        more.click()
+        let silence = app.menuItems["live.silence"]
+        XCTAssertEqual(silence.value as? String, "off")
+        silence.click()
+        more.click()
+        XCTAssertEqual(app.menuItems["live.silence"].value as? String, "on")
+    }
+
+    func testWorkspaceMenuTogglesAndConfigurationHostsAreBehavioral() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let workspaceMenu = app.menuButtons["workspace.menu"]
+        workspaceMenu.click()
+        let pin = app.menuItems["workspace.pin"]
+        XCTAssertEqual(pin.value as? String, "off")
+        pin.click()
+        workspaceMenu.click()
+        XCTAssertEqual(app.menuItems["workspace.pin"].value as? String, "on")
+        app.menuItems["workspace.training"].click()
+        workspaceMenu.click()
+        XCTAssertEqual(app.menuItems["workspace.training"].value as? String, "on")
+        app.menuItems["workspace.settings"].click()
+
+        XCTAssertTrue(app.descendants(matching: .any)["settings.sheet"].waitForExistence(timeout: 3))
+        app.buttons["settings.close"].click()
+        workspaceMenu.click()
+        app.menuItems["workspace.setup"].click()
+        XCTAssertTrue(app.descendants(matching: .any)["preflight.sheet"].waitForExistence(timeout: 3))
+        app.buttons["preflight.close"].click()
+    }
+
+    func testWorkspaceProfileSubmenuAppliesTheSyntheticProfile() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let workspaceMenu = app.menuButtons["workspace.menu"]
+        workspaceMenu.click()
+        let profiles = app.menuItems["workspace.profiles"]
+        XCTAssertTrue(profiles.waitForExistence(timeout: 3))
+        profiles.hover()
+        let profile = app.menuItems["workspace.profile.70000000-0000-0000-0000-000000000001"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 3))
+        profile.click()
+
+        workspaceMenu.click()
+        XCTAssertEqual(
+            app.menuItems["workspace.profiles"].value as? String,
+            "70000000-0000-0000-0000-000000000001"
+        )
+        app.typeKey(.escape, modifierFlags: [])
+        workspaceMenu.click()
+        app.menuItems["workspace.settings"].click()
+        let goal = app.textFields["settings.goal"]
+        XCTAssertTrue(goal.waitForExistence(timeout: 3))
+        XCTAssertEqual(goal.value as? String, "Synthetic profile applied")
+    }
+
+    func testCompletedImportStatusCanBeDismissed() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_IMPORT_STATUS": "completed"])
+        defer { app.terminate() }
+
+        let status = app.descendants(matching: .any)["import.status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertEqual(status.value as? String, "completed")
+        let dismiss = app.buttons["import.dismiss"]
+        XCTAssertTrue(dismiss.exists)
+        dismiss.click()
+        XCTAssertFalse(status.waitForExistence(timeout: 1))
+    }
+
+    func testFailedImportStatusCanBeRetriedAndDismissed() {
+        continueAfterFailure = false
+        let app = launchApp(environment: ["CUEME_UI_TEST_IMPORT_STATUS": "failed"])
+        defer { app.terminate() }
+
+        let status = app.descendants(matching: .any)["import.status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertEqual(status.value as? String, "failed")
+        let retry = app.buttons["import.retry"]
+        XCTAssertTrue(retry.exists)
+        retry.click()
+
+        let dismiss = app.buttons["import.dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 3))
+        XCTAssertEqual(status.value as? String, "completed")
+        dismiss.click()
+        XCTAssertFalse(status.waitForExistence(timeout: 1))
     }
 
     func testLiveCoachSuggestionSurvivesIntoSessionHistory() {
@@ -159,7 +338,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Vamos dividir a entrega em marcos semanais."].exists)
 
         primary.click()
-        XCTAssertTrue(app.staticTexts["Biblioteca"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.groups["workspace.library"].waitForExistence(timeout: 5))
         app.buttons["session.tab.coach"].click()
         XCTAssertTrue(app.staticTexts["Explique mitigação e prazo"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Vamos dividir a entrega em marcos semanais."].exists)

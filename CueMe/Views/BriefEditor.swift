@@ -29,6 +29,7 @@ struct BriefEditor: View {
                 Button("Concluir") { dismiss() }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.escape, modifiers: [])
+                    .accessibilityIdentifier("settings.close")
             }
             .padding(14)
 
@@ -189,11 +190,13 @@ struct BriefEditor: View {
                         SecureField("API key (sk-…)", text: $deepseekKey)
                             .textContentType(.password)
                             .onChange(of: deepseekKey) { _, new in
+                                guard !app.isUITesting else { return }
                                 DeepSeekCredential.setAPIKey(new)
                                 app.refreshBackendStatus()
                             }
                         TextField("Endpoint", text: $deepseekBaseURL, prompt: Text(DeepSeekCredential.defaultBaseURL))
                             .onChange(of: deepseekBaseURL) { _, new in
+                                guard !app.isUITesting else { return }
                                 DeepSeekCredential.baseURL = new
                             }
                     } header: {
@@ -210,6 +213,7 @@ struct BriefEditor: View {
                         SecureField("API key", text: $deepgramKey)
                             .textContentType(.password)
                             .onChange(of: deepgramKey) { _, new in
+                                guard !app.isUITesting else { return }
                                 DeepgramCredential.setAPIKey(new)
                                 app.refreshBackendStatus()
                             }
@@ -258,6 +262,7 @@ struct BriefEditor: View {
                 Section("Objetivo") {
                     TextField("O que você quer desta conversa", text: $app.brief.goal, axis: .vertical)
                         .lineLimit(2...3)
+                        .accessibilityIdentifier("settings.goal")
                 }
 
                 Section("Contexto") {
@@ -300,12 +305,20 @@ struct BriefEditor: View {
             .formStyle(.grouped)
         }
         .frame(width: 560, height: 640)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings.sheet")
         .sheet(isPresented: $showingContexts) {
             ContextLibraryView()
                 .environment(app)
         }
         .onAppear {
             selectedProfileID = app.activeProfileID
+            guard !app.isUITesting else {
+                deepseekKey = ""
+                deepgramKey = ""
+                deepseekBaseURL = ""
+                return
+            }
             deepseekKey = DeepSeekCredential.apiKey ?? ""
             deepgramKey = DeepgramCredential.apiKey ?? ""
             let stored = DeepSeekCredential.baseURL

@@ -9,6 +9,7 @@ import Sparkle
 @MainActor
 @Observable
 final class AppModel {
+    let isUITesting: Bool
     var transcript: [TranscriptLine] = []
     var summaryBullets: [String] = []
     var minutes: MeetingMinutes = .empty
@@ -26,7 +27,7 @@ final class AppModel {
 
     var brief: SessionBrief {
         didSet {
-            BriefStore.save(brief)
+            if !isUITesting { BriefStore.save(brief) }
             if brief != oldValue { invalidateContextGlossary() }
         }
     }
@@ -34,13 +35,13 @@ final class AppModel {
     var activeProfileID: UUID?
     var contexts: [MeetingContext] = [] {
         didSet {
-            MeetingContextStore.save(contexts)
+            if !isUITesting { MeetingContextStore.save(contexts) }
             invalidateContextGlossary()
         }
     }
     var selectedContextIDs: Set<UUID> = [] {
         didSet {
-            MeetingContextStore.saveSelection(selectedContextIDs)
+            if !isUITesting { MeetingContextStore.saveSelection(selectedContextIDs) }
             invalidateContextGlossary()
         }
     }
@@ -48,25 +49,27 @@ final class AppModel {
     var glossaryGenerationState: GlossaryGenerationState = .idle
 
     var sttSource: SttSource = .native {
-        didSet { UserDefaults.standard.set(sttSource.rawValue, forKey: Self.sttSourceKey) }
+        didSet {
+            if !isUITesting { UserDefaults.standard.set(sttSource.rawValue, forKey: Self.sttSourceKey) }
+        }
     }
     var coachModel: CoachModel = .sonnet {        // default keyless; DeepSeek é opt-in
         didSet {
-            UserDefaults.standard.set(coachModel.rawValue, forKey: Self.coachModelKey)
+            if !isUITesting { UserDefaults.standard.set(coachModel.rawValue, forKey: Self.coachModelKey) }
             guard coachModel != oldValue, isRunning else { return }
             Task { [coordinator, coachModel] in await coordinator?.switchCoachModel(to: coachModel) }
         }
     }
     var summaryModel: CoachModel = .opus {
         didSet {
-            UserDefaults.standard.set(summaryModel.rawValue, forKey: Self.summaryModelKey)
+            if !isUITesting { UserDefaults.standard.set(summaryModel.rawValue, forKey: Self.summaryModelKey) }
             guard summaryModel != oldValue, isRunning else { return }
             Task { [coordinator, summaryModel] in await coordinator?.switchSummaryModel(to: summaryModel) }
         }
     }
     var glossaryModel: CoachModel = .sonnet {
         didSet {
-            UserDefaults.standard.set(glossaryModel.rawValue, forKey: Self.glossaryModelKey)
+            if !isUITesting { UserDefaults.standard.set(glossaryModel.rawValue, forKey: Self.glossaryModelKey) }
             if glossaryModel != oldValue { invalidateContextGlossary() }
         }
     }
@@ -77,11 +80,17 @@ final class AppModel {
     private static let themePreferenceKey = "themePreference"
     private static let usePersonalMemoryInCoachKey = "usePersonalMemoryInCoach"
     var themePreference: AppThemePreference = .system {
-        didSet { UserDefaults.standard.set(themePreference.rawValue, forKey: Self.themePreferenceKey) }
+        didSet {
+            if !isUITesting {
+                UserDefaults.standard.set(themePreference.rawValue, forKey: Self.themePreferenceKey)
+            }
+        }
     }
     var usePersonalMemoryInCoach = true {
         didSet {
-            UserDefaults.standard.set(usePersonalMemoryInCoach, forKey: Self.usePersonalMemoryInCoachKey)
+            if !isUITesting {
+                UserDefaults.standard.set(usePersonalMemoryInCoach, forKey: Self.usePersonalMemoryInCoachKey)
+            }
         }
     }
     var echoCancellation: Bool = false     // AEC experimental (sem fones); default off
@@ -140,7 +149,9 @@ final class AppModel {
     var sessionArtifacts: [SessionArtifact] = []
     var participantNames: [Speaker: String] = [.self: "Você", .other: "Interlocutor"]
     var vocabulary: CustomVocabulary = .init() {
-        didSet { CustomVocabularyStore.save(vocabulary) }
+        didSet {
+            if !isUITesting { CustomVocabularyStore.save(vocabulary) }
+        }
     }
     var noteDraft = ""
     var postSessionPrompt = ""
@@ -168,24 +179,30 @@ final class AppModel {
 
     private var coordinator: SessionCoordinator?
 
-    init() {
-        self.brief = BriefStore.load()
-        if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
-            self.brief.mode = .meeting
+    init(isUITesting: Bool? = nil) {
+        let uiTesting = isUITesting
+            ?? (ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1")
+        self.isUITesting = uiTesting
+        self.brief = uiTesting ? UITestFixtures.brief : BriefStore.load()
+        if uiTesting {
+            self.brief.mode = ProcessInfo.processInfo.environment["CUEME_UI_TEST_PASSIVE_MODE"] == "1"
+                ? .recording
+                : .meeting
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("CueMeUITests-archive", isDirectory: true)
-            try? FileManager.default.removeItem(at: root)
-            SessionStore.rootOverride = root
+            UITestFixtures.configureIsolatedStorage(at: root)
             if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1" {
-                ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
                 try? UITestFixtures.enqueueVoiceMemoImport()
             }
         }
-        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-            || ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1"
+        let isTesting = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || uiTesting
         // The updater never starts under UI testing, so E2E drives the status
         // surface through a fixture instead of the network.
         if let fixture = ProcessInfo.processInfo.environment["CUEME_UI_TEST_UPDATE_STATUS"] {
             self.updateStatus = Self.uiTestUpdateStatus(fixture)
+        }
+        if uiTesting,
+           let fixture = ProcessInfo.processInfo.environment["CUEME_UI_TEST_IMPORT_STATUS"] {
+            self.audioImportStatus = UITestFixtures.audioImportStatus(named: fixture)
         }
         let hasClaude = ClaudeClient().isAvailable
         // An ad-hoc XCTest host has a different Keychain identity and macOS may
@@ -201,16 +218,19 @@ final class AppModel {
            let saved = SttSource(rawValue: raw) {
             self.sttSource = saved
         }
-        if let raw = UserDefaults.standard.string(forKey: Self.themePreferenceKey),
-           let saved = AppThemePreference(rawValue: raw) {
-            self.themePreference = saved
-        }
-        if UserDefaults.standard.object(forKey: Self.usePersonalMemoryInCoachKey) != nil {
-            self.usePersonalMemoryInCoach = UserDefaults.standard.bool(forKey: Self.usePersonalMemoryInCoachKey)
+        if !uiTesting {
+            if let raw = UserDefaults.standard.string(forKey: Self.themePreferenceKey),
+               let saved = AppThemePreference(rawValue: raw) {
+                self.themePreference = saved
+            }
+            if UserDefaults.standard.object(forKey: Self.usePersonalMemoryInCoachKey) != nil {
+                self.usePersonalMemoryInCoach = UserDefaults.standard.bool(forKey: Self.usePersonalMemoryInCoachKey)
+            }
         }
 
         var selected: CoachModel = .sonnet
-        if let raw = UserDefaults.standard.string(forKey: Self.coachModelKey),
+        if !uiTesting,
+           let raw = UserDefaults.standard.string(forKey: Self.coachModelKey),
            let saved = CoachModel(rawValue: raw) {
             selected = saved
         }
@@ -222,54 +242,67 @@ final class AppModel {
             deepSeekAvailable: hasDeepSeek
         )
         let defaultSummary = CoachModel.defaultSummaryModel(for: self.coachModel)
-        let savedSummary = UserDefaults.standard.string(forKey: Self.summaryModelKey)
-            .flatMap(CoachModel.init(rawValue:)) ?? defaultSummary
+        let savedSummary = uiTesting
+            ? defaultSummary
+            : UserDefaults.standard.string(forKey: Self.summaryModelKey)
+                .flatMap(CoachModel.init(rawValue:)) ?? defaultSummary
         self.summaryModel = CoachModel.resolved(
             preferred: savedSummary,
             claudeAvailable: hasClaude,
             deepSeekAvailable: hasDeepSeek
         )
-        let savedGlossary = UserDefaults.standard.string(forKey: Self.glossaryModelKey)
-            .flatMap(CoachModel.init(rawValue:)) ?? self.summaryModel
+        let savedGlossary = uiTesting
+            ? self.summaryModel
+            : UserDefaults.standard.string(forKey: Self.glossaryModelKey)
+                .flatMap(CoachModel.init(rawValue:)) ?? self.summaryModel
         self.glossaryModel = CoachModel.resolved(
             preferred: savedGlossary,
             claudeAvailable: hasClaude,
             deepSeekAvailable: hasDeepSeek
         )
-        self.vocabulary = CustomVocabularyStore.load()
+        self.vocabulary = uiTesting ? .init() : CustomVocabularyStore.load()
         translationPipe.onResult = { [weak self] id, text in
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
         updateReporter.onChange = { [weak self] status in self?.updateStatus = status }
-        let entities = KnowledgeEntityStore.load()
-        let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
-        self.projects = fileProjects
-        self.people = entities.people
-        let loadedHistory = SessionStore.loadAll()
-        self.history = isTesting
-            ? loadedHistory
-            : SessionStore.migrateToWorkspace(loadedHistory, projects: fileProjects)
-        self.knowledgeIndex.rebuild(history)
-        if !isTesting { try? KnowledgeEntityStore.save(projects: fileProjects, people: entities.people) }
-        if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
+        if uiTesting {
             let fixture = UITestFixtures.memory
             self.history = fixture.records
             self.projects = fixture.projects
             self.people = fixture.people
             self.knowledgeIndex.rebuild(history)
+        } else {
+            let entities = KnowledgeEntityStore.load()
+            let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
+            self.projects = fileProjects
+            self.people = entities.people
+            let loadedHistory = SessionStore.loadAll()
+            self.history = isTesting
+                ? loadedHistory
+                : SessionStore.migrateToWorkspace(loadedHistory, projects: fileProjects)
+            self.knowledgeIndex.rebuild(history)
+            if !isTesting { try? KnowledgeEntityStore.save(projects: fileProjects, people: entities.people) }
         }
-        self.profiles = BriefProfileStore.load()
-        self.contexts = MeetingContextStore.load()
-        let availableIDs = Set(contexts.map(\.id))
-        self.selectedContextIDs = MeetingContextStore.loadSelection().intersection(availableIDs)
-        if let cache = MeetingContextStore.loadCache(),
-           cache.signature == ContextGlossaryRequest.signature(
-               contexts: contexts.filter { selectedContextIDs.contains($0.id) },
-               brief: brief,
-               model: glossaryModel
-           ) {
-            self.generatedContextKeyterms = cache.terms
-            self.glossaryGenerationState = .ready(cache.terms.count)
+        if uiTesting {
+            self.profiles = [UITestFixtures.profile]
+            self.contexts = []
+            self.selectedContextIDs = []
+            self.generatedContextKeyterms = []
+            self.glossaryGenerationState = .idle
+        } else {
+            self.profiles = BriefProfileStore.load()
+            self.contexts = MeetingContextStore.load()
+            let availableIDs = Set(contexts.map(\.id))
+            self.selectedContextIDs = MeetingContextStore.loadSelection().intersection(availableIDs)
+            if let cache = MeetingContextStore.loadCache(),
+               cache.signature == ContextGlossaryRequest.signature(
+                   contexts: contexts.filter { selectedContextIDs.contains($0.id) },
+                   brief: brief,
+                   model: glossaryModel
+               ) {
+                self.generatedContextKeyterms = cache.terms
+                self.glossaryGenerationState = .ready(cache.terms.count)
+            }
         }
     }
 
@@ -362,7 +395,14 @@ final class AppModel {
     // MARK: - Comandos
 
     func start() {
-        if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
+        if isUITesting {
+            if ProcessInfo.processInfo.environment["CUEME_UI_TEST_HOLD_PREPARING"] == "1" {
+                sessionState = .preparing
+                micCaptureState = .waiting
+                systemCaptureState = .waiting
+                selectedSessionID = nil
+                return
+            }
             beginUITestLiveSession()
             return
         }
@@ -435,7 +475,7 @@ final class AppModel {
     }
 
     func stop() {
-        if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1", sessionStartedAt != nil {
+        if isUITesting, sessionStartedAt != nil {
             sessionState = .stopping
             saveSessionRecord(stopResult: .init(audioDuration: 75, recordingStartedAt: sessionStartedAt))
             activeCoachCardID = nil
@@ -464,6 +504,9 @@ final class AppModel {
         let systemCaptureDenied = ProcessInfo.processInfo.environment[
             "CUEME_UI_TEST_SYSTEM_CAPTURE_DENIED"
         ] == "1"
+        let microphoneSilent = ProcessInfo.processInfo.environment[
+            "CUEME_UI_TEST_MIC_SILENT"
+        ] == "1"
         let questionID = UUID(uuidString: "60000000-0000-0000-0000-000000000001")!
         let coachID = UUID(uuidString: "60000000-0000-0000-0000-000000000002")!
         transcript = [
@@ -480,11 +523,11 @@ final class AppModel {
         sessionStartedAt = now
         currentSessionID = UUID(uuidString: "60000000-0000-0000-0000-000000000003")!
         sessionState = .running
-        micCaptureState = .active
+        micCaptureState = microphoneSilent ? .silent : .active
         systemCaptureState = systemCaptureDenied ? .unavailable : .active
         systemCaptureActive = !systemCaptureDenied
         permissionDiagnosis = systemCaptureDenied ? .notGranted : .ready
-        micLevel = 0.65
+        micLevel = microphoneSilent ? 0 : 0.65
         systemLevel = 0.55
         coachBackendReady = true
         selectedSessionID = nil
@@ -638,7 +681,7 @@ final class AppModel {
             activeProfileID = profile.id
         }
         profiles.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        BriefProfileStore.save(profiles)
+        if !isUITesting { BriefProfileStore.save(profiles) }
         return activeProfileID
     }
 
@@ -646,7 +689,7 @@ final class AppModel {
         guard !isSessionBusy else { return }
         profiles.removeAll { $0.id == id }
         if activeProfileID == id { activeProfileID = nil }
-        BriefProfileStore.save(profiles)
+        if !isUITesting { BriefProfileStore.save(profiles) }
     }
 
     func checkForUpdates() {
@@ -670,6 +713,10 @@ final class AppModel {
 
     func runPreflight() {
         guard !preflightRunning, !isSessionBusy else { return }
+        if isUITesting {
+            for check in PreflightCheck.allCases { preflight[check] = .passed }
+            return
+        }
         preflightRunning = true
         for check in PreflightCheck.allCases { preflight[check] = .checking }
         Task { @MainActor [weak self] in
@@ -744,10 +791,24 @@ final class AppModel {
     }
 
     func repairMicrophone() {
+        if isUITesting {
+            micCaptureState = .active
+            micLevel = 0.65
+            recalculateRuntimeHealth()
+            return
+        }
         Task { [coordinator] in await coordinator?.repairMicrophone() }
     }
 
     func repairSystemCapture() {
+        if isUITesting {
+            systemCaptureState = .active
+            systemCaptureActive = true
+            systemLevel = 0.55
+            permissionDiagnosis = .ready
+            recalculateRuntimeHealth()
+            return
+        }
         Task { [coordinator] in await coordinator?.repairSystemCapture() }
     }
 

@@ -170,6 +170,28 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         XCTAssertFalse(ExternalAudioInbox.isSupported(filename: "notes.pdf"))
     }
 
+    func testUITestStorageIsolatesTheArchiveAndExternalAudioInboxTogether() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeUITestIsolation-\(UUID().uuidString)", isDirectory: true)
+        let previousArchive = SessionStore.rootOverride
+        let previousInbox = ExternalAudioInbox.rootOverride
+        defer {
+            SessionStore.rootOverride = previousArchive
+            ExternalAudioInbox.rootOverride = previousInbox
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        UITestFixtures.configureIsolatedStorage(at: root)
+        let queued = try ExternalAudioInbox.enqueue(data: Data("audio".utf8), filename: "fixture.m4a")
+
+        XCTAssertEqual(SessionStore.rootOverride?.standardizedFileURL, root.standardizedFileURL)
+        XCTAssertEqual(
+            ExternalAudioInbox.rootOverride?.standardizedFileURL,
+            root.appendingPathComponent("IncomingAudio", isDirectory: true).standardizedFileURL
+        )
+        XCTAssertTrue(queued.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/"))
+    }
+
     func testExternalAudioInboxPrefersConcreteVoiceMemoTypeOverGenericAudio() {
         let selected = ExternalAudioInbox.preferredAudioTypeIdentifier(
             from: [UTType.audio.identifier, UTType.mpeg4Audio.identifier]
