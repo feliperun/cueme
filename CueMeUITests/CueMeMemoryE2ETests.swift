@@ -93,6 +93,70 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(app.buttons["timeline.meeting-20000000-0000-0000-0000-000000000002"].exists)
     }
 
+    func testProjectTreeChildrenIgnoreSearchAndSelectBothProjectAndNote() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+        let projectID = "10000000-0000-0000-0000-000000000001"
+        let recordID = "20000000-0000-0000-0000-000000000001"
+        let disclosure = app.buttons["tree.project.disclosure.\(projectID)"]
+        XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
+        XCTAssertEqual(disclosure.value as? String, "collapsed")
+        disclosure.click()
+        XCTAssertEqual(disclosure.value as? String, "expanded")
+
+        let treeRecord = app.buttons["tree.note.\(recordID)"]
+        XCTAssertTrue(treeRecord.waitForExistence(timeout: 3))
+        disclosure.click()
+        XCTAssertEqual(disclosure.value as? String, "collapsed")
+        XCTAssertFalse(treeRecord.exists, "A non-forced explicit disclosure must collapse")
+        disclosure.click()
+        XCTAssertEqual(disclosure.value as? String, "expanded")
+        XCTAssertTrue(treeRecord.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons.matching(identifier: "tree.note.\(recordID)").count, 1)
+        XCTAssertEqual(app.buttons.matching(identifier: "session.\(recordID)").count, 1)
+
+        let search = app.textFields["memory.search"]
+        search.click()
+        search.typeText("no matching library result")
+        XCTAssertTrue(treeRecord.exists, "Tree children must be sourced from unfiltered history")
+        XCTAssertFalse(app.buttons["session.\(recordID)"].exists)
+
+        treeRecord.click()
+        XCTAssertEqual(search.value as? String, "")
+        XCTAssertEqual(app.buttons["project.\(projectID)"].value as? String, "selected")
+        XCTAssertEqual(treeRecord.value as? String, "selected")
+        XCTAssertTrue(app.buttons["session.\(recordID)"].waitForExistence(timeout: 3))
+        XCTAssertEqual(disclosure.value as? String, "forced-expanded")
+        XCTAssertFalse(disclosure.isEnabled)
+        XCTAssertTrue(treeRecord.exists, "The selected note's project must remain expanded")
+    }
+
+    func testLiveTreeChildIsSyntheticAndReturnsToTheActiveSession() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+        let projectID = "10000000-0000-0000-0000-000000000001"
+        let recordID = "20000000-0000-0000-0000-000000000001"
+
+        let project = app.buttons["project.\(projectID)"]
+        XCTAssertTrue(project.waitForExistence(timeout: 5))
+        project.click()
+        XCTAssertTrue(app.buttons["tree.note.\(recordID)"].waitForExistence(timeout: 3))
+
+        app.buttons["session.primary"].click()
+        let live = app.buttons["tree.live"]
+        XCTAssertTrue(live.waitForExistence(timeout: 5))
+        XCTAssertEqual(live.value as? String, projectID)
+        XCTAssertEqual(app.buttons.matching(identifier: "tree.live").count, 1)
+        XCTAssertEqual(app.buttons.matching(identifier: "tree.note.\(recordID)").count, 1)
+
+        app.buttons["tree.note.\(recordID)"].click()
+        XCTAssertFalse(app.buttons["live.note"].exists)
+        live.click()
+        XCTAssertTrue(app.buttons["live.note"].waitForExistence(timeout: 3))
+    }
+
     func testLiveSessionRecordsTranscriptNoteAndCreatesDurableHistory() {
         continueAfterFailure = false
         let app = launchApp()

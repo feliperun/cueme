@@ -42,6 +42,10 @@ enum UITestFixtures {
         ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
     }
 
+    static func semanticIndexURL(at root: URL) -> URL {
+        root.appendingPathComponent("Derived/Memory/memory.sqlite3")
+    }
+
     static func audioImportStatus(named name: String) -> AudioImportStatus? {
         let fixtureSessionID = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
         switch name {

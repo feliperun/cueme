@@ -127,7 +127,7 @@ final class AppModel {
 
     // Histórico de sessões e índice local pré-normalizado para busca instantânea.
     @ObservationIgnored private var knowledgeIndex = SessionKnowledgeIndex()
-    @ObservationIgnored private let semanticMemoryIndex = SemanticMemoryIndex.shared
+    @ObservationIgnored private let semanticMemoryIndex: SemanticMemoryIndex
     var history: [SessionRecord] = [] {
         didSet { knowledgeIndex.rebuild(history) }
     }
@@ -182,14 +182,25 @@ final class AppModel {
     init(isUITesting: Bool? = nil) {
         let uiTesting = isUITesting
             ?? (ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1")
+        let uiTestRoot = uiTesting
+            ? FileManager.default.temporaryDirectory
+                .appendingPathComponent("CueMeUITests-archive", isDirectory: true)
+            : nil
+        if let uiTestRoot {
+            UITestFixtures.configureIsolatedStorage(at: uiTestRoot)
+        }
         self.isUITesting = uiTesting
+        self.semanticMemoryIndex = uiTestRoot.map {
+            SemanticMemoryIndex(
+                embedder: UITestFixtures.Embedding(),
+                url: UITestFixtures.semanticIndexURL(at: $0)
+            )
+        } ?? SemanticMemoryIndex.shared
         self.brief = uiTesting ? UITestFixtures.brief : BriefStore.load()
         if uiTesting {
             self.brief.mode = ProcessInfo.processInfo.environment["CUEME_UI_TEST_PASSIVE_MODE"] == "1"
                 ? .recording
                 : .meeting
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("CueMeUITests-archive", isDirectory: true)
-            UITestFixtures.configureIsolatedStorage(at: root)
             if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1" {
                 try? UITestFixtures.enqueueVoiceMemoImport()
             }
@@ -306,6 +317,13 @@ final class AppModel {
         }
     }
 
+#if DEBUG
+    var semanticMemoryIndexURLForTesting: URL { semanticMemoryIndex.storageURL }
+    var semanticMemoryIndexedSessionIDsForTesting: Set<UUID> {
+        semanticMemoryIndex.indexedSessionIDsForTesting()
+    }
+#endif
+
     // MARK: - Tradução
 
     func configureTranslation(source: String, target: String) {
@@ -369,7 +387,7 @@ final class AppModel {
             (libraryProjectFilterID == nil || record.projectID == libraryProjectFilterID)
                 && (libraryLabelFilter == nil || record.labels.contains(libraryLabelFilter ?? ""))
         }
-        let hybrid = semanticMemoryIndex.search(
+        let hybrid = searchSemanticMemory(
             query: historySearch,
             date: historyDateFilter,
             type: historyTypeFilter,
@@ -380,6 +398,15 @@ final class AppModel {
         }
         return SessionKnowledgeIndex(records: scopedHistory)
             .search(query: historySearch, date: historyDateFilter, type: historyTypeFilter)
+    }
+
+    func searchSemanticMemory(
+        query: String,
+        date: HistoryDateFilter,
+        type: HistoryTypeFilter,
+        records: [SessionRecord]
+    ) -> [SessionSearchResult] {
+        semanticMemoryIndex.search(query: query, date: date, type: type, records: records)
     }
 
     var filteredHistory: [SessionRecord] {
