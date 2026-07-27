@@ -23,7 +23,7 @@ extension AppModel {
         libraryProjectFilterID = nil
         activeProjectID = nil
         libraryLabelFilter = nil
-        historyTypeFilter = section == .journal ? .journal : .all
+        historyTypeFilter = .all
     }
 
     /// Tree → select a project folder.
@@ -35,11 +35,15 @@ extension AppModel {
         historyTypeFilter = .all
     }
 
-    /// Notes shown in the middle column for the current tree selection.
-    var libraryNotes: [SessionRecord] {
-        var base = filteredHistory
-        if librarySection == .inbox { base = base.filter { $0.projectID == nil } }
-        return base
+    /// One projection per render keeps semantic search, snippets and tab counts
+    /// on the same result set instead of querying the index once per control.
+    var noteListProjection: NoteListProjection {
+        NoteListProjection(
+            history: history,
+            searchResults: historySearchResults(typeFilter: .all),
+            section: librarySection,
+            selectedType: historyTypeFilter
+        )
     }
 
     /// Records nested under a project in the tree always come from the complete

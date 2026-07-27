@@ -47,7 +47,7 @@ final class ProjectTreeProjectionTests: XCTestCase {
         app.historySearch = "does not match"
         app.historyTypeFilter = .note
 
-        XCTAssertTrue(app.libraryNotes.isEmpty)
+        XCTAssertTrue(app.noteListProjection.visibleRecords.isEmpty)
         XCTAssertEqual(app.projectTreeRecords(for: projectID).map(\.id), [newer.id, older.id])
     }
 
@@ -108,7 +108,7 @@ final class ProjectTreeProjectionTests: XCTestCase {
         XCTAssertEqual(app.historyDateFilter, .all)
         XCTAssertEqual(app.historySearch, "")
         XCTAssertNil(app.libraryLabelFilter)
-        XCTAssertEqual(app.libraryNotes.map(\.id), [record.id])
+        XCTAssertEqual(app.noteListProjection.visibleRecords.map(\.id), [record.id])
     }
 
     func testLiveChildOnlyBelongsToTheActiveProjectWhileRunning() {

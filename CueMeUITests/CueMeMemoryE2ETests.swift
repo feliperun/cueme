@@ -132,6 +132,31 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(treeRecord.exists, "The selected note's project must remain expanded")
     }
 
+    func testNoteListTabsExposeStableCountsAndFilterTheVisibleKind() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let all = app.buttons["note-list.tab.all"]
+        let meetings = app.buttons["note-list.tab.meetings"]
+        let notes = app.buttons["note-list.tab.notes"]
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        XCTAssertEqual(all.label, "All 2")
+        XCTAssertEqual(all.value as? String, "selected;2")
+        XCTAssertEqual(meetings.value as? String, "unselected;2")
+        XCTAssertEqual(notes.value as? String, "unselected;0")
+
+        meetings.click()
+        XCTAssertEqual(all.value as? String, "unselected;2")
+        XCTAssertEqual(meetings.value as? String, "selected;2")
+        XCTAssertEqual(app.buttons.matching(identifier: "session.20000000-0000-0000-0000-000000000001").count, 1)
+
+        notes.click()
+        XCTAssertEqual(notes.value as? String, "selected;0")
+        XCTAssertFalse(app.buttons["session.20000000-0000-0000-0000-000000000001"].exists)
+        XCTAssertEqual(all.label, "All 2", "The All count must not inherit the selected type")
+    }
+
     func testLiveTreeChildIsSyntheticAndReturnsToTheActiveSession() {
         continueAfterFailure = false
         let app = launchApp()

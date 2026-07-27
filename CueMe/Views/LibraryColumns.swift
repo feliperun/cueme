@@ -7,15 +7,16 @@ struct NoteListColumn: View {
     @State private var compact = false
 
     var body: some View {
+        let projection = app.noteListProjection
         VStack(spacing: 0) {
-            header
-            list
+            header(projection)
+            list(projection)
         }
         .frame(width: 298)
         .background(Theme.list)
     }
 
-    private var header: some View {
+    private func header(_ projection: NoteListProjection) -> some View {
         VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 3)
@@ -31,9 +32,9 @@ struct NoteListColumn: View {
                 .buttonStyle(.plain)
             }
             HStack(spacing: 14) {
-                tab("All", filter: .all)
-                tab("Meetings", filter: .meeting)
-                tab("Notes", filter: .note)
+                tab("All \(projection.count(for: .all))", filter: .all, identifier: "all", projection: projection)
+                tab("Meetings", filter: .meeting, identifier: "meetings", projection: projection)
+                tab("Notes", filter: .note, identifier: "notes", projection: projection)
             }
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 10)
@@ -49,8 +50,14 @@ struct NoteListColumn: View {
         .buttonStyle(.plain)
     }
 
-    private func tab(_ title: String, filter: HistoryTypeFilter) -> some View {
+    private func tab(
+        _ title: String,
+        filter: HistoryTypeFilter,
+        identifier: String,
+        projection: NoteListProjection
+    ) -> some View {
         let active = app.historyTypeFilter == filter
+        let count = projection.count(for: filter)
         return Button { app.historyTypeFilter = filter } label: {
             Text(title).font(.ui(11, .semibold))
                 .foregroundStyle(active ? Theme.ink : Theme.faint)
@@ -60,14 +67,16 @@ struct NoteListColumn: View {
                 }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("note-list.tab.\(identifier)")
+        .accessibilityValue("\(active ? "selected" : "unselected");\(count)")
     }
 
-    private var list: some View {
+    private func list(_ projection: NoteListProjection) -> some View {
         ScrollView {
             LazyVStack(spacing: 2) {
                 if app.isRunning { LiveNoteRow() }
-                ForEach(app.libraryNotes) { record in
-                    NoteRow(record: record, snippet: app.historySnippet(for: record.id), compact: compact)
+                ForEach(projection.visibleRecords) { record in
+                    NoteRow(record: record, snippet: projection.snippet(for: record.id), compact: compact)
                 }
             }
             .padding(7)
@@ -201,10 +210,10 @@ private struct LivePulse: ViewModifier {
 
 enum LibraryFormat {
     static func kindTag(_ r: SessionRecord) -> String {
-        switch r.noteKind {
+        switch r.libraryPresentationKind {
         case .note: return "NOTE"
         case .journal: return "JOURNAL"
-        default: return (r.containsRecording || r.origin == .live) ? "MEETING" : "NOTE"
+        case .meeting: return "MEETING"
         }
     }
 

@@ -19,8 +19,8 @@
 |---|---|---|---|---|
 | p1a | #37 | Implementar titlebar e migrar capacidades do HeaderBar com E2E | — | **completed** |
 | p1b | #37 | Implementar árvore hierárquica e live sintético | p1a | **completed** |
-| p1c | #37 | Corrigir filtros, contagens e identifiers da note list | p1b | **in_progress** |
-| p1d | #37 | Verificar, documentar e finalizar PR 1 | p1c | **pending** |
+| p1c | #37 | Corrigir filtros, contagens e identifiers da note list | p1b | **completed** |
+| p1d | #37 | Verificar, documentar e finalizar PR 1 | p1c | **in_progress** |
 | p2 | #37 | Header, masthead e blank note focável | PR 1 merged | **pending** |
 | p3 | #37 | Contrato seguro e lossless dos meeting blocks | PR 2 merged | **pending** |
 | p4 | #37 | Documento único de reunião com paridade do review | PR 3 merged | **pending** |
@@ -33,6 +33,7 @@
 |---|---|
 | `3245980` | `docs(gh-37): add reviewed redesign execution plan` |
 | `eb7eda6` | `feat(gh-37): migrate workspace shell chrome` |
+| `8fd165e` | `feat(gh-37): add hierarchical project tree` |
 
 ### Baseline local
 

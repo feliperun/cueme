@@ -382,24 +382,6 @@ final class AppModel {
         return coachCards.first(where: { $0.id == activeCoachCardID })
     }
 
-    var historySearchResults: [SessionSearchResult] {
-        let scopedHistory = history.filter { record in
-            (libraryProjectFilterID == nil || record.projectID == libraryProjectFilterID)
-                && (libraryLabelFilter == nil || record.labels.contains(libraryLabelFilter ?? ""))
-        }
-        let hybrid = searchSemanticMemory(
-            query: historySearch,
-            date: historyDateFilter,
-            type: historyTypeFilter,
-            records: scopedHistory
-        )
-        if !hybrid.isEmpty || historySearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return hybrid
-        }
-        return SessionKnowledgeIndex(records: scopedHistory)
-            .search(query: historySearch, date: historyDateFilter, type: historyTypeFilter)
-    }
-
     func searchSemanticMemory(
         query: String,
         date: HistoryDateFilter,
@@ -407,16 +389,6 @@ final class AppModel {
         records: [SessionRecord]
     ) -> [SessionSearchResult] {
         semanticMemoryIndex.search(query: query, date: date, type: type, records: records)
-    }
-
-    var filteredHistory: [SessionRecord] {
-        let records = Dictionary(uniqueKeysWithValues: history.map { ($0.id, $0) })
-        return historySearchResults.compactMap { records[$0.recordID] }
-    }
-
-    func historySnippet(for recordID: UUID) -> String? {
-        guard !historySearch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return historySearchResults.first { $0.recordID == recordID }?.snippet
     }
 
     // MARK: - Comandos
