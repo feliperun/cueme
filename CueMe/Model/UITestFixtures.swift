@@ -108,7 +108,9 @@ enum UITestFixtures {
         func embedding(for text: String) -> [Float] {
             var vector = [Float](repeating: 0, count: dimensions)
             let value = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            if value.contains("veiculo") || value.contains("carro") || value.contains("sustentavel") {
+            if value.contains("no matching library result") {
+                vector[47] = 1
+            } else if value.contains("veiculo") || value.contains("carro") || value.contains("sustentavel") {
                 vector[17] = 1
             } else {
                 vector[31] = 1
