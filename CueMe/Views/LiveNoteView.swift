@@ -231,6 +231,7 @@ struct LiveNoteView: View {
             }
             .menuStyle(.borderlessButton).fixedSize()
             .accessibilityIdentifier("live.more")
+            .accessibilityValue(app.silenceMode ? "on" : "off")
 
             Button(action: app.stop) {
                 Label("Stop & save", systemImage: "stop.fill")

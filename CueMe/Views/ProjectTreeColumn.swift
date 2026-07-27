@@ -56,7 +56,6 @@ struct ProjectTreeColumn: View {
                 .background(Theme.violet, in: RoundedRectangle(cornerRadius: 6))
             Menu {
                 Button("Nova sessão") { app.newSession() }
-                    .keyboardShortcut("n", modifiers: [.command])
                     .disabled(app.sessionState == .preparing || app.sessionState == .stopping)
                     .accessibilityIdentifier("workspace.new-session")
                 Divider()
@@ -107,6 +106,7 @@ struct ProjectTreeColumn: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .accessibilityIdentifier("workspace.menu")
+            .accessibilityValue(workspaceMenuAccessibilityValue)
 
             Spacer()
             Menu {
@@ -253,6 +253,13 @@ struct ProjectTreeColumn: View {
             if app.isRunning { return "Parar" }
             return app.selectedSession == nil ? "Iniciar" : "Gravar"
         }
+    }
+
+    private var workspaceMenuAccessibilityValue: String {
+        let pin = app.pinned ? "on" : "off"
+        let training = app.trainingMode ? "on" : "off"
+        let profile = app.activeProfileID?.uuidString ?? "none"
+        return "pin=\(pin);training=\(training);profile=\(profile)"
     }
 
     private func createProject() {

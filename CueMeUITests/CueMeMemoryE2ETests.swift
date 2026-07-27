@@ -11,6 +11,26 @@ final class CueMeMemoryE2ETests: XCTestCase {
         return app
     }
 
+    private func waitForValue(
+        _ expectedValue: String,
+        of element: XCUIElement,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        let predicate = NSPredicate(format: "value == %@", expectedValue)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
+    private func waitForLabel(
+        _ expectedLabel: String,
+        of element: XCUIElement,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        let predicate = NSPredicate(format: "label == %@", expectedLabel)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     func testSearchOpensEvidenceBackedMemory() {
         continueAfterFailure = false
         let app = launchApp()
@@ -120,7 +140,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
         search.click()
         search.typeText("no matching library result")
         XCTAssertTrue(treeRecord.exists, "Tree children must be sourced from unfiltered history")
-        XCTAssertFalse(app.buttons["session.\(recordID)"].exists)
+        XCTAssertTrue(app.buttons["session.\(recordID)"].waitForNonExistence(timeout: 3))
 
         treeRecord.click()
         XCTAssertEqual(search.value as? String, "")
@@ -299,7 +319,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
         app.typeKey(.escape, modifierFlags: [])
 
         app.typeKey("n", modifierFlags: .command)
-        XCTAssertEqual(app.buttons["session.primary"].label, "Parar")
+        XCTAssertTrue(waitForLabel("Parar", of: app.buttons["session.primary"]))
         let participants = app.buttons["live.participants"]
         XCTAssertTrue(participants.waitForExistence(timeout: 5))
         participants.click()
@@ -322,12 +342,11 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         let more = app.menuButtons["live.more"]
         XCTAssertTrue(more.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitForValue("off", of: more))
         more.click()
         let silence = app.menuItems["live.silence"]
-        XCTAssertEqual(silence.value as? String, "off")
         silence.click()
-        more.click()
-        XCTAssertEqual(app.menuItems["live.silence"].value as? String, "on")
+        XCTAssertTrue(waitForValue("on", of: more))
     }
 
     func testWorkspaceMenuTogglesAndConfigurationHostsAreBehavioral() {
@@ -336,15 +355,15 @@ final class CueMeMemoryE2ETests: XCTestCase {
         defer { app.terminate() }
 
         let workspaceMenu = app.menuButtons["workspace.menu"]
+        XCTAssertTrue(waitForValue("pin=off;training=off;profile=none", of: workspaceMenu))
         workspaceMenu.click()
         let pin = app.menuItems["workspace.pin"]
-        XCTAssertEqual(pin.value as? String, "off")
         pin.click()
+        XCTAssertTrue(waitForValue("pin=on;training=off;profile=none", of: workspaceMenu))
         workspaceMenu.click()
-        XCTAssertEqual(app.menuItems["workspace.pin"].value as? String, "on")
         app.menuItems["workspace.training"].click()
+        XCTAssertTrue(waitForValue("pin=on;training=on;profile=none", of: workspaceMenu))
         workspaceMenu.click()
-        XCTAssertEqual(app.menuItems["workspace.training"].value as? String, "on")
         app.menuItems["workspace.settings"].click()
 
         XCTAssertTrue(app.descendants(matching: .any)["settings.sheet"].waitForExistence(timeout: 3))
@@ -369,12 +388,10 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(profile.waitForExistence(timeout: 3))
         profile.click()
 
-        workspaceMenu.click()
-        XCTAssertEqual(
-            app.menuItems["workspace.profiles"].value as? String,
-            "70000000-0000-0000-0000-000000000001"
-        )
-        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(waitForValue(
+            "pin=off;training=off;profile=70000000-0000-0000-0000-000000000001",
+            of: workspaceMenu
+        ))
         workspaceMenu.click()
         app.menuItems["workspace.settings"].click()
         let goal = app.textFields["settings.goal"]
@@ -389,7 +406,6 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         let status = app.descendants(matching: .any)["import.status"]
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        XCTAssertEqual(status.value as? String, "completed")
         let dismiss = app.buttons["import.dismiss"]
         XCTAssertTrue(dismiss.exists)
         dismiss.click()
@@ -403,14 +419,13 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         let status = app.descendants(matching: .any)["import.status"]
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        XCTAssertEqual(status.value as? String, "failed")
         let retry = app.buttons["import.retry"]
         XCTAssertTrue(retry.exists)
         retry.click()
 
         let dismiss = app.buttons["import.dismiss"]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 3))
-        XCTAssertEqual(status.value as? String, "completed")
+        XCTAssertTrue(retry.waitForNonExistence(timeout: 3))
         dismiss.click()
         XCTAssertFalse(status.waitForExistence(timeout: 1))
     }

@@ -24,6 +24,11 @@ struct CueMeApp: App {
         .defaultSize(width: 1_020, height: 760)
         .commands {
             AboutCommand()
+            CommandGroup(replacing: .newItem) {
+                Button("Nova sessão") { app.newSession() }
+                    .keyboardShortcut("n", modifiers: [.command])
+                    .disabled(app.sessionState == .preparing || app.sessionState == .stopping)
+            }
             CommandGroup(after: .windowArrangement) {
                 Button("Mostrar/Ocultar CueMe") { HotkeyManager.toggleMainWindow() }
                     .keyboardShortcut(.space, modifiers: [.option])
