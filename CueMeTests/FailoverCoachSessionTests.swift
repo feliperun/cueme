@@ -27,32 +27,52 @@ final class FailoverCoachSessionTests: XCTestCase {
         XCTAssertEqual(result, "primary")
         await session.shutdown()
     }
+
+    func testPrimaryThatEmitsThenStallsFallsBackWithoutMixingOutputs() async throws {
+        let primary = StubCoachSession(
+            chunks: [("partial", .zero), ("never", .seconds(5))]
+        )
+        let secondary = StubCoachSession(output: "secondary")
+        let session = FailoverCoachSession(
+            primary: primary,
+            secondary: secondary,
+            delay: .milliseconds(20)
+        )
+
+        let result = try await session.complete("hello")
+
+        XCTAssertEqual(result, "secondary")
+        await session.shutdown()
+    }
 }
 
 private actor StubCoachSession: CoachSession {
-    let output: String
-    let delay: Duration
+    let chunks: [(String, Duration)]
 
     init(output: String, delay: Duration = .zero) {
-        self.output = output
-        self.delay = delay
+        self.chunks = [(output, delay)]
+    }
+
+    init(chunks: [(String, Duration)]) {
+        self.chunks = chunks
     }
 
     func send(_ user: String) -> AsyncThrowingStream<String, Error> {
-        let output = output
-        let delay = delay
+        let chunks = chunks
         return AsyncThrowingStream { continuation in
             let task = Task {
-                do { try await Task.sleep(for: delay) }
-                catch { continuation.finish(); return }
-                continuation.yield(output)
+                for (output, delay) in chunks {
+                    do { try await Task.sleep(for: delay) }
+                    catch { continuation.finish(); return }
+                    continuation.yield(output)
+                }
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
-    func complete(_ user: String) async throws -> String { output }
+    func complete(_ user: String) async throws -> String { chunks.map(\.0).joined() }
     func prewarm() async throws {}
     func shutdown() async {}
 }

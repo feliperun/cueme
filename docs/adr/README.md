@@ -65,13 +65,13 @@ proposed → active → superseded
 | [0016](0016-observable-non-cancelling-coach-lanes.md) | Observable, non-cancelling coach lanes | active |
 | [0017](0017-fast-coach-two-speed.md) | Two-speed Fast Coach with an instant local cue | superseded by 0023 |
 | [0018](0018-glanceable-runtime-and-signed-updates.md) | Glanceable runtime and signed updates | active |
-| [0019](0019-reliability-watchdog-and-provider-failover.md) | Runtime watchdog, provider failover, and post-session quality | active |
+| [0019](0019-reliability-watchdog-and-provider-failover.md) | Runtime watchdog, provider failover, and post-session quality | superseded by 0041 |
 | [0020](0020-session-memory-workspace-and-portable-archive.md) | Session memory workspace and portable human-readable archive | superseded by 0031 |
 | [0021](0021-portable-high-quality-meeting-audio.md) | Portable high-quality meeting audio | active |
-| [0022](0022-optional-deepgram-streaming-stt.md) | Optional Deepgram streaming STT | active |
+| [0022](0022-optional-deepgram-streaming-stt.md) | Optional Deepgram streaming STT | superseded by 0039 |
 | [0023](0023-adaptive-coach-and-incremental-minutes.md) | Adaptive coach and incremental meeting minutes | superseded by 0025 |
 | [0024](0024-reusable-contexts-and-preflight-glossary.md) | Reusable contexts and cached preflight glossary | active |
-| [0025](0025-adaptive-live-experience-and-session-review.md) | Adaptive live experience and durable session review | active |
+| [0025](0025-adaptive-live-experience-and-session-review.md) | Adaptive live experience and durable session review | superseded by 0038 |
 | [0026](0026-imported-audio-and-local-knowledge-search.md) | Imported audio sessions and local knowledge search | active |
 | [0027](0027-supported-external-audio-ingress.md) | Supported external audio ingress | active |
 | [0028](0028-evidence-first-longitudinal-semantic-memory.md) | Evidence-first longitudinal memory with hybrid SQLite search | active |
@@ -84,3 +84,7 @@ proposed → active → superseded
 | [0035](0035-automated-release-asset-publishing.md) | Automated release-asset publishing and appcast health | active |
 | [0036](0036-free-personal-team-signing.md) | Free Personal Team signing for auto-update | active |
 | [0037](0037-visible-update-status.md) | Visible update status | active |
+| [0038](0038-latest-coach-cue-and-pinned-review.md) | Latest Coach cue with explicit pinning | active |
+| [0039](0039-lossless-off-main-live-audio-routing.md) | Lossless off-main live audio routing | active |
+| [0040](0040-render-cheap-library-projections-and-live-snapshots.md) | Render-cheap library projections and off-main live snapshots | active |
+| [0041](0041-recoverable-stt-and-stall-aware-coach.md) | Recoverable STT and stall-aware Coach delivery | active |

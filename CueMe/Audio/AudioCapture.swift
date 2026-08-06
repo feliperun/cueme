@@ -24,8 +24,15 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
     private var systemDesired = false
     private var systemRecoveryTask: Task<Void, Never>?
     private var systemRecoveryAttempt = 0
+    private var acceptedChunks: Int64 = 0
+    private var droppedChunks: Int64 = 0
 
     private let signalMonitor = AudioSignalMonitor()
+
+    struct HealthSnapshot: Sendable, Equatable {
+        let acceptedChunks: Int64
+        let droppedChunks: Int64
+    }
 
     private var micRunning = false
     private var systemRunning = false
@@ -39,7 +46,10 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
 
     override init() {
         var cont: AsyncStream<AudioChunk>.Continuation!
-        self.chunks = AsyncStream(bufferingPolicy: .bufferingNewest(64)) { cont = $0 }
+        // Capture is the durable source for both recording and STT. A bounded
+        // `bufferingNewest` stream silently discarded meeting audio whenever the
+        // main actor stalled, so this queue must preserve every accepted chunk.
+        self.chunks = AsyncStream(bufferingPolicy: .unbounded) { cont = $0 }
         self.continuation = cont
         var eventCont: AsyncStream<AudioCaptureEvent>.Continuation!
         self.events = AsyncStream(bufferingPolicy: .bufferingNewest(32)) { eventCont = $0 }
@@ -168,10 +178,10 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
         guard format.sampleRate > 0 else {
             throw CaptureError.noMicFormat
         }
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self, continuation] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             guard let copy = buffer.deepCopy() else { return }
             self?.observeSignal(in: copy, source: .self)
-            continuation.yield(AudioChunk(source: .self, buffer: copy))
+            self?.deliver(AudioChunk(source: .self, buffer: copy))
         }
         engine.prepare()
         do {
@@ -241,7 +251,7 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
         guard type == .audio, sampleBuffer.isValid else { return }
         guard let pcm = AudioConverter.pcmBuffer(from: sampleBuffer) else { return }
         observeSignal(in: pcm, source: .other)
-        continuation.yield(AudioChunk(source: .other, buffer: pcm))
+        deliver(AudioChunk(source: .other, buffer: pcm))
     }
 
     // MARK: - SCStreamDelegate
@@ -266,6 +276,24 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked
 
     private func setSystemDesired(_ desired: Bool) {
         stateLock.lock(); systemDesired = desired; stateLock.unlock()
+    }
+
+    func healthSnapshot() -> HealthSnapshot {
+        stateLock.withLock {
+            .init(acceptedChunks: acceptedChunks, droppedChunks: droppedChunks)
+        }
+    }
+
+    private func deliver(_ chunk: AudioChunk) {
+        let result = continuation.yield(chunk)
+        stateLock.withLock {
+            switch result {
+            case .enqueued: acceptedChunks += 1
+            case .dropped: droppedChunks += 1
+            case .terminated: break
+            @unknown default: break
+            }
+        }
     }
 
     private func wantsSystemCapture() -> Bool {

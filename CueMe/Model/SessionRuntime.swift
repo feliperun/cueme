@@ -186,7 +186,9 @@ enum CoachTriggerPolicy {
 
         let resolvedStyle = style ?? .fallback(for: mode)
         let opportunity = CoachOpportunity.evaluate(text: text, style: resolvedStyle)
-        guard opportunity.isHighConfidence else { return false }
+        let meetingFallback = mode == .meeting
+            && (text.contains("?") || normalized.split(separator: " ").count >= 12)
+        guard opportunity.isHighConfidence || meetingFallback else { return false }
 
         let cooldown: TimeInterval
         switch resolvedStyle {
@@ -198,6 +200,26 @@ enum CoachTriggerPolicy {
         }
         if let lastTriggeredAt, now.timeIntervalSince(lastTriggeredAt) < cooldown { return false }
         return true
+    }
+
+    static func cooldownRemaining(
+        text: String,
+        mode: Mode,
+        style: ConversationStyle,
+        now: Date = Date(),
+        lastTriggeredAt: Date?
+    ) -> TimeInterval {
+        guard let lastTriggeredAt else { return 0 }
+        let opportunity = CoachOpportunity.evaluate(text: text, style: style)
+        let cooldown: TimeInterval
+        switch style {
+        case .interview: cooldown = opportunity.kind == .question ? 5 : 30
+        case .sales: cooldown = opportunity.kind == .question ? 10 : 30
+        case .oneOnOne: cooldown = 30
+        case .technical: cooldown = opportunity.kind == .question ? 12 : 30
+        case .openMeeting: cooldown = opportunity.kind == .question || text.contains("?") ? 20 : 45
+        }
+        return max(0, cooldown - now.timeIntervalSince(lastTriggeredAt))
     }
 }
 

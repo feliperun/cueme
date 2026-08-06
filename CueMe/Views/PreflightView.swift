@@ -6,6 +6,12 @@ struct PreflightView: View {
 
     var body: some View {
         VStack(spacing: 18) {
+            HStack {
+                Spacer()
+                Button("Fechar") { dismiss() }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("preflight.close")
+            }
             HStack(spacing: 14) {
                 ForEach(PreflightCheck.allCases) { check in
                     CheckBadge(label: check.label, status: app.preflight[check] ?? .idle)
@@ -36,6 +42,8 @@ struct PreflightView: View {
         .padding(24)
         .frame(width: 380, height: 205)
         .background(Theme.background)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("preflight.sheet")
         .onAppear { if app.preflight.values.allSatisfy({ $0 == .idle }) { app.runPreflight() } }
     }
 

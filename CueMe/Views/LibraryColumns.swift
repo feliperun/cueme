@@ -1,237 +1,5 @@
 import SwiftUI
 
-/// Which built-in section of the tree is driving the note list.
-enum LibrarySection: Equatable { case all, inbox, journal }
-
-@MainActor
-extension AppModel {
-    /// Tree → select a built-in section (Inbox / All notes / Journal).
-    func selectLibrarySection(_ section: LibrarySection) {
-        librarySection = section
-        libraryProjectFilterID = nil
-        activeProjectID = nil
-        libraryLabelFilter = nil
-        historyTypeFilter = section == .journal ? .journal : .all
-    }
-
-    /// Tree → select a project folder.
-    func selectLibraryProject(_ id: UUID) {
-        librarySection = .all
-        libraryProjectFilterID = id
-        activeProjectID = id
-        libraryLabelFilter = nil
-        historyTypeFilter = .all
-    }
-
-    /// Notes shown in the middle column for the current tree selection.
-    var libraryNotes: [SessionRecord] {
-        var base = filteredHistory
-        if librarySection == .inbox { base = base.filter { $0.projectID == nil } }
-        return base
-    }
-
-    /// Stable, distinct accent for a project dot (violet / mint / amber / cyan cycle).
-    func libraryColor(for projectID: UUID?) -> Color {
-        guard let projectID,
-              let index = projects.firstIndex(where: { $0.id == projectID }) else { return Theme.faint }
-        let palette: [Color] = [Theme.violet, Theme.mint, Theme.amber, Theme.cyan]
-        return palette[index % palette.count]
-    }
-}
-
-// MARK: - Column 1 · Project tree
-
-struct ProjectTreeColumn: View {
-    @Environment(AppModel.self) private var app
-    @State private var showCreateProject = false
-    @State private var newProjectName = ""
-
-    var body: some View {
-        @Bindable var app = app
-        VStack(alignment: .leading, spacing: 0) {
-            workspaceHeader
-            searchField
-            if !app.historySearch.isEmpty { memoryAsk }
-
-            sectionRows
-                .padding(.top, 11)
-
-            HStack {
-                Text("PROJECTS").font(.ui(10, .semibold)).tracking(1.3).foregroundStyle(Theme.faint)
-                Spacer()
-                Button { showCreateProject = true } label: {
-                    Image(systemName: "folder.badge.plus").font(.system(size: 11))
-                }
-                .buttonStyle(.plain).foregroundStyle(Theme.violet).help("Novo projeto")
-                .popover(isPresented: $showCreateProject) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Novo projeto").font(.headline)
-                        TextField("Nome do projeto", text: $newProjectName)
-                            .textFieldStyle(.roundedBorder).onSubmit(createProject)
-                        Button("Criar", action: createProject).buttonStyle(.borderedProminent)
-                    }
-                    .padding(14).frame(width: 260)
-                }
-            }
-            .padding(.horizontal, 8).padding(.top, 16).padding(.bottom, 6)
-
-            ScrollView { projectRows }
-
-            Spacer(minLength: 8)
-            footer
-        }
-        .padding(.horizontal, 9).padding(.vertical, 12)
-        .frame(width: 224)
-        .background(Theme.tree)
-    }
-
-    private var workspaceHeader: some View {
-        HStack(spacing: 9) {
-            Text("C")
-                .font(.ui(12, .bold)).foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(Theme.violet, in: RoundedRectangle(cornerRadius: 6))
-            Text("CueMe").font(.ui(13.5, .semibold)).foregroundStyle(Theme.ink)
-            Spacer()
-            Image(systemName: "chevron.down").font(.system(size: 9)).foregroundStyle(Theme.faint)
-        }
-        .padding(.horizontal, 7).padding(.vertical, 5)
-    }
-
-    private var searchField: some View {
-        @Bindable var app = app
-        return HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").font(.system(size: 11)).foregroundStyle(Theme.faint)
-            TextField("Search", text: $app.historySearch)
-                .textFieldStyle(.plain).font(.ui(12.5))
-                .accessibilityIdentifier("memory.search")
-            if app.historySearch.isEmpty {
-                Text("⌘K").font(.ui(9.5)).foregroundStyle(Theme.faint)
-                    .padding(.horizontal, 4).padding(.vertical, 1)
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.line))
-            } else {
-                Button { app.historySearch = "" } label: { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.plain).foregroundStyle(Theme.faint)
-            }
-        }
-        .padding(.horizontal, 8).frame(height: 30)
-        .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line))
-        .padding(.top, 9)
-    }
-
-    private var memoryAsk: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Button { app.askGlobalMemory() } label: {
-                Label(app.globalMemoryAnswering ? "Consultando…" : "Perguntar à memória", systemImage: "sparkles")
-                    .font(.ui(10.5, .semibold)).frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered).controlSize(.small).tint(Theme.violet)
-            .accessibilityIdentifier("memory.ask")
-            .disabled(app.globalMemoryAnswering)
-            if let answer = app.globalMemoryAnswer {
-                ScrollView {
-                    Text(.init(answer)).font(.ui(10.5)).textSelection(.enabled)
-                        .accessibilityIdentifier("memory.answer").accessibilityValue(answer)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(maxHeight: 140).padding(8)
-                .background(Theme.paper, in: RoundedRectangle(cornerRadius: 9))
-            }
-        }
-        .padding(.top, 8)
-    }
-
-    private var sectionRows: some View {
-        VStack(spacing: 1) {
-            sectionRow("Inbox", icon: "tray", section: .inbox)
-            sectionRow("All notes", icon: "line.3.horizontal", section: .all, count: app.history.count)
-            sectionRow("Journal", icon: "sparkles", section: .journal)
-        }
-    }
-
-    private func sectionRow(_ title: String, icon: String, section: LibrarySection, count: Int? = nil) -> some View {
-        let selected = app.libraryProjectFilterID == nil && app.librarySection == section
-        return Button { app.selectLibrarySection(section) } label: {
-            HStack(spacing: 9) {
-                Image(systemName: icon).font(.system(size: 11)).frame(width: 15)
-                Text(title).font(.ui(13))
-                Spacer(minLength: 0)
-                if let count { Text("\(count)").font(.ui(10.5)).foregroundStyle(Theme.faint) }
-            }
-            .foregroundStyle(selected ? Theme.ink : Theme.ink2)
-            .padding(.horizontal, 8).padding(.vertical, 5)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(selected ? Theme.canvas : .clear, in: RoundedRectangle(cornerRadius: 7))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var projectRows: some View {
-        VStack(spacing: 1) {
-            ForEach(app.projects.filter { !$0.archived }) { project in
-                let selected = app.libraryProjectFilterID == project.id
-                Button { app.selectLibraryProject(project.id) } label: {
-                    HStack(spacing: 8) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(app.libraryColor(for: project.id))
-                            .frame(width: 9, height: 9)
-                        Text(project.name).font(.ui(13, selected ? .semibold : .regular)).lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .foregroundStyle(selected ? Theme.ink : Theme.ink2)
-                    .padding(.horizontal, 8).padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(selected ? Theme.canvas : .clear, in: RoundedRectangle(cornerRadius: 7))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("project.\(project.id.uuidString)")
-            }
-        }
-    }
-
-    private var footer: some View {
-        HStack(spacing: 7) {
-            Button { _ = app.createMemoryNote(kind: .note) } label: {
-                Text("＋ New note").font(.ui(12.5, .semibold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).padding(.vertical, 8)
-                    .background(Theme.violet, in: RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("sidebar.new-note")
-
-            Button(action: app.showLiveSession) {
-                Circle().fill(Theme.amber).frame(width: 8, height: 8)
-                    .padding(9)
-                    .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line))
-            }
-            .buttonStyle(.plain).help("Nova gravação")
-
-            Button { app.chooseAudioFiles() } label: {
-                Image(systemName: "square.and.arrow.down").font(.system(size: 12)).foregroundStyle(Theme.ink2)
-                    .padding(9)
-                    .background(Theme.canvas, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.line))
-            }
-            .buttonStyle(.plain)
-            .help("Importar áudio")
-            .disabled(app.isSessionBusy || app.audioImportStatus?.isActive == true)
-        }
-        .overlay(alignment: .top) {
-            if let status = app.audioImportStatus {
-                ImportStatusRow(status: status).offset(y: -58)
-            }
-        }
-    }
-
-    private func createProject() {
-        guard let id = app.createProject(named: newProjectName) else { return }
-        app.selectLibraryProject(id)
-        newProjectName = ""
-        showCreateProject = false
-    }
-}
-
 // MARK: - Column 2 · Note list
 
 struct NoteListColumn: View {
@@ -239,15 +7,16 @@ struct NoteListColumn: View {
     @State private var compact = false
 
     var body: some View {
+        let projection = app.noteListProjection
         VStack(spacing: 0) {
-            header
-            list
+            header(projection)
+            list(projection)
         }
         .frame(width: 298)
         .background(Theme.list)
     }
 
-    private var header: some View {
+    private func header(_ projection: NoteListProjection) -> some View {
         VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 3)
@@ -263,9 +32,9 @@ struct NoteListColumn: View {
                 .buttonStyle(.plain)
             }
             HStack(spacing: 14) {
-                tab("All", filter: .all)
-                tab("Meetings", filter: .meeting)
-                tab("Notes", filter: .note)
+                tab("All \(projection.count(for: .all))", filter: .all, identifier: "all", projection: projection)
+                tab("Meetings", filter: .meeting, identifier: "meetings", projection: projection)
+                tab("Notes", filter: .note, identifier: "notes", projection: projection)
             }
         }
         .padding(.horizontal, 16).padding(.top, 16).padding(.bottom, 10)
@@ -281,8 +50,14 @@ struct NoteListColumn: View {
         .buttonStyle(.plain)
     }
 
-    private func tab(_ title: String, filter: HistoryTypeFilter) -> some View {
+    private func tab(
+        _ title: String,
+        filter: HistoryTypeFilter,
+        identifier: String,
+        projection: NoteListProjection
+    ) -> some View {
         let active = app.historyTypeFilter == filter
+        let count = projection.count(for: filter)
         return Button { app.historyTypeFilter = filter } label: {
             Text(title).font(.ui(11, .semibold))
                 .foregroundStyle(active ? Theme.ink : Theme.faint)
@@ -292,14 +67,16 @@ struct NoteListColumn: View {
                 }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("note-list.tab.\(identifier)")
+        .accessibilityValue("\(active ? "selected" : "unselected");\(count)")
     }
 
-    private var list: some View {
+    private func list(_ projection: NoteListProjection) -> some View {
         ScrollView {
             LazyVStack(spacing: 2) {
                 if app.isRunning { LiveNoteRow() }
-                ForEach(app.libraryNotes) { record in
-                    NoteRow(record: record, snippet: app.historySnippet(for: record.id), compact: compact)
+                ForEach(projection.visibleRecords) { record in
+                    NoteRow(record: record, snippet: projection.snippet(for: record.id), compact: compact)
                 }
             }
             .padding(7)
@@ -433,10 +210,10 @@ private struct LivePulse: ViewModifier {
 
 enum LibraryFormat {
     static func kindTag(_ r: SessionRecord) -> String {
-        switch r.noteKind {
+        switch r.libraryPresentationKind {
         case .note: return "NOTE"
         case .journal: return "JOURNAL"
-        default: return (r.containsRecording || r.origin == .live) ? "MEETING" : "NOTE"
+        case .meeting: return "MEETING"
         }
     }
 
@@ -472,7 +249,7 @@ enum LibraryFormat {
 
 // MARK: - Import status toast
 
-private struct ImportStatusRow: View {
+struct ImportStatusRow: View {
     @Environment(AppModel.self) private var app
     let status: AudioImportStatus
 
@@ -492,14 +269,20 @@ private struct ImportStatusRow: View {
             if status.phase == .failed, let sessionID = status.sessionID {
                 Button { Task { await app.retryImportedProcessing(sessionID: sessionID) } } label: {
                     Image(systemName: "arrow.clockwise")
-                }.help("Tentar novamente")
+                }
+                .accessibilityIdentifier("import.retry")
+                .help("Tentar novamente")
             } else if !status.isActive {
                 Button(action: app.dismissAudioImportStatus) { Image(systemName: "xmark") }
+                    .accessibilityIdentifier("import.dismiss")
             }
         }
         .buttonStyle(.plain)
         .padding(8).frame(width: 206)
         .background(Theme.paper, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.line))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("import.status")
+        .accessibilityValue(status.phase.rawValue)
     }
 }

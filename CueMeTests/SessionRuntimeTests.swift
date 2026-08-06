@@ -2,6 +2,28 @@ import XCTest
 @testable import CueMe
 
 final class SessionRuntimeTests: XCTestCase {
+    func testLongMeetingTurnTriggersWithoutKeywordDictionaryMatch() {
+        XCTAssertTrue(CoachTriggerPolicy.shouldTrigger(
+            text: "A equipe apresentou uma alternativa detalhada e agora precisamos avaliar juntos se esta abordagem realmente atende ao cenário",
+            mode: .meeting,
+            style: .openMeeting,
+            speakerCertain: true,
+            lastTriggeredAt: nil,
+            lastFingerprint: nil
+        ))
+    }
+
+    func testCoachCooldownReportsRemainingDelay() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        XCTAssertEqual(CoachTriggerPolicy.cooldownRemaining(
+            text: "Podemos seguir com essa alternativa?",
+            mode: .meeting,
+            style: .openMeeting,
+            now: now,
+            lastTriggeredAt: now.addingTimeInterval(-5)
+        ), 15)
+    }
+
     func testStablePartialTriggersOnceBeforeFinal() {
         var detector = SpeculativeTurnDetector()
         let question = "How did you plan the migration?"

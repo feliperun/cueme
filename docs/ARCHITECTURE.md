@@ -7,8 +7,8 @@
 ## High-level flow
 
 ```
-AVAudioEngine (mic, .self) ─────┐                                        ┌─▶ NativeTranscriber (SpeechAnalyzer)
-                                ├─▶ SttProvider (→16k mono PCM16) ────────┤
+AVAudioEngine (mic, .self) ─────┐       LiveAudioRouter                   ┌─▶ NativeTranscriber (SpeechAnalyzer)
+                                ├─▶ (lossless, off MainActor) ────────────┤
 ScreenCaptureKit (system, .other)┘        │                               └─▶ DeepgramTranscriber (Nova-3 WebSocket)
 Share / Shortcuts / files / drop ─▶ ExternalAudioInbox ─┴─▶ AudioImportService ─▶ Native file STT / Deepgram batch
                                            ▼                                   ▼
@@ -35,19 +35,24 @@ Share / Shortcuts / files / drop ─▶ ExternalAudioInbox ─┴─▶ AudioImp
                                               SemanticMemoryIndex (SQLite FTS5 + sqlite-vec, rebuildable)
                                                                     │
                                                                     ▼
-                                      SessionSidebar / MemoryNoteEditor / SessionWorkspaceView
+                                ProjectTreeColumn / NoteListColumn / NoteColumn
 ```
 
 Single Swift process with Sparkle and vendored sqlite-vec as the only runtime
 dependencies. Audio callbacks stay
-minimal and hand buffers to the async world via `AsyncStream`; shared state
-lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
+minimal and hand buffers to the async world via non-dropping `AsyncStream`s;
+`LiveAudioRouter` performs the recording/STT fan-out outside the main actor.
+Shared state lives in actors; the UI reads an `@Observable` `AppModel` on the
+main actor, while `LiveSnapshotWriter` coalesces filesystem snapshots on its own
+serial queue.
 
 ## Components
 
 - **Audio/** — `AudioCapture` (mic via `AVAudioEngine` + system via
   `ScreenCaptureKit`, tagged by origin, per-channel level/health events,
   digital-silence detection and bounded system-stream recovery, opt-in AEC),
+  `LiveAudioRouter` (lossless off-main fan-out to recording and independently
+  replaceable STT lanes),
   `AudioConverter`, `MeetingRecorder` (writes two timestamp-synced AAC-LC `.m4a`
   files at 48 kHz/128 kbps for later playback), `MeetingPlayer` (two
   `AVAudioPlayer`s synced via
@@ -82,6 +87,7 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
   semantic triggers, user-controlled navigable cards, incremental structured
   minutes, latest-pending coalescing, independent capture/STT
   watchdog recovery, provider failover, latency telemetry, recording and training),
+  `LiveSnapshotWriter` (latest-value coalescing and ordered final flush),
   `TrainingCoordinator` (voice interviewer for practice/e2e testing),
   `HotkeyManager` (global ⌥Space show/hide), `SessionBrief` (+ `BriefStore`),
   reusable `BriefProfile`s, `MemoryNote` (the base entity for written and recorded
@@ -96,14 +102,20 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
   `RelevantMemoryContextBuilder` (bounded opt-in Coach snapshot), evidence-linked decisions
   and actions, and stable `KnowledgeProject`/`KnowledgePerson` entities,
   `LiveHealthMonitor`/`SessionIntegrityReport` metadata-only health policies, `Types`.
-- **Views/** — glance-first SwiftUI: `HeaderBar` with live channel meters,
-  compact `QuestionBanner`, user-controlled `CoachingPane`, compact live health,
-  `MeetingPanel` (passive-mode status when the coach is off), `TranscriptPane`,
-  `SummaryPane`, `BriefEditor`, `SessionSidebar`, `MemoryNoteEditor`,
-  `MarkdownBlockEditor`/`MarkdownBlockTextView`, `SessionWorkspaceView`
-  (+ `WaveformPlayerView` and the live transport),
-  `AboutView`, `Theme`, and `Highlighter` (on-device `NaturalLanguage` tiering of
-  translated lines).
+- **Views/** — glance-first SwiftUI rooted at `RootWorkspaceShell`: a 40-point
+  draggable workspace titlebar sits above the persistent three-column layout.
+  `ProjectTreeColumn`/`ProjectTreeRows` own built-in sections, hierarchical
+  Project children, workspace commands and the start/stop footer;
+  `NoteListColumn` renders one immutable `NoteListProjection` per pass so rows,
+  snippets and type counts come from the same filtered result; `NoteColumn`
+  hosts either live capture or the selected durable Note.
+  The note surface includes compact `QuestionBanner`, user-controlled
+  `CoachingPane`, compact live health, `MeetingPanel` (passive-mode status when
+  the coach is off), `TranscriptPane`, `SummaryPane`, `BriefEditor`,
+  `MemoryNoteEditor`, `MarkdownBlockEditor`/`MarkdownBlockTextView`,
+  `SessionWorkspaceView` (+ `WaveformPlayerView` and the live transport),
+  `AboutView`, `Theme`, and `Highlighter` (on-device `NaturalLanguage` tiering
+  of translated lines).
 
 ## Session modes
 
@@ -152,9 +164,11 @@ the app reloads filesystem edits.
 
 On `stop()`, `MeetingRecorder` has already written synchronized `self.m4a` and
 `other.m4a` beside the Note. The sidecar stores only portable relative folder
-identity, never an absolute path. `SessionSidebar` keeps the complete library,
-Project and label filters visible; `MemoryNoteEditor` provides native visual block
-editing with an exact Markdown source mode;
+identity, never an absolute path. `ProjectTreeColumn` keeps the complete Project
+hierarchy and live Project placement visible; `NoteListColumn` applies library,
+label, date, type and search projections without changing the underlying tree.
+`MemoryNoteEditor` provides native visual block editing with an exact Markdown
+source mode;
 `SessionWorkspaceView` preserves the same coach/summary/transcript navigation
 after the event, plus timeline notes,
 takeaways, editable timestamped notes, named participants, auditable transcript
@@ -194,8 +208,9 @@ to Nova-3. Translation remains on-device in either configuration.
 - XCTest target covers provider fallback, coach parsing, recording-clock
   compatibility, transcript heuristics, per-channel silence detection, provider
   failover and a deterministic virtual 60-minute soak.
-- `CueMeUITests` launches the real macOS app with isolated meeting fixtures and
-  a temporary sqlite-vec database. It exercises semantic history search,
+- `CueMeUITests` launches the real macOS app with isolated meeting fixtures,
+  stores and inbox plus an injected temporary sqlite-vec database. It exercises
+  semantic history search,
   evidence-backed review navigation, Project timelines, capture/recording/Coach,
   the home/profile surface, visual block and Markdown-source authoring, rename/labels, generated titles
   and theme selection through the UI without modifying the user's archive.

@@ -3,7 +3,7 @@ import Foundation
 import OSLog
 
 /// Low-latency Deepgram Nova-3 streaming session for one capture origin.
-actor DeepgramTranscriber: SttSession {
+actor DeepgramTranscriber: SttSession, SttHealthReporting {
     private let log = Logger(subsystem: "CueMe", category: "DeepgramTranscriber")
     private let config: SttConfig
     private let apiKey: String
@@ -20,7 +20,11 @@ actor DeepgramTranscriber: SttSession {
     private var senderTask: Task<Void, Never>?
     private var receiverTask: Task<Void, Never>?
     private var keepAliveTask: Task<Void, Never>?
+    private var reconnectTask: Task<DeepgramSocketConnection, Error>?
     private var isActive = false
+    private var inputFailures = 0
+    private var sendFailures = 0
+    private var reconnects = 0
 
     init(config: SttConfig, apiKey: String) {
         self.config = config
@@ -28,12 +32,12 @@ actor DeepgramTranscriber: SttSession {
         self.assembler = DeepgramTranscriptAssembler(speaker: config.speaker)
 
         let (events, eventsContinuation) = AsyncStream<TranscriptEvent>.makeStream(
-            bufferingPolicy: .bufferingNewest(256)
+            bufferingPolicy: .unbounded
         )
         self.events = events
         self.eventsContinuation = eventsContinuation
         let (audioStream, audioContinuation) = AsyncStream<Data>.makeStream(
-            bufferingPolicy: .bufferingNewest(300)
+            bufferingPolicy: .unbounded
         )
         self.audioStream = audioStream
         self.audioContinuation = audioContinuation
@@ -59,8 +63,16 @@ actor DeepgramTranscriber: SttSession {
     }
 
     func feed(_ buffer: AVAudioPCMBuffer) {
-        guard isActive, let data = encoder.encode(buffer), !data.isEmpty else { return }
+        guard isActive else { return }
+        guard let data = encoder.encode(buffer), !data.isEmpty else {
+            inputFailures += 1
+            return
+        }
         audioContinuation.yield(data)
+    }
+
+    func healthSnapshot() -> SttHealthSnapshot {
+        .init(inputFailures: inputFailures, sendFailures: sendFailures, reconnects: reconnects)
     }
 
     func finish() async {
@@ -79,9 +91,11 @@ actor DeepgramTranscriber: SttSession {
         senderTask?.cancel()
         receiverTask?.cancel()
         keepAliveTask?.cancel()
+        reconnectTask?.cancel()
         senderTask = nil
         receiverTask = nil
         keepAliveTask = nil
+        reconnectTask = nil
         socket = nil
         networkSession?.invalidateAndCancel()
         networkSession = nil
@@ -93,13 +107,21 @@ actor DeepgramTranscriber: SttSession {
         do {
             try await socket.send(.data(data))
         } catch {
-            log.error("Falha ao enviar áudio para a Deepgram")
+            sendFailures += 1
+            log.error("Falha ao enviar áudio para a Deepgram; reconectando")
+            if self.socket === socket, await reconnect(), let replacement = self.socket {
+                try? await replacement.send(.data(data))
+            }
         }
     }
 
     private func receiveLoop() async {
-        guard let socket else { return }
-        do {
+        while isActive, !Task.isCancelled {
+            guard let socket else {
+                if !(await reconnect()) { return }
+                continue
+            }
+            do {
             while isActive, !Task.isCancelled {
                 let message = try await socket.receive()
                 let data: Data
@@ -112,8 +134,56 @@ actor DeepgramTranscriber: SttSession {
                     eventsContinuation.yield(event)
                 }
             }
+            } catch {
+                guard isActive, !Task.isCancelled else { return }
+                guard self.socket === socket else { continue }
+                log.error("Stream da Deepgram foi interrompido; reconectando")
+                if !(await reconnect()) { return }
+            }
+        }
+    }
+
+    private func reconnect() async -> Bool {
+        guard isActive else { return false }
+        if let reconnectTask {
+            return (try? await reconnectTask.value) != nil
+        }
+        let config = config
+        let apiKey = apiKey
+        let task = Task<DeepgramSocketConnection, Error> {
+            var lastError: Error = DeepgramError.connectionFailed
+            for attempt in 0..<4 {
+                if attempt > 0 {
+                    try await Task.sleep(for: .milliseconds(250 * (1 << (attempt - 1))))
+                }
+                do {
+                    return try await DeepgramSocketConnector.connect(config: config, apiKey: apiKey)
+                } catch {
+                    lastError = error
+                }
+            }
+            throw lastError
+        }
+        reconnectTask = task
+        do {
+            let connection = try await task.value
+            reconnectTask = nil
+            guard isActive else {
+                connection.socket.cancel(with: .goingAway, reason: nil)
+                connection.session.invalidateAndCancel()
+                return false
+            }
+            socket?.cancel(with: .goingAway, reason: nil)
+            networkSession?.invalidateAndCancel()
+            socket = connection.socket
+            networkSession = connection.session
+            reconnects += 1
+            log.info("Deepgram reconectada (tentativa bem-sucedida \(self.reconnects, privacy: .public))")
+            return true
         } catch {
-            if isActive { log.error("Stream da Deepgram foi interrompido") }
+            reconnectTask = nil
+            log.error("Deepgram não reconectou após backoff")
+            return false
         }
     }
 

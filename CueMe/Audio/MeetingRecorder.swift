@@ -72,10 +72,20 @@ actor MeetingRecorder {
         guard let start = recordingStart else { return }
         switch chunk.source {
         case .self:
-            guard let file = selfFile, let converted = selfConverter.convert(chunk.buffer) else { return }
+            guard let file = selfFile else { return }
+            guard let converted = selfConverter.convert(chunk.buffer) else {
+                writeFailures += 1
+                log.error("Falha ao converter chunk do microfone para gravação")
+                return
+            }
             write(converted, into: file, framesWritten: &selfFrames, chunkTs: chunk.ts, start: start)
         case .other:
-            guard let file = otherFile, let converted = otherConverter.convert(chunk.buffer) else { return }
+            guard let file = otherFile else { return }
+            guard let converted = otherConverter.convert(chunk.buffer) else {
+                writeFailures += 1
+                log.error("Falha ao converter chunk do sistema para gravação")
+                return
+            }
             write(converted, into: file, framesWritten: &otherFrames, chunkTs: chunk.ts, start: start)
         }
     }
