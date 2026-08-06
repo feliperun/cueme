@@ -2,6 +2,26 @@ import XCTest
 @testable import CueMe
 
 final class TranscriptBusTests: XCTestCase {
+    func testSubscriberRetainsEveryFinalDuringConsumerStall() async {
+        let bus = TranscriptBus(maxTurns: 1_500)
+        let stream = await bus.subscribe()
+
+        for index in 0..<1_000 {
+            await bus.publish(.init(
+                speaker: .other,
+                text: "Final \(index)",
+                isFinal: true,
+                isEndOfTurn: true
+            ))
+        }
+        await bus.finish()
+
+        var received: [TranscriptEvent] = []
+        for await event in stream { received.append(event) }
+        XCTAssertEqual(received.count, 1_000)
+        XCTAssertEqual(received.last?.text, "Final 999")
+    }
+
     func testRemovesTurnLaterConfirmedAsEcho() async {
         let bus = TranscriptBus()
         let echoed = TranscriptEvent(

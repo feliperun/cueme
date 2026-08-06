@@ -3,6 +3,20 @@ import XCTest
 
 @MainActor
 final class SessionCoordinatorHeuristicsTests: XCTestCase {
+    func testEchoDedupRequiresCloseCaptureTimes() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let repeated = "Vamos revisar o risco e o prazo da entrega"
+
+        XCTAssertTrue(SessionCoordinator.isRecentEcho(
+            repeated, at: now,
+            repeated, at: now.addingTimeInterval(-1)
+        ))
+        XCTAssertFalse(SessionCoordinator.isRecentEcho(
+            repeated, at: now,
+            repeated, at: now.addingTimeInterval(-4)
+        ))
+    }
+
     func testEchoUsesNormalizedWordOverlap() {
         XCTAssertTrue(SessionCoordinator.isEcho(
             "Could you explain the deployment architecture?",

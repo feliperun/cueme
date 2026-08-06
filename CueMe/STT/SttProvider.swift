@@ -19,6 +19,16 @@ protocol SttSession: Actor {
     func finish() async
 }
 
+struct SttHealthSnapshot: Sendable, Equatable {
+    var inputFailures = 0
+    var sendFailures = 0
+    var reconnects = 0
+}
+
+protocol SttHealthReporting: Actor {
+    func healthSnapshot() -> SttHealthSnapshot
+}
+
 protocol SttProvider: Sendable {
     func makeSession(config: SttConfig) -> any SttSession
 }

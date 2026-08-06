@@ -54,33 +54,19 @@ final class FailoverCoachSession: CoachSession, @unchecked Sendable {
     ) async {
         do {
             let stream = await primary.send(user)
-            var emitted = false
+            var buffered: [String] = []
             for try await delta in stream {
                 guard !Task.isCancelled else { return }
-                if !emitted {
-                    emitted = true
-                    guard state.claim(.primary) else { return }
-                }
-                guard state.isWinner(.primary) else { return }
-                continuation.yield(delta)
+                guard !state.isWinner(.secondary) else { return }
+                state.notePrimaryActivity()
+                buffered.append(delta)
             }
-            await finishPrimary(emitted: emitted, user: user, state: state, continuation: continuation)
+            if state.claim(.primary) {
+                for delta in buffered { continuation.yield(delta) }
+                if state.finish(.primary) { continuation.finish() }
+            }
         } catch {
             await recoverPrimary(error: error, user: user, state: state, continuation: continuation)
-        }
-    }
-
-    private func finishPrimary(
-        emitted: Bool,
-        user: String,
-        state: RelayState,
-        continuation: AsyncThrowingStream<String, Error>.Continuation
-    ) async {
-        if emitted {
-            if state.finish(.primary) { continuation.finish() }
-        } else if state.claim(.secondary) {
-            onFailover()
-            await Self.relaySecondary(secondary, user: user, state: state, continuation: continuation)
         }
     }
 
@@ -103,11 +89,19 @@ final class FailoverCoachSession: CoachSession, @unchecked Sendable {
         state: RelayState,
         continuation: AsyncThrowingStream<String, Error>.Continuation
     ) async {
-        do { try await Task.sleep(for: delay) }
-        catch { return }
-        guard state.claim(.secondary) else { return }
-        onFailover()
-        await Self.relaySecondary(secondary, user: user, state: state, continuation: continuation)
+        let components = delay.components
+        let stallSeconds = Double(components.seconds)
+            + Double(components.attoseconds) / 1_000_000_000_000_000_000
+        while !Task.isCancelled {
+            do { try await Task.sleep(for: delay) }
+            catch { return }
+            if state.claimSecondaryIfStalled(after: stallSeconds) {
+                onFailover()
+                await Self.relaySecondary(secondary, user: user, state: state, continuation: continuation)
+                return
+            }
+            if state.hasWinner { return }
+        }
     }
 
     private static func relaySecondary(
@@ -154,6 +148,22 @@ private final class RelayState: @unchecked Sendable {
     private let lock = NSLock()
     private var winner: Winner?
     private var completed = false
+    private var lastPrimaryActivity = Date()
+
+    var hasWinner: Bool { lock.withLock { winner != nil || completed } }
+
+    func notePrimaryActivity() {
+        lock.withLock { lastPrimaryActivity = Date() }
+    }
+
+    func claimSecondaryIfStalled(after interval: TimeInterval) -> Bool {
+        lock.withLock {
+            guard winner == nil, !completed,
+                  Date().timeIntervalSince(lastPrimaryActivity) >= interval else { return false }
+            winner = .secondary
+            return true
+        }
+    }
 
     func claim(_ candidate: Winner) -> Bool {
         lock.withLock {

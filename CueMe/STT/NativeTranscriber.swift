@@ -5,7 +5,7 @@ import OSLog
 
 /// STT nativo on-device via `SpeechAnalyzer` + `SpeechTranscriber` (macOS 26).
 /// Uma instância por fluxo → locutor conhecido pela origem, sem diarização.
-actor NativeTranscriber: SttSession {
+actor NativeTranscriber: SttSession, SttHealthReporting {
     private let log = Logger(subsystem: "CueMe", category: "NativeTranscriber")
 
     private let config: SttConfig
@@ -18,11 +18,12 @@ actor NativeTranscriber: SttSession {
     private var inputCont: AsyncStream<AnalyzerInput>.Continuation?
     private var converter: AudioConverter?
     private var resultsTask: Task<Void, Never>?
+    private var inputFailures = 0
 
     init(config: SttConfig) {
         self.config = config
         var cont: AsyncStream<TranscriptEvent>.Continuation!
-        self.events = AsyncStream(bufferingPolicy: .bufferingNewest(256)) { cont = $0 }
+        self.events = AsyncStream(bufferingPolicy: .unbounded) { cont = $0 }
         self.eventsCont = cont
     }
 
@@ -44,7 +45,7 @@ actor NativeTranscriber: SttSession {
         }
         self.converter = AudioConverter(outputFormat: format)
 
-        let (inputSeq, inputCont) = AsyncStream<AnalyzerInput>.makeStream(bufferingPolicy: .bufferingNewest(64))
+        let (inputSeq, inputCont) = AsyncStream<AnalyzerInput>.makeStream(bufferingPolicy: .unbounded)
         self.inputCont = inputCont
 
         let analyzer = SpeechAnalyzer(modules: [transcriber])
@@ -78,8 +79,15 @@ actor NativeTranscriber: SttSession {
 
     func feed(_ buffer: AVAudioPCMBuffer) {
         guard let inputCont, let converter else { return }
-        guard let converted = converter.convert(buffer) else { return }
+        guard let converted = converter.convert(buffer) else {
+            inputFailures += 1
+            return
+        }
         inputCont.yield(AnalyzerInput(buffer: converted))
+    }
+
+    func healthSnapshot() -> SttHealthSnapshot {
+        .init(inputFailures: inputFailures)
     }
 
     func finish() async {
@@ -88,7 +96,7 @@ actor NativeTranscriber: SttSession {
         if let analyzer {
             try? await analyzer.finalizeAndFinishThroughEndOfInput()
         }
-        resultsTask?.cancel()
+        await resultsTask?.value
         resultsTask = nil
         analyzer = nil
         transcriber = nil

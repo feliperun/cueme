@@ -477,7 +477,7 @@ extension AppModel {
             artifacts: sessionArtifacts,
             projectID: activeProjectID
         )
-        SessionStore.save(record)
+        liveSnapshotWriter.submit(record)
     }
 
     private static func parseBullets(_ output: String) -> [String] {

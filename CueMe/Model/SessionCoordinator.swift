@@ -26,25 +26,31 @@ final class SessionCoordinator {
     private var training: TrainingCoordinator?
     private var recorder: MeetingRecorder?
     private var recordingStartedAt: Date?
+    private var audioRouter: LiveAudioRouter?
+    private var audioRouteTask: Task<Void, Never>?
 
     private var tasks: [Task<Void, Never>] = []
+    private var sttEventTasks: [Speaker: Task<Void, Never>] = [:]
     private var liveCoachDebounceTask: Task<Void, Never>?
     private var liveCoachTask: Task<Void, Never>?
     private var manualCoachTask: Task<Void, Never>?
     private var summaryDebounceTask: Task<Void, Never>?
     private var summaryTask: Task<Void, Never>?
-    private var pendingLiveCoach: CoachRequest?
+    private var pendingLiveCoach: [CoachRequest] = []
     private var pendingManualCoach: CoachRequest?
     private var didAttemptMicRepair = false
     private var speculativeDetectors: [Speaker: SpeculativeTurnDetector] = [:]
     private var speculativeDebounceTasks: [Speaker: Task<Void, Never>] = [:]
     private var speculativeText = ""
+    private var speculativeCardID: UUID?
     private var summaryPolicy = SummarySchedulePolicy()
     private var summaryCursor = 0
     private var lastCoachTriggeredAt: Date?
     private var lastCoachFingerprint: String?
     private var watchdog = RuntimeWatchdog()
     private var lastRecorderWriteFailures = 0
+    private var lastCaptureDroppedChunks: Int64 = 0
+    private var lastSttHealth: [Speaker: SttHealthSnapshot] = [:]
 
     // Dedup de eco (setup alto-falante): a fala do interlocutor sai da caixa e volta
     // pelo mic. Guardamos finais recentes de cada lado e derrubamos duplicatas.
@@ -151,8 +157,8 @@ final class SessionCoordinator {
         catch { log.error("STT de sistema falhou: \(error.localizedDescription, privacy: .public)") }
 
         // Consumidores de eventos de cada transcritor.
-        tasks.append(consume(events: mic.events))
-        tasks.append(consume(events: system.events))
+        sttEventTasks[.self] = consume(events: mic.events)
+        sttEventTasks[.other] = consume(events: system.events)
 
         // Coaching reage ao barramento (fim de turno do interlocutor).
         tasks.append(consumeBusForCoaching())
@@ -166,7 +172,6 @@ final class SessionCoordinator {
         let capture = AudioCapture()
         self.capture = capture
         tasks.append(consumeCaptureEvents(from: capture))
-        tasks.append(routeAudio(from: capture))
 
         // Gravação do áudio original, sincronizada com a transcrição (opt-out).
         if app.recordAudio,
@@ -181,6 +186,16 @@ final class SessionCoordinator {
             } catch {
                 log.error("Falha ao iniciar gravação: \(error.localizedDescription, privacy: .public)")
             }
+        }
+
+        let audioRouter = LiveAudioRouter(
+            micStt: mic,
+            systemStt: system,
+            recorder: recorder
+        )
+        self.audioRouter = audioRouter
+        audioRouteTask = Task.detached(priority: .userInitiated) {
+            await audioRouter.run(capture.chunks)
         }
 
         do {
@@ -214,7 +229,7 @@ final class SessionCoordinator {
         summaryDebounceTask = nil
         summaryTask?.cancel()
         summaryTask = nil
-        pendingLiveCoach = nil
+        pendingLiveCoach.removeAll()
         pendingManualCoach = nil
         liveCoachDebounceTask?.cancel()
         liveCoachDebounceTask = nil
@@ -228,11 +243,21 @@ final class SessionCoordinator {
         // publicar os finals pendentes. A ata final passa a incluir o fim real
         // da reunião, e o gravador drena os últimos chunks antes do teardown.
         capture?.finish()
+        let captureHealth = capture?.healthSnapshot()
         capture = nil
-        try? await Task.sleep(for: .milliseconds(120))
+        await audioRouteTask?.value
+        if let captureHealth,
+           let routeHealth = await audioRouter?.healthSnapshot(),
+           routeHealth.routedChunks != captureHealth.acceptedChunks {
+            app.recordDiagnostic(kind: .error, name: "audio_route_incomplete")
+            app.setRuntimeHealth(.critical, reason: "Gravação incompleta", sticky: true)
+        }
+        audioRouteTask = nil
+        audioRouter = nil
         await micStt?.finish()
         await systemStt?.finish()
-        try? await Task.sleep(for: .milliseconds(120))
+        for task in sttEventTasks.values { await task.value }
+        sttEventTasks.removeAll()
         if summaryPolicy.hasUnsummarizedTurns {
             await runSummary(final: true)
         }
@@ -264,12 +289,15 @@ final class SessionCoordinator {
         for task in speculativeDebounceTasks.values { task.cancel() }
         speculativeDebounceTasks.removeAll()
         speculativeText = ""
+        speculativeCardID = nil
         summaryPolicy = .init()
         summaryCursor = 0
         lastCoachTriggeredAt = nil
         lastCoachFingerprint = nil
         watchdog = .init()
         lastRecorderWriteFailures = 0
+        lastCaptureDroppedChunks = 0
+        lastSttHealth.removeAll()
         app.resetRuntimeHealth()
         app.recordDiagnostic(kind: .session, name: "stopped")
         log.info("Sessão parada")
@@ -446,22 +474,6 @@ final class SessionCoordinator {
         triggerCoach(window: window, latest: text, manual: true)
     }
 
-    // MARK: - Roteamento de áudio
-
-    private func routeAudio(from capture: AudioCapture) -> Task<Void, Never> {
-        Task { [weak self] in
-            for await chunk in capture.chunks {
-                guard let self else { break }
-                self.watchdog.observeChunk(chunk.source)
-                switch chunk.source {
-                case .self:  await self.micStt?.feed(chunk.buffer)
-                case .other: await self.systemStt?.feed(chunk.buffer)
-                }
-                await self.recorder?.ingest(chunk)
-            }
-        }
-    }
-
     private func consumeCaptureEvents(from capture: AudioCapture) -> Task<Void, Never> {
         Task { [weak self] in
             for await event in capture.events {
@@ -512,6 +524,19 @@ final class SessionCoordinator {
                 do { try await Task.sleep(for: .seconds(2)) }
                 catch { return }
                 guard let self, self.app.isRunning else { continue }
+                if let captureHealth = self.capture?.healthSnapshot(),
+                   captureHealth.droppedChunks > self.lastCaptureDroppedChunks {
+                    self.lastCaptureDroppedChunks = captureHealth.droppedChunks
+                    self.app.recordDiagnostic(kind: .error, name: "audio_chunk_dropped")
+                    self.app.setRuntimeHealth(.critical, reason: "Gravação incompleta", sticky: true)
+                }
+                await self.observeSTTHealth(.self, session: self.micStt)
+                await self.observeSTTHealth(.other, session: self.systemStt)
+                if let routeSnapshot = await self.audioRouter?.healthSnapshot() {
+                    for (speaker, timestamp) in routeSnapshot.lastChunkAt {
+                        self.watchdog.observeChunk(speaker, at: timestamp)
+                    }
+                }
                 let snapshot = await self.recorder?.healthSnapshot()
                 if let snapshot, snapshot.writeFailures > self.lastRecorderWriteFailures {
                     self.lastRecorderWriteFailures = snapshot.writeFailures
@@ -526,6 +551,24 @@ final class SessionCoordinator {
                 for action in actions { await self.performWatchdog(action) }
             }
         }
+    }
+
+    private func observeSTTHealth(_ speaker: Speaker, session: (any SttSession)?) async {
+        guard let reporting = session as? any SttHealthReporting else { return }
+        let snapshot = await reporting.healthSnapshot()
+        let previous = lastSttHealth[speaker] ?? .init()
+        if snapshot.inputFailures > previous.inputFailures {
+            app.recordDiagnostic(kind: .error, name: "stt_input_failed", speaker: speaker)
+        }
+        if snapshot.sendFailures > previous.sendFailures {
+            app.recordDiagnostic(kind: .error, name: "stt_send_failed", speaker: speaker)
+            app.setRuntimeHealth(.degraded, reason: "Recuperando transcrição")
+        }
+        if snapshot.reconnects > previous.reconnects {
+            app.recordDiagnostic(kind: .recovery, name: "stt_reconnected", speaker: speaker)
+            app.clearRuntimeHealthIssue(reason: "Recuperando transcrição")
+        }
+        lastSttHealth[speaker] = snapshot
     }
 
     private func performWatchdog(_ action: WatchdogAction) async {
@@ -578,7 +621,11 @@ final class SessionCoordinator {
                 await systemStt?.finish()
                 systemStt = replacement
             }
-            tasks.append(consume(events: replacement.events))
+            if let previousConsumer = sttEventTasks[speaker] {
+                await previousConsumer.value
+            }
+            sttEventTasks[speaker] = consume(events: replacement.events)
+            await audioRouter?.replaceSTT(replacement, for: speaker)
             app.recordDiagnostic(kind: .recovery, name: "stt_recovery_succeeded", speaker: speaker)
             app.clearRuntimeHealthIssue(reason: "Transcrição indisponível")
         } catch {
@@ -671,7 +718,7 @@ final class SessionCoordinator {
         Task { [weak self] in
             guard let self else { return }
             let window = await self.bus.window()
-            self.triggerCoach(
+            self.speculativeCardID = self.triggerCoach(
                 window: window,
                 latest: text,
                 manual: false,
@@ -690,12 +737,14 @@ final class SessionCoordinator {
         switch event.speaker {
         case .other:
             // Registra pra derrubar o eco que chegar pelo mic; remove eco que já chegou.
-            recentSystemFinals.append((event.text, Date()))
+            recentSystemFinals.append((event.text, event.ts))
             if let micPartial = partialText[.self], Self.isEcho(micPartial, event.text) {
                 partialText.removeValue(forKey: .self)
                 app.dropUnfinalized(speaker: .self)
             }
-            let dupes = recentMicFinals.filter { Self.isEcho($0.text, event.text) }
+            let dupes = recentMicFinals.filter {
+                Self.isRecentEcho($0.text, at: $0.ts, event.text, at: event.ts)
+            }
             for dupe in dupes {
                 app.removeLine(id: dupe.lineID)
                 await bus.removeTurn(id: dupe.eventID)
@@ -709,15 +758,15 @@ final class SessionCoordinator {
 
         case .self:
             // Eco da caixa de som? (interlocutor já transcrito pelo stream de sistema)
-            let systemWindow = recentSystemFinals.suffix(3).map { $0.text }.joined(separator: " ")
-            if recentSystemFinals.contains(where: { Self.isEcho(event.text, $0.text) })
-                || Self.isEcho(event.text, systemWindow) {
+            if recentSystemFinals.contains(where: {
+                Self.isRecentEcho(event.text, at: event.ts, $0.text, at: $0.ts)
+            }) {
                 app.dropUnfinalized(speaker: .self)
                 return
             }
             await bus.publish(event)
             let lineID = app.upsertLine(event)
-            recentMicFinals.append((lineID, event.id, event.text, Date()))
+            recentMicFinals.append((lineID, event.id, event.text, event.ts))
             if app.brief.isForeign { app.enqueueTranslation(id: lineID, text: event.text) }
 
             // Modo treino: a resposta do usuário realimenta o entrevistador (follow-up).
@@ -763,6 +812,17 @@ final class SessionCoordinator {
         if wa == wb { return true }
         let inter = wa.intersection(wb).count
         return Double(inter) / Double(min(wa.count, wb.count)) >= 0.75
+    }
+
+    static func isRecentEcho(
+        _ candidate: String,
+        at candidateTime: Date,
+        _ reference: String,
+        at referenceTime: Date,
+        maximumLag: TimeInterval = 2
+    ) -> Bool {
+        abs(candidateTime.timeIntervalSince(referenceTime)) <= maximumLag
+            && isEcho(candidate, reference)
     }
 
     private static func normalizedWords(_ s: String) -> Set<String> {
@@ -815,7 +875,20 @@ final class SessionCoordinator {
                         now: now,
                         lastTriggeredAt: self.lastCoachTriggeredAt,
                         lastFingerprint: self.lastCoachFingerprint
-                    ) else { continue }
+                    ) else {
+                        let remaining = CoachTriggerPolicy.cooldownRemaining(
+                            text: event.text,
+                            mode: self.app.brief.mode,
+                            style: self.app.conversationStyle,
+                            now: now,
+                            lastTriggeredAt: self.lastCoachTriggeredAt
+                        )
+                        self.app.coachCooldownUntil = remaining > 0
+                            ? now.addingTimeInterval(remaining)
+                            : nil
+                        continue
+                    }
+                    self.app.coachCooldownUntil = nil
                     self.lastCoachTriggeredAt = now
                     self.lastCoachFingerprint = CoachTriggerPolicy.fingerprint(event.text)
                     self.app.recordDiagnostic(
@@ -834,13 +907,23 @@ final class SessionCoordinator {
         let normalized = SpeculativeTurnDetector.normalize(text)
         guard !speculativeText.isEmpty,
               normalized.hasPrefix(speculativeText) || speculativeText.hasPrefix(normalized) else { return false }
+        let producedUsefulCard = speculativeCardID.flatMap { id in
+            app.coachCards.first(where: { $0.id == id })
+        }?.hasContent == true
         speculativeText = ""
-        return true
+        speculativeCardID = nil
+        return producedUsefulCard
     }
 
     /// Live e manual têm filas independentes. Novos fragments live substituem apenas
     /// o pedido pendente; nunca cancelam uma chamada já enviada nem uma pergunta manual.
-    private func triggerCoach(window: [Turn], latest: String, manual: Bool, speakerCertain: Bool = true) {
+    @discardableResult
+    private func triggerCoach(
+        window: [Turn],
+        latest: String,
+        manual: Bool,
+        speakerCertain: Bool = true
+    ) -> UUID {
         let cardID = UUID()
         let instantGuide = manual ? nil : InstantCue.label(for: latest, mode: app.brief.mode)
         let request = CoachRequest(
@@ -867,7 +950,10 @@ final class SessionCoordinator {
             pendingManualCoach = request
             startNextManualCoachIfPossible()
         } else {
-            pendingLiveCoach = request
+            pendingLiveCoach.append(request)
+            if pendingLiveCoach.count > 2 {
+                pendingLiveCoach.removeFirst(pendingLiveCoach.count - 2)
+            }
             if request.bypassDebounce, liveCoachTask == nil {
                 liveCoachDebounceTask?.cancel()
                 liveCoachDebounceTask = nil
@@ -879,12 +965,13 @@ final class SessionCoordinator {
         log.info(
             "Coach solicitado (manual: \(manual, privacy: .public), locutor certo: \(speakerCertain, privacy: .public))"
         )
+        return cardID
     }
 
     /// Debounce curto: o STT costuma emitir vários finals próximos para o mesmo turno.
     private func scheduleLiveCoachIfPossible() {
         guard liveCoachTask == nil else { return }
-        if pendingLiveCoach?.bypassDebounce == true {
+        if pendingLiveCoach.last?.bypassDebounce == true {
             liveCoachDebounceTask?.cancel()
             liveCoachDebounceTask = nil
             startNextLiveCoach()
@@ -901,13 +988,13 @@ final class SessionCoordinator {
     }
 
     private func startNextLiveCoach() {
-        guard liveCoachTask == nil, let request = pendingLiveCoach else { return }
-        pendingLiveCoach = nil
+        guard liveCoachTask == nil, !pendingLiveCoach.isEmpty else { return }
+        let request = pendingLiveCoach.removeFirst()
         liveCoachTask = Task { [weak self] in
             guard let self else { return }
             await self.runCoach(request)
             self.liveCoachTask = nil
-            if self.app.isRunning, self.pendingLiveCoach != nil {
+            if self.app.isRunning, !self.pendingLiveCoach.isEmpty {
                 self.scheduleLiveCoachIfPossible()
             }
         }

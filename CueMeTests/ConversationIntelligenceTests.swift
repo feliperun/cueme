@@ -75,7 +75,7 @@ final class CoachPresentationPolicyTests: XCTestCase {
         XCTAssertEqual(app.activeProfileID, UITestFixtures.profile.id)
     }
 
-    func testNewCoachCardWaitsUntilUserReplacesCurrentSuggestion() {
+    func testNewestCoachCardBecomesActiveUnlessCurrentCardIsPinned() {
         let app = AppModel()
         let first = CoachCard(guidePT: "Primeira", sayNative: "Primeira resposta", isStreaming: false)
         let second = CoachCard(guidePT: "Segunda", sayNative: "Segunda resposta", isStreaming: false)
@@ -83,26 +83,37 @@ final class CoachPresentationPolicyTests: XCTestCase {
         app.upsertCoach(first)
         app.upsertCoach(second)
 
+        XCTAssertEqual(app.activeCoachCard?.id, second.id)
+        app.showPreviousCoach()
         XCTAssertEqual(app.activeCoachCard?.id, first.id)
-        XCTAssertEqual(app.pendingCoachCount, 1)
         app.toggleActiveCoachPin()
         XCTAssertTrue(app.isActiveCoachPinned)
-        app.useActiveCoach()
-        XCTAssertEqual(app.coachFeedback[first.id], .helpful)
-        XCTAssertEqual(app.activeCoachCard?.id, second.id)
+        let third = CoachCard(guidePT: "Terceira", sayNative: "Terceira resposta", isStreaming: false)
+        app.upsertCoach(third)
+        XCTAssertEqual(app.activeCoachCard?.id, first.id)
+        XCTAssertEqual(app.pendingCoachCount, 2)
     }
 
-    func testUsingCurrentCardAdvancesPendingSuggestionsInArrivalOrder() {
+    func testNewestCoachCardWinsAcrossMultipleArrivals() {
         let app = AppModel()
         let cards = (1...3).map {
             CoachCard(guidePT: "Dica \($0)", sayNative: "Resposta \($0)")
         }
         cards.forEach(app.upsertCoach)
 
-        XCTAssertEqual(app.activeCoachCard?.id, cards[0].id)
-        app.useActiveCoach()
-        XCTAssertEqual(app.activeCoachCard?.id, cards[1].id)
-        app.useActiveCoach()
         XCTAssertEqual(app.activeCoachCard?.id, cards[2].id)
+    }
+
+    func testPruningEmptyActiveCardFallsBackToNewestUsefulCard() {
+        let app = AppModel()
+        let useful = CoachCard(guidePT: "Útil", sayNative: "Resposta útil", isStreaming: false)
+        let empty = CoachCard(isStreaming: false)
+        app.upsertCoach(useful)
+        app.upsertCoach(empty)
+
+        XCTAssertEqual(app.activeCoachCard?.id, empty.id)
+        app.pruneEmptyCoachCards()
+
+        XCTAssertEqual(app.activeCoachCard?.id, useful.id)
     }
 }

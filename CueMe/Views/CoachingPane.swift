@@ -56,6 +56,21 @@ struct CoachingPane: View {
                 .padding(.top, 8)
             }
 
+            if let cooldownUntil = app.coachCooldownUntil {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let remaining = max(0, Int(ceil(cooldownUntil.timeIntervalSince(context.date))))
+                    if remaining > 0 {
+                        Text("Próxima dica em \(remaining)s")
+                            .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Theme.faint)
+                            .padding(.horizontal, 14)
+                            .padding(.top, 6)
+                            .accessibilityIdentifier("coach.cooldown")
+                            .accessibilityValue("\(remaining)")
+                    }
+                }
+            }
+
             Group {
                 if let latest {
                     HeroCard(

@@ -103,6 +103,7 @@ final class AppModel {
     private(set) var deepgramAvailable = false
     var coachBackendReady = false
     var coachBackendError: String?
+    var coachCooldownUntil: Date?
     var summaryBackendError: String?
     var systemCaptureActive: Bool = false  // ScreenCaptureKit capturando o interlocutor?
     var micCaptureState: CaptureChannelState = .waiting
@@ -167,6 +168,7 @@ final class AppModel {
     /// A RootView pluga `.translationTask(translationConfig)`.
     var translationConfig: TranslationSession.Configuration?
     @ObservationIgnored nonisolated let translationPipe = TranslationPipe()
+    @ObservationIgnored nonisolated let liveSnapshotWriter = LiveSnapshotWriter()
     /// Outcome of the last update check, surfaced in About and the menus so a
     /// broken feed is visible instead of silently doing nothing.
     var updateStatus: AppUpdateStatus = .idle
@@ -451,6 +453,7 @@ final class AppModel {
         systemCaptureActive = false
         coachBackendReady = false
         coachBackendError = nil
+        coachCooldownUntil = nil
         summaryBackendError = nil
         diagnostics = .init()
         coachFeedback = [:]
@@ -507,17 +510,26 @@ final class AppModel {
             "CUEME_UI_TEST_MIC_SILENT"
         ] == "1"
         let questionID = UUID(uuidString: "60000000-0000-0000-0000-000000000001")!
-        let coachID = UUID(uuidString: "60000000-0000-0000-0000-000000000002")!
+        let firstCoachID = UUID(uuidString: "60000000-0000-0000-0000-000000000002")!
+        let latestCoachID = UUID(uuidString: "60000000-0000-0000-0000-000000000004")!
         transcript = [
             .init(id: questionID, speaker: .other, text: "Como vamos reduzir o risco da entrega?", isFinal: true, ts: now),
             .init(speaker: .self, text: "Vamos entregar em etapas menores.", isFinal: true, ts: now.addingTimeInterval(4))
         ]
-        coachCards = [.init(
-            id: coachID, guidePT: "Explique mitigação e prazo",
-            sayNative: "Vamos dividir a entrega em marcos semanais.",
-            keytermsConversation: ["marcos", "risco"], isStreaming: false, ts: now
-        )]
-        activeCoachCardID = coachID
+        coachCards = [
+            .init(
+                id: firstCoachID, guidePT: "Explique mitigação e prazo",
+                sayNative: "Vamos dividir a entrega em marcos semanais.",
+                keytermsConversation: ["marcos", "risco"], isStreaming: false, ts: now
+            ),
+            .init(
+                id: latestCoachID, guidePT: "Confirme o responsável mais recente",
+                sayNative: "Vamos confirmar o responsável e o prazo agora.",
+                keytermsConversation: ["responsável", "prazo"], isStreaming: false,
+                ts: now.addingTimeInterval(5)
+            )
+        ]
+        activeCoachCardID = latestCoachID
         minutes = .init(overview: "A equipe discutiu riscos e entregas incrementais.")
         sessionStartedAt = now
         currentSessionID = UUID(uuidString: "60000000-0000-0000-0000-000000000003")!
@@ -585,6 +597,7 @@ final class AppModel {
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             record.applyGeneratedTitle("Plano de mitigação da entrega")
         }
+        liveSnapshotWriter.flush()
         SessionStore.save(record)
         if let project = projects.first(where: { $0.id == activeProjectID }),
            let relocated = SessionStore.relocate(record, to: project) {
@@ -960,9 +973,10 @@ final class AppModel {
             coachCards.removeFirst(coachCards.count - 100)
         }
         if !dismissedCoachCardIDs.contains(card.id) {
-            let current = activeCoachCard
-            let mayAdvance = current == nil || current?.id == card.id
-            if mayAdvance { activeCoachCardID = card.id }
+            let activeIsPinned = activeCoachCardID.map(pinnedCoachCardIDs.contains) ?? false
+            if !activeIsPinned || activeCoachCardID == card.id {
+                activeCoachCardID = card.id
+            }
         }
     }
 
@@ -973,7 +987,9 @@ final class AppModel {
         dismissedCoachCardIDs.subtract(removed)
         pinnedCoachCardIDs.subtract(removed)
         if let activeCoachCardID, removed.contains(activeCoachCardID) {
-            self.activeCoachCardID = nil
+            self.activeCoachCardID = coachCards.last {
+                $0.hasContent && !dismissedCoachCardIDs.contains($0.id)
+            }?.id
         }
     }
 

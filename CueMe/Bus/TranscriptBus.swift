@@ -23,7 +23,7 @@ actor TranscriptBus {
     /// Cada chamada devolve um stream independente (fan-out).
     func subscribe() -> AsyncStream<TranscriptEvent> {
         let id = UUID()
-        return AsyncStream(bufferingPolicy: .bufferingNewest(256)) { cont in
+        return AsyncStream(bufferingPolicy: .unbounded) { cont in
             subscribers[id] = cont
             cont.onTermination = { [weak self] _ in
                 Task { await self?.removeSubscriber(id) }

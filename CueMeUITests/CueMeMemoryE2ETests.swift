@@ -438,14 +438,14 @@ final class CueMeMemoryE2ETests: XCTestCase {
         primary.click()
         let guide = app.staticTexts["coach.guide"]
         XCTAssertTrue(guide.waitForExistence(timeout: 5))
-        XCTAssertEqual(guide.value as? String, "Explique mitigação e prazo")
-        XCTAssertTrue(app.staticTexts["Vamos dividir a entrega em marcos semanais."].exists)
+        XCTAssertEqual(guide.value as? String, "Confirme o responsável mais recente")
+        XCTAssertTrue(app.staticTexts["Vamos confirmar o responsável e o prazo agora."].exists)
 
         primary.click()
         XCTAssertTrue(app.groups["workspace.library"].waitForExistence(timeout: 5))
         app.buttons["session.tab.coach"].click()
-        XCTAssertTrue(app.staticTexts["Explique mitigação e prazo"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Vamos dividir a entrega em marcos semanais."].exists)
+        XCTAssertTrue(app.staticTexts["Confirme o responsável mais recente"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Vamos confirmar o responsável e o prazo agora."].exists)
     }
 
     func testHomeSurfacesProfilesAndSecondBrainEntryPoints() {

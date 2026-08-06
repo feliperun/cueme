@@ -7,8 +7,8 @@
 ## High-level flow
 
 ```
-AVAudioEngine (mic, .self) ─────┐                                        ┌─▶ NativeTranscriber (SpeechAnalyzer)
-                                ├─▶ SttProvider (→16k mono PCM16) ────────┤
+AVAudioEngine (mic, .self) ─────┐       LiveAudioRouter                   ┌─▶ NativeTranscriber (SpeechAnalyzer)
+                                ├─▶ (lossless, off MainActor) ────────────┤
 ScreenCaptureKit (system, .other)┘        │                               └─▶ DeepgramTranscriber (Nova-3 WebSocket)
 Share / Shortcuts / files / drop ─▶ ExternalAudioInbox ─┴─▶ AudioImportService ─▶ Native file STT / Deepgram batch
                                            ▼                                   ▼
@@ -40,14 +40,19 @@ Share / Shortcuts / files / drop ─▶ ExternalAudioInbox ─┴─▶ AudioImp
 
 Single Swift process with Sparkle and vendored sqlite-vec as the only runtime
 dependencies. Audio callbacks stay
-minimal and hand buffers to the async world via `AsyncStream`; shared state
-lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
+minimal and hand buffers to the async world via non-dropping `AsyncStream`s;
+`LiveAudioRouter` performs the recording/STT fan-out outside the main actor.
+Shared state lives in actors; the UI reads an `@Observable` `AppModel` on the
+main actor, while `LiveSnapshotWriter` coalesces filesystem snapshots on its own
+serial queue.
 
 ## Components
 
 - **Audio/** — `AudioCapture` (mic via `AVAudioEngine` + system via
   `ScreenCaptureKit`, tagged by origin, per-channel level/health events,
   digital-silence detection and bounded system-stream recovery, opt-in AEC),
+  `LiveAudioRouter` (lossless off-main fan-out to recording and independently
+  replaceable STT lanes),
   `AudioConverter`, `MeetingRecorder` (writes two timestamp-synced AAC-LC `.m4a`
   files at 48 kHz/128 kbps for later playback), `MeetingPlayer` (two
   `AVAudioPlayer`s synced via
@@ -82,6 +87,7 @@ lives in actors; the UI reads an `@Observable` `AppModel` on the main actor.
   semantic triggers, user-controlled navigable cards, incremental structured
   minutes, latest-pending coalescing, independent capture/STT
   watchdog recovery, provider failover, latency telemetry, recording and training),
+  `LiveSnapshotWriter` (latest-value coalescing and ordered final flush),
   `TrainingCoordinator` (voice interviewer for practice/e2e testing),
   `HotkeyManager` (global ⌥Space show/hide), `SessionBrief` (+ `BriefStore`),
   reusable `BriefProfile`s, `MemoryNote` (the base entity for written and recorded
