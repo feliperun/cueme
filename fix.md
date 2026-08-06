@@ -93,4 +93,11 @@ sentrux gate .
 
 Release is complete only when the implementation PR and release-please PR are
 merged, the release-assets workflow succeeds, the GitHub release contains the
-signed DMG/ZIP artifacts, and the Sparkle appcast points to the new version.
+signed DMG plus SHA-256 checksum, and the signed Sparkle appcast points to the
+new version.
+
+## Release result
+
+- Released as `v1.4.0` on 2026-08-06.
+- Published `CueMe-1.4.0.dmg`, `CueMe-1.4.0.dmg.sha256` and `appcast.xml`.
+- The release-assets workflow verified the asset set and EdDSA-signed appcast.
