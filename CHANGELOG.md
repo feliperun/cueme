@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0](https://github.com/feliperun/cueme/compare/v1.3.0...v1.4.0) (2026-08-06)
+
+
+### Features
+
+* **gh-37:** add hierarchical project tree ([8fd165e](https://github.com/feliperun/cueme/commit/8fd165ea5721c98f1467f89d4df80bc317ade6e2))
+* **gh-37:** align note list filters and counts ([641bd22](https://github.com/feliperun/cueme/commit/641bd22f4c979ca975601e90cf0c7160dcd57575))
+* **gh-37:** migrate workspace shell chrome ([eb7eda6](https://github.com/feliperun/cueme/commit/eb7eda6a123c371d50f873d6034c459746437d79))
+
+
+### Bug Fixes
+
+* **gh-37:** stabilize workspace UI contracts ([3214bda](https://github.com/feliperun/cueme/commit/3214bda7ff6248bedd9d11e9b16bc8807314da92))
+* stabilize live recording transcription and coach ([e8d0b67](https://github.com/feliperun/cueme/commit/e8d0b67ee13f31b52c4206398cb8870460e0102c))
+* stabilize live recording transcription and coach ([2474fab](https://github.com/feliperun/cueme/commit/2474fab2fbc0c30d1847e67e3e04c54172281ed5))
+* stabilize live recording transcription and coach ([#40](https://github.com/feliperun/cueme/issues/40)) ([e8d0b67](https://github.com/feliperun/cueme/commit/e8d0b67ee13f31b52c4206398cb8870460e0102c))
+
 ## [1.3.0](https://github.com/feliperun/cueme/compare/v1.2.0...v1.3.0) (2026-07-26)
 
 
