@@ -4,6 +4,70 @@ import Foundation
 /// Deterministic, in-memory archive used only when the UI-test runner explicitly
 /// launches CueMe with CUEME_UI_TESTING=1. It never writes into the user's archive.
 enum UITestFixtures {
+    static let profileID = UUID(uuidString: "70000000-0000-0000-0000-000000000001")!
+
+    static let brief = SessionBrief(
+        mode: .meeting,
+        conversationLang: "en-US",
+        nativeLang: "pt-BR",
+        goal: "Synthetic meeting baseline",
+        details: "Deterministic UI-test configuration.",
+        keyterms: ["synthetic"],
+        cv: nil
+    )
+
+    static let profile = BriefProfile(
+        id: profileID,
+        name: "UI Test Focus",
+        brief: .init(
+            mode: .sales,
+            conversationLang: "en-US",
+            nativeLang: "pt-BR",
+            goal: "Synthetic profile applied",
+            details: "Profile changes stay inside the UI-test process.",
+            keyterms: ["profile", "synthetic"],
+            cv: nil
+        ),
+        coachModel: .opus,
+        summaryModel: .sonnet,
+        echoCancellation: false,
+        recordAudio: false,
+        contextIDs: [],
+        glossaryModel: .sonnet
+    )
+
+    static func configureIsolatedStorage(at root: URL) {
+        try? FileManager.default.removeItem(at: root)
+        SessionStore.rootOverride = root
+        ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
+    }
+
+    static func semanticIndexURL(at root: URL) -> URL {
+        root.appendingPathComponent("Derived/Memory/memory.sqlite3")
+    }
+
+    static func audioImportStatus(named name: String) -> AudioImportStatus? {
+        let fixtureSessionID = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
+        switch name {
+        case "completed":
+            return .init(
+                phase: .completed,
+                title: "Synthetic import",
+                detail: "Synthetic import completed.",
+                sessionID: nil
+            )
+        case "failed":
+            return .init(
+                phase: .failed,
+                title: "Synthetic import",
+                detail: "Synthetic processing failed.",
+                sessionID: fixtureSessionID
+            )
+        default:
+            return nil
+        }
+    }
+
     static func enqueueVoiceMemoImport() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CueMeUITests-voice-memo-source", isDirectory: true)
@@ -44,7 +108,9 @@ enum UITestFixtures {
         func embedding(for text: String) -> [Float] {
             var vector = [Float](repeating: 0, count: dimensions)
             let value = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            if value.contains("veiculo") || value.contains("carro") || value.contains("sustentavel") {
+            if value.contains("zzzz") {
+                vector[47] = 1
+            } else if value.contains("veiculo") || value.contains("carro") || value.contains("sustentavel") {
                 vector[17] = 1
             } else {
                 vector[31] = 1

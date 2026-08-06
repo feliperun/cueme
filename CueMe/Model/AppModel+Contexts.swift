@@ -42,7 +42,10 @@ extension AppModel {
             brief: brief,
             model: glossaryModel
         )
-        if !force, let cache = MeetingContextStore.loadCache(), cache.signature == signature {
+        if !isUITesting,
+           !force,
+           let cache = MeetingContextStore.loadCache(),
+           cache.signature == signature {
             generatedContextKeyterms = GlossaryTermPolicy.sanitized(cache.terms)
             glossaryGenerationState = .ready(generatedContextKeyterms.count)
             return
@@ -57,12 +60,14 @@ extension AppModel {
             )
             generatedContextKeyterms = terms
             glossaryGenerationState = .ready(terms.count)
-            MeetingContextStore.saveCache(.init(
-                signature: signature,
-                model: glossaryModel,
-                terms: terms,
-                generatedAt: Date()
-            ))
+            if !isUITesting {
+                MeetingContextStore.saveCache(.init(
+                    signature: signature,
+                    model: glossaryModel,
+                    terms: terms,
+                    generatedAt: Date()
+                ))
+            }
         } catch {
             generatedContextKeyterms = []
             glossaryGenerationState = .failed(error.localizedDescription)

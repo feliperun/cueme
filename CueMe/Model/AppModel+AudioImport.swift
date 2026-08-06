@@ -57,7 +57,18 @@ extension AppModel {
     }
 
     func retryImportedProcessing(sessionID: UUID) async {
-        guard let record = history.first(where: { $0.id == sessionID }), record.origin != .live else { return }
+        guard let record = history.first(where: { $0.id == sessionID }) else { return }
+        if isUITesting,
+           ProcessInfo.processInfo.environment["CUEME_UI_TEST_IMPORT_STATUS"] == "failed" {
+            audioImportStatus = .init(
+                phase: .completed,
+                title: record.title,
+                detail: "Synthetic retry completed.",
+                sessionID: record.id
+            )
+            return
+        }
+        guard record.origin != .live else { return }
         await processImportedRecord(record)
     }
 

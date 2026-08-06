@@ -57,6 +57,24 @@ enum MemoryNoteKind: String, Codable, CaseIterable, Sendable, Identifiable {
     }
 }
 
+/// The three visual categories used by the middle-column tabs and kind tags.
+/// A durable kind alone is not enough to call an item a meeting: a custom or
+/// meeting-shaped written note remains a note until it has live/recorded media.
+enum LibraryPresentationKind: Sendable {
+    case note
+    case journal
+    case meeting
+}
+
+extension MemoryNote {
+    var libraryPresentationKind: LibraryPresentationKind {
+        if noteKind == .journal {
+            return .journal
+        }
+        return containsRecording || origin == .live ? .meeting : .note
+    }
+}
+
 enum NoteTitleSource: String, Codable, Sendable {
     case fallback
     case generated

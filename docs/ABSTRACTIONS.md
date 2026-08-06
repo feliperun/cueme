@@ -52,9 +52,13 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
    `SemanticMemoryIndex` is a derived projection only: relational metadata,
    FTS5 and sqlite-vec vectors can be rebuilt from portable records. Projects,
    people and evidence references use stable UUIDs.
-8. **Views** (`Views/`) — SwiftUI only. Reads `AppModel`/`MemoryNote`, calls
-   `AppModel` command methods, never touches `SessionCoordinator` or the audio
-   layer directly.
+8. **Views** (`Views/`) — SwiftUI only. `RootWorkspaceShell` composes the
+   draggable workspace titlebar, hierarchical Project tree, projected Note list
+   and live/durable Note surface. `ProjectTreeProjection` reads the complete
+   archive for Project children; `NoteListProjection` snapshots the scoped
+   search results, tab counts and snippets once per render. Views read
+   `AppModel`/`MemoryNote`, call `AppModel` command methods, and never touch
+   `SessionCoordinator` or the audio layer directly.
 
 ## External systems
 
@@ -132,6 +136,11 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
   and reciprocal-rank fusion combines them after date/type filtering. The legacy
   in-memory scorer remains a fallback. Selecting Deepgram affects transcription,
   not search.
+- **Tree hierarchy and list filtering are separate projections.** Project
+  children always come from the complete archive, newest first; search, date,
+  label and type filters apply only to the middle Note list. Selecting a tree
+  child establishes its Project scope and clears incompatible list filters so
+  both columns remain consistent.
 - **`MemoryNote` is the base entity.** Written pages, journal entries, meetings,
   interviews, sales calls, recording-only sessions and imported audio differ by
   `MemoryNoteKind` and optional enrichments; do not introduce a parallel durable

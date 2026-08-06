@@ -15,16 +15,10 @@ final class SemanticMemoryIndex: @unchecked Sendable {
     /// Without a cutoff the nearest chunk is returned even when every chunk is
     /// unrelated, which makes a one-note archive match every possible query.
     private static let maximumSemanticDistance = 0.5
-    static let shared: SemanticMemoryIndex = {
-        guard ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" else {
-            return SemanticMemoryIndex()
-        }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("CueMeUITests-memory.sqlite3")
-        return SemanticMemoryIndex(embedder: UITestFixtures.Embedding(), url: url)
-    }()
+    static let shared = SemanticMemoryIndex()
     private let lock = NSLock()
     private let embedder: any EmbeddingProvider
+    let storageURL: URL
     private var db: OpaquePointer?
     private var indexedFingerprint = ""
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
@@ -32,6 +26,7 @@ final class SemanticMemoryIndex: @unchecked Sendable {
     init(embedder: any EmbeddingProvider = AppleSentenceEmbeddingProvider(), url: URL? = nil) {
         self.embedder = embedder
         let databaseURL = url ?? Self.defaultURL
+        self.storageURL = databaseURL
         try? FileManager.default.createDirectory(at: databaseURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
             db = nil
@@ -94,6 +89,30 @@ final class SemanticMemoryIndex: @unchecked Sendable {
             }
         }
     }
+
+#if DEBUG
+    func indexedSessionIDsForTesting() -> Set<UUID> {
+        lock.withLock {
+            guard let db else { return [] }
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(
+                db,
+                "SELECT DISTINCT session_id FROM memory_chunks",
+                -1,
+                &statement,
+                nil
+            ) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(statement) }
+            var result: Set<UUID> = []
+            while sqlite3_step(statement) == SQLITE_ROW {
+                if let raw = text(statement, 0), let id = UUID(uuidString: raw) {
+                    result.insert(id)
+                }
+            }
+            return result
+        }
+    }
+#endif
 
     private struct Candidate { let sessionID: UUID; let text: String }
 

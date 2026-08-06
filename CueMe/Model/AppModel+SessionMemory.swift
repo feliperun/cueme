@@ -130,7 +130,7 @@ extension AppModel {
             record.id != currentSessionID
                 && (projectID == nil || record.projectID == projectID)
         }
-        return Array(SemanticMemoryIndex.shared.search(
+        return Array(searchSemanticMemory(
             query: trimmed, date: .all, type: .all, records: scoped
         ).prefix(6))
     }
