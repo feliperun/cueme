@@ -386,7 +386,8 @@ final class CueMeMemoryE2ETests: XCTestCase {
         profiles.hover()
         let profile = app.menuItems["workspace.profile.70000000-0000-0000-0000-000000000001"]
         XCTAssertTrue(profile.waitForExistence(timeout: 3))
-        profile.click()
+        profile.hover()
+        app.typeKey(.return, modifierFlags: [])
 
         XCTAssertTrue(waitForValue(
             "pin=off;training=off;profile=70000000-0000-0000-0000-000000000001",
