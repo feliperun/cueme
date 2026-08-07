@@ -15,7 +15,7 @@ typing, `/` inserts structure, and Enter creates the next thought. CueMe must
 offer that experience without introducing a proprietary document tree or making
 a web editor the source of truth.
 
-Tolaria demonstrates the interaction model with a block editor that serializes a
+The interaction model is well established by block editors that serialize to a
 Markdown-safe subset. CueMe needs the same product contract while preserving its
 native Swift architecture, MIT codebase and file-first storage.
 
