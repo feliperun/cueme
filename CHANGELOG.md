@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/feliperun/cueme/compare/v1.4.0...v1.4.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* bound live teardown and restore coach streaming ([#44](https://github.com/feliperun/cueme/issues/44)) ([aeb3f0c](https://github.com/feliperun/cueme/commit/aeb3f0c66bba2411a3cf774c160c9ab2b58abb51))
+
 ## [1.4.0](https://github.com/feliperun/cueme/compare/v1.3.0...v1.4.0) (2026-08-06)
 
 
