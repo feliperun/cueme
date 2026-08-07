@@ -92,4 +92,25 @@ final class SemanticMemoryIndexTests: XCTestCase {
 
         XCTAssertTrue(results.first?.snippet?.contains("Orçamento aprovado") == true)
     }
+
+    /// The signature replaces chunking-to-hash on the library search path, so it
+    /// has to stay sensitive to every field the index actually reads.
+    func testContentSignatureTracksIndexedFieldsAndIgnoresNothingEdited() {
+        var record = SessionRecord(
+            startedAt: Date(timeIntervalSince1970: 0), mode: .meeting, training: false,
+            conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
+            transcript: [], coachCards: [], summaryBullets: [],
+            notes: [.init(timeOffset: 0, text: "Primeira versão")]
+        )
+        let original = MemoryChunkBuilder.contentSignature(record)
+
+        XCTAssertEqual(MemoryChunkBuilder.contentSignature(record), original)
+
+        record.notes = [.init(timeOffset: 0, text: "Segunda versão")]
+        XCTAssertNotEqual(MemoryChunkBuilder.contentSignature(record), original)
+
+        record.notes = [.init(timeOffset: 0, text: "Primeira versão")]
+        record.markdownBody = "corpo novo"
+        XCTAssertNotEqual(MemoryChunkBuilder.contentSignature(record), original)
+    }
 }

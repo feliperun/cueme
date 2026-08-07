@@ -44,6 +44,48 @@ final class FailoverCoachSessionTests: XCTestCase {
         XCTAssertEqual(result, "secondary")
         await session.shutdown()
     }
+
+    /// The coach card is rendered from partial deltas, so a committed primary has
+    /// to reach the consumer while it is still generating — never only at the end.
+    func testCommittedPrimaryStreamsBeforeItFinishes() async throws {
+        let primary = StubCoachSession(
+            chunks: [("GUIA: ", .zero), ("plano", .zero), (" completo", .milliseconds(1_500))]
+        )
+        let secondary = StubCoachSession(output: "secondary")
+        let session = FailoverCoachSession(
+            primary: primary,
+            secondary: secondary,
+            delay: .seconds(10)
+        )
+
+        let clock = ContinuousClock()
+        let start = clock.now
+        var received: [String] = []
+        var firstDeltaAfter: Duration?
+        for try await delta in await session.send("hello") {
+            if firstDeltaAfter == nil { firstDeltaAfter = start.duration(to: clock.now) }
+            received.append(delta)
+        }
+
+        XCTAssertEqual(received, ["GUIA: ", "plano", " completo"])
+        XCTAssertLessThan(firstDeltaAfter ?? .seconds(60), .milliseconds(700))
+        await session.shutdown()
+    }
+
+    func testSingleDeltaPrimaryStillDelivers() async throws {
+        let primary = StubCoachSession(output: "only")
+        let secondary = StubCoachSession(output: "secondary")
+        let session = FailoverCoachSession(
+            primary: primary,
+            secondary: secondary,
+            delay: .seconds(5)
+        )
+
+        let result = try await session.complete("hello")
+
+        XCTAssertEqual(result, "only")
+        await session.shutdown()
+    }
 }
 
 private actor StubCoachSession: CoachSession {

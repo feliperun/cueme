@@ -87,4 +87,5 @@ proposed → active → superseded
 | [0038](0038-latest-coach-cue-and-pinned-review.md) | Latest Coach cue with explicit pinning | active |
 | [0039](0039-lossless-off-main-live-audio-routing.md) | Lossless off-main live audio routing | active |
 | [0040](0040-render-cheap-library-projections-and-live-snapshots.md) | Render-cheap library projections and off-main live snapshots | active |
-| [0041](0041-recoverable-stt-and-stall-aware-coach.md) | Recoverable STT and stall-aware Coach delivery | active |
+| [0041](0041-recoverable-stt-and-stall-aware-coach.md) | Recoverable STT and stall-aware Coach delivery | superseded by 0042 |
+| [0042](0042-bounded-teardown-and-committed-coach-streaming.md) | Bounded teardown, committed Coach streaming and backlog visibility | active |

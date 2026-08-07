@@ -98,4 +98,16 @@ final class SessionCoordinatorHeuristicsTests: XCTestCase {
             "⭐ STAR"
         )
     }
+
+    /// The user repeating the interlocutor's own words minutes later is speech,
+    /// not echo — the window is what keeps that line in the transcript.
+    func testRepeatedSentenceOutsideTheWindowIsNotEcho() {
+        let spoken = Date()
+        XCTAssertFalse(SessionCoordinator.isRecentEcho(
+            "vamos revisar o plano de rollback",
+            at: spoken.addingTimeInterval(90),
+            "vamos revisar o plano de rollback",
+            at: spoken
+        ))
+    }
 }

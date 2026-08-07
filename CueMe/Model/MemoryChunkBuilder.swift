@@ -7,6 +7,40 @@ struct MemoryChunk: Sendable, Hashable {
 }
 
 enum MemoryChunkBuilder {
+    /// Content signature over exactly the fields `chunks` indexes.
+    ///
+    /// The index is asked to rebuild on every library query, so this runs on the
+    /// MainActor once per keystroke. Building the chunks just to hash them made
+    /// that cost proportional to the whole archive — allocating a struct and a
+    /// joined string per chunk — which stalled the live session. Hashing the same
+    /// source fields keeps every in-memory edit detectable at a fraction of it.
+    static func contentSignature(_ record: SessionRecord) -> Int {
+        var hasher = Hasher()
+        hasher.combine(record.id)
+        hasher.combine(record.projectID)
+        hasher.combine(record.title)
+        hasher.combine(record.labels)
+        hasher.combine(record.markdownBody)
+        for line in record.transcript where line.isFinal {
+            hasher.combine(line.speaker)
+            hasher.combine(line.text)
+            hasher.combine(line.translation)
+        }
+        for topic in record.minutes.topics {
+            hasher.combine(topic.title)
+            hasher.combine(topic.summary)
+        }
+        for decision in record.review.decisions { hasher.combine(decision.text) }
+        for question in record.review.openQuestions { hasher.combine(question.text) }
+        for takeaway in record.takeaways { hasher.combine(takeaway.text) }
+        for note in record.notes { hasher.combine(note.text) }
+        for artifact in record.artifacts {
+            hasher.combine(artifact.title)
+            hasher.combine(artifact.body)
+        }
+        return hasher.finalize()
+    }
+
     static func chunks(_ record: SessionRecord) -> [MemoryChunk] {
         var result: [MemoryChunk] = []
         let finals = record.transcript.filter(\.isFinal)

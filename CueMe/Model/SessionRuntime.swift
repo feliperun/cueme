@@ -190,16 +190,23 @@ enum CoachTriggerPolicy {
             && (text.contains("?") || normalized.split(separator: " ").count >= 12)
         guard opportunity.isHighConfidence || meetingFallback else { return false }
 
-        let cooldown: TimeInterval
-        switch resolvedStyle {
-        case .interview: cooldown = opportunity.kind == .question ? 5 : 30
-        case .sales: cooldown = opportunity.kind == .question ? 10 : 30
-        case .oneOnOne: cooldown = 30
-        case .technical: cooldown = opportunity.kind == .question ? 12 : 30
-        case .openMeeting: cooldown = opportunity.kind == .question ? 20 : 45
-        }
+        let cooldown = self.cooldown(text: text, style: resolvedStyle)
         if let lastTriggeredAt, now.timeIntervalSince(lastTriggeredAt) < cooldown { return false }
         return true
+    }
+
+    /// Single source of truth for the pacing between cues. The gate and the
+    /// countdown shown in the UI must never disagree about how long the wait is.
+    static func cooldown(text: String, style: ConversationStyle) -> TimeInterval {
+        let opportunity = CoachOpportunity.evaluate(text: text, style: style)
+        let isQuestion = opportunity.kind == .question || text.contains("?")
+        switch style {
+        case .interview: return isQuestion ? 5 : 30
+        case .sales: return isQuestion ? 10 : 30
+        case .oneOnOne: return 30
+        case .technical: return isQuestion ? 12 : 30
+        case .openMeeting: return isQuestion ? 20 : 45
+        }
     }
 
     static func cooldownRemaining(
@@ -210,16 +217,8 @@ enum CoachTriggerPolicy {
         lastTriggeredAt: Date?
     ) -> TimeInterval {
         guard let lastTriggeredAt else { return 0 }
-        let opportunity = CoachOpportunity.evaluate(text: text, style: style)
-        let cooldown: TimeInterval
-        switch style {
-        case .interview: cooldown = opportunity.kind == .question ? 5 : 30
-        case .sales: cooldown = opportunity.kind == .question ? 10 : 30
-        case .oneOnOne: cooldown = 30
-        case .technical: cooldown = opportunity.kind == .question ? 12 : 30
-        case .openMeeting: cooldown = opportunity.kind == .question || text.contains("?") ? 20 : 45
-        }
-        return max(0, cooldown - now.timeIntervalSince(lastTriggeredAt))
+        let elapsed = now.timeIntervalSince(lastTriggeredAt)
+        return max(0, cooldown(text: text, style: style) - elapsed)
     }
 }
 

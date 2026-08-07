@@ -50,6 +50,7 @@ final class SessionCoordinator {
     private var watchdog = RuntimeWatchdog()
     private var lastRecorderWriteFailures = 0
     private var lastCaptureDroppedChunks: Int64 = 0
+    private var lastRouteBacklogWarned = false
     private var lastSttHealth: [Speaker: SttHealthSnapshot] = [:]
 
     // Dedup de eco (setup alto-falante): a fala do interlocutor sai da caixa e volta
@@ -58,6 +59,14 @@ final class SessionCoordinator {
     private var recentMicFinals: [(lineID: UUID, eventID: UUID, text: String, ts: Date)] = []
     private var partialText: [Speaker: String] = [:]
     private let echoWindow: TimeInterval = 8
+
+    /// Teardown budgets. Generous enough for a healthy drain, short enough that a
+    /// wedged provider never holds the session in "Salvando…".
+    private static let routeDrainDeadline = Duration.seconds(5)
+    private static let sttTeardownDeadline = Duration.seconds(5)
+
+    /// ~4 s of capture at 48 kHz/1024-frame buffers on both origins.
+    private static let routeBacklogWarningChunks: Int64 = 400
 
     private struct CoachRequest: Sendable {
         let window: [Turn]
@@ -245,7 +254,14 @@ final class SessionCoordinator {
         capture?.finish()
         let captureHealth = capture?.healthSnapshot()
         capture = nil
-        await audioRouteTask?.value
+        // Every teardown await below reaches provider or framework code we do not
+        // control. A deadline keeps a stuck one from freezing "Salvando…".
+        let routeTask = audioRouteTask
+        let drained = await withDeadline(Self.routeDrainDeadline) { await routeTask?.value }
+        if !drained {
+            routeTask?.cancel()
+            app.recordDiagnostic(kind: .error, name: "audio_route_drain_timeout")
+        }
         if let captureHealth,
            let routeHealth = await audioRouter?.healthSnapshot(),
            routeHealth.routedChunks != captureHealth.acceptedChunks {
@@ -254,9 +270,15 @@ final class SessionCoordinator {
         }
         audioRouteTask = nil
         audioRouter = nil
-        await micStt?.finish()
-        await systemStt?.finish()
-        for task in sttEventTasks.values { await task.value }
+        await finishSTT(micStt, speaker: .self)
+        await finishSTT(systemStt, speaker: .other)
+        for (speaker, task) in sttEventTasks {
+            let finished = await withDeadline(Self.sttTeardownDeadline) { await task.value }
+            if !finished {
+                task.cancel()
+                app.recordDiagnostic(kind: .error, name: "stt_consumer_timeout", speaker: speaker)
+            }
+        }
         sttEventTasks.removeAll()
         if summaryPolicy.hasUnsummarizedTurns {
             await runSummary(final: true)
@@ -297,11 +319,22 @@ final class SessionCoordinator {
         watchdog = .init()
         lastRecorderWriteFailures = 0
         lastCaptureDroppedChunks = 0
+        lastRouteBacklogWarned = false
         lastSttHealth.removeAll()
         app.resetRuntimeHealth()
         app.recordDiagnostic(kind: .session, name: "stopped")
         log.info("Sessão parada")
         return SessionStopResult(audioDuration: duration, recordingStartedAt: audioStart)
+    }
+
+    /// Closes one transcription session without letting a stuck provider drain
+    /// block the whole stop sequence.
+    private func finishSTT(_ session: (any SttSession)?, speaker: Speaker) async {
+        guard let session else { return }
+        let finished = await withDeadline(Self.sttTeardownDeadline) { await session.finish() }
+        if !finished {
+            app.recordDiagnostic(kind: .error, name: "stt_finish_timeout", speaker: speaker)
+        }
     }
 
     private func failStart(_ message: String) async {
@@ -524,8 +557,8 @@ final class SessionCoordinator {
                 do { try await Task.sleep(for: .seconds(2)) }
                 catch { return }
                 guard let self, self.app.isRunning else { continue }
-                if let captureHealth = self.capture?.healthSnapshot(),
-                   captureHealth.droppedChunks > self.lastCaptureDroppedChunks {
+                let captureHealth = self.capture?.healthSnapshot()
+                if let captureHealth, captureHealth.droppedChunks > self.lastCaptureDroppedChunks {
                     self.lastCaptureDroppedChunks = captureHealth.droppedChunks
                     self.app.recordDiagnostic(kind: .error, name: "audio_chunk_dropped")
                     self.app.setRuntimeHealth(.critical, reason: "Gravação incompleta", sticky: true)
@@ -536,6 +569,10 @@ final class SessionCoordinator {
                     for (speaker, timestamp) in routeSnapshot.lastChunkAt {
                         self.watchdog.observeChunk(speaker, at: timestamp)
                     }
+                    self.observeRouteBacklog(
+                        accepted: captureHealth?.acceptedChunks,
+                        routed: routeSnapshot.routedChunks
+                    )
                 }
                 let snapshot = await self.recorder?.healthSnapshot()
                 if let snapshot, snapshot.writeFailures > self.lastRecorderWriteFailures {
@@ -551,6 +588,25 @@ final class SessionCoordinator {
                 for action in actions { await self.performWatchdog(action) }
             }
         }
+    }
+
+    /// The capture queue is unbounded so meeting audio is never silently dropped.
+    /// That trades loss for growth, so the backlog itself has to be watched: a
+    /// consumer falling behind is reported instead of quietly eating memory.
+    private func observeRouteBacklog(accepted: Int64?, routed: Int64) {
+        guard let accepted else { return }
+        let backlog = max(0, accepted - routed)
+        guard backlog >= Self.routeBacklogWarningChunks else {
+            if lastRouteBacklogWarned {
+                lastRouteBacklogWarned = false
+                app.clearRuntimeHealthIssue(reason: "Áudio acumulando na fila")
+            }
+            return
+        }
+        guard !lastRouteBacklogWarned else { return }
+        lastRouteBacklogWarned = true
+        app.recordDiagnostic(kind: .error, name: "audio_route_backlog", detail: "\(backlog)")
+        app.setRuntimeHealth(.degraded, reason: "Áudio acumulando na fila")
     }
 
     private func observeSTTHealth(_ speaker: Speaker, session: (any SttSession)?) async {
@@ -615,14 +671,17 @@ final class SessionCoordinator {
             try await replacement.start()
             switch speaker {
             case .self:
-                await micStt?.finish()
+                await finishSTT(micStt, speaker: speaker)
                 micStt = replacement
             case .other:
-                await systemStt?.finish()
+                await finishSTT(systemStt, speaker: speaker)
                 systemStt = replacement
             }
             if let previousConsumer = sttEventTasks[speaker] {
-                await previousConsumer.value
+                let finished = await withDeadline(Self.sttTeardownDeadline) {
+                    await previousConsumer.value
+                }
+                if !finished { previousConsumer.cancel() }
             }
             sttEventTasks[speaker] = consume(events: replacement.events)
             await audioRouter?.replaceSTT(replacement, for: speaker)
@@ -814,12 +873,18 @@ final class SessionCoordinator {
         return Double(inter) / Double(min(wa.count, wb.count)) >= 0.75
     }
 
+    /// Both origins run through the same provider, so the two finals for one
+    /// echoed phrase land within about a second of each other. The window stays
+    /// tight on purpose: widening it starts deleting the user's own speech when
+    /// they repeat the interlocutor's terms, which is the worse failure.
+    static let echoMaximumLag: TimeInterval = 2
+
     static func isRecentEcho(
         _ candidate: String,
         at candidateTime: Date,
         _ reference: String,
         at referenceTime: Date,
-        maximumLag: TimeInterval = 2
+        maximumLag: TimeInterval = SessionCoordinator.echoMaximumLag
     ) -> Bool {
         abs(candidateTime.timeIntervalSince(referenceTime)) <= maximumLag
             && isEcho(candidate, reference)
@@ -907,12 +972,22 @@ final class SessionCoordinator {
         let normalized = SpeculativeTurnDetector.normalize(text)
         guard !speculativeText.isEmpty,
               normalized.hasPrefix(speculativeText) || speculativeText.hasPrefix(normalized) else { return false }
-        let producedUsefulCard = speculativeCardID.flatMap { id in
+        let speculativeCard = speculativeCardID.flatMap { id in
             app.coachCards.first(where: { $0.id == id })
-        }?.hasContent == true
+        }
         speculativeText = ""
         speculativeCardID = nil
-        return producedUsefulCard
+        return speculativeCard.map(Self.carriesModelAnswer) ?? false
+    }
+
+    /// The local `InstantCue` label alone is not an answer — it is a placeholder
+    /// shown while the model is still thinking. Swallowing the confirmed turn on
+    /// that basis is how a speculative cue that ends up as `NADA` used to leave
+    /// the user with nothing at all.
+    static func carriesModelAnswer(_ card: CoachCard) -> Bool {
+        let conversation = card.sayConversation?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let native = card.sayNative.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !conversation.isEmpty || !native.isEmpty
     }
 
     /// Live e manual têm filas independentes. Novos fragments live substituem apenas

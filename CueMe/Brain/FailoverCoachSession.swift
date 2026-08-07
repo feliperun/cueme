@@ -1,9 +1,13 @@
 import Foundation
 
-/// Races the preferred provider against a delayed backup. The backup starts
-/// only when the primary has not produced a first token within the latency
-/// budget, or when it fails before producing output.
+/// Races the preferred provider against a delayed backup. The backup takes over
+/// when the primary stalls for longer than the latency budget, or fails, before
+/// the primary has committed to streaming. Once committed, the primary streams
+/// straight through so the card stays incremental.
 final class FailoverCoachSession: CoachSession, @unchecked Sendable {
+    /// Deltas the primary must produce before its output starts streaming through.
+    private static let commitThreshold = 2
+
     private let primary: any CoachSession
     private let secondary: any CoachSession
     private let delay: Duration
@@ -54,14 +58,29 @@ final class FailoverCoachSession: CoachSession, @unchecked Sendable {
     ) async {
         do {
             let stream = await primary.send(user)
+            // Deltas are held only until the primary proves it is really
+            // streaming. Committing on the second delta keeps the card
+            // incremental while a provider that emits one token and then hangs
+            // still loses the race without any of its output being shown.
             var buffered: [String] = []
+            var committed = false
             for try await delta in stream {
                 guard !Task.isCancelled else { return }
                 guard !state.isWinner(.secondary) else { return }
                 state.notePrimaryActivity()
+                if committed {
+                    continuation.yield(delta)
+                    continue
+                }
                 buffered.append(delta)
+                guard buffered.count >= Self.commitThreshold, state.claim(.primary) else { continue }
+                committed = true
+                for pending in buffered { continuation.yield(pending) }
+                buffered.removeAll()
             }
-            if state.claim(.primary) {
+            if committed {
+                if state.finish(.primary) { continuation.finish() }
+            } else if state.claim(.primary) {
                 for delta in buffered { continuation.yield(delta) }
                 if state.finish(.primary) { continuation.finish() }
             }

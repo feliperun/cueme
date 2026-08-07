@@ -96,7 +96,15 @@ actor NativeTranscriber: SttSession, SttHealthReporting {
         if let analyzer {
             try? await analyzer.finalizeAndFinishThroughEndOfInput()
         }
-        await resultsTask?.value
+        // `transcriber.results` normally ends with the analyzer. When it does not,
+        // waiting forever would wedge the session stop, so the drain is bounded.
+        if let resultsTask {
+            let drained = await withDeadline(.seconds(2)) { await resultsTask.value }
+            if !drained {
+                resultsTask.cancel()
+                log.error("Resultados do STT nativo não drenaram; encerrando mesmo assim")
+            }
+        }
         resultsTask = nil
         analyzer = nil
         transcriber = nil

@@ -20,7 +20,7 @@ final class SemanticMemoryIndex: @unchecked Sendable {
     private let embedder: any EmbeddingProvider
     let storageURL: URL
     private var db: OpaquePointer?
-    private var indexedFingerprint = ""
+    private var indexedFingerprint: [Int] = []
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
     init(embedder: any EmbeddingProvider = AppleSentenceEmbeddingProvider(), url: URL? = nil) {
@@ -44,14 +44,14 @@ final class SemanticMemoryIndex: @unchecked Sendable {
     deinit { if let db { sqlite3_close(db) } }
 
     func rebuild(_ records: [SessionRecord]) {
-        let chunks = records.flatMap(MemoryChunkBuilder.chunks)
-        // The archive is editable after a meeting. Include indexed content in the
-        // fingerprint so corrections, notes and regenerated artifacts invalidate
-        // the projection even when session metadata did not change.
-        let fingerprint = chunks
-            .map { "\($0.id):\($0.text.hashValue)" }
-            .joined(separator: "|")
+        // The archive is editable after a meeting, so the fingerprint has to cover
+        // indexed content — corrections, notes and regenerated artifacts must
+        // invalidate the projection even when session metadata did not change.
+        // It is computed by hashing those fields rather than by chunking the whole
+        // archive, because this runs once per keystroke of the library search.
+        let fingerprint = records.map(MemoryChunkBuilder.contentSignature)
         guard fingerprint != indexedFingerprint else { return }
+        let chunks = records.flatMap(MemoryChunkBuilder.chunks)
         lock.withLock {
             guard let db else { return }
             exec("BEGIN IMMEDIATE")
