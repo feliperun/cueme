@@ -107,4 +107,51 @@ final class SessionRuntimeTests: XCTestCase {
             "PLANO → AÇÃO → RESULTADO"
         )
     }
+
+    /// The countdown shown in the pane and the gate that blocks the cue read from
+    /// one table, so the UI can never promise a cue the policy will refuse.
+    func testCountdownAgreesWithTheGateThatBlockedTheCue() {
+        let now = Date()
+        let text = "Quem fica responsável por fechar isso, e até quando?"
+        let lastTriggeredAt = now.addingTimeInterval(-3)
+
+        let allowed = CoachTriggerPolicy.shouldTrigger(
+            text: text,
+            mode: .meeting,
+            style: .openMeeting,
+            speakerCertain: true,
+            now: now,
+            lastTriggeredAt: lastTriggeredAt,
+            lastFingerprint: nil
+        )
+        let remaining = CoachTriggerPolicy.cooldownRemaining(
+            text: text,
+            mode: .meeting,
+            style: .openMeeting,
+            now: now,
+            lastTriggeredAt: lastTriggeredAt
+        )
+
+        XCTAssertFalse(allowed)
+        XCTAssertGreaterThan(remaining, 0)
+        XCTAssertEqual(
+            remaining,
+            CoachTriggerPolicy.cooldown(text: text, style: .openMeeting) - 3,
+            accuracy: 0.01
+        )
+    }
+
+    func testCountdownIsZeroOnceTheCooldownElapsed() {
+        let now = Date()
+        let text = "Precisamos decidir o dono do rollback."
+        let remaining = CoachTriggerPolicy.cooldownRemaining(
+            text: text,
+            mode: .meeting,
+            style: .openMeeting,
+            now: now,
+            lastTriggeredAt: now.addingTimeInterval(-120)
+        )
+
+        XCTAssertEqual(remaining, 0)
+    }
 }

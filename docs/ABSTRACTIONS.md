@@ -123,7 +123,17 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 - **Accepted live audio is never discarded to keep the UI responsive.**
   `LiveAudioRouter` drains capture outside the MainActor, fans out to STT and the
   recorder, and shutdown awaits that drain before finalizing providers
-  ([ADR 0039](adr/0039-lossless-off-main-live-audio-routing.md)).
+  ([ADR 0039](adr/0039-lossless-off-main-live-audio-routing.md)). The queue is
+  unbounded, so the backlog is what gets watched: the watchdog reports a consumer
+  falling behind instead of letting it grow unseen.
+- **Nothing in teardown waits without a deadline.** Provider and framework calls
+  (`SpeechAnalyzer` results, websocket drains, STT `finish()`) run under
+  `withDeadline`; a wedged one is cancelled and reported rather than freezing the
+  stop sequence
+  ([ADR 0042](adr/0042-bounded-teardown-and-committed-coach-streaming.md)).
+- **A Coach card streams, but only from one provider.** The primary lane commits
+  after its second delta and passes through from then on; a provider that emits
+  one fragment and stalls loses the race with none of its output shown.
 - **Audio replay uses the recorder's clock, not the Start-button clock.**
   `SessionRecord.recordingStartedAt` is persisted with the stop result; legacy
   records fall back to `startedAt`.

@@ -20,11 +20,16 @@ actor DeepgramTranscriber: SttSession, SttHealthReporting {
     private var senderTask: Task<Void, Never>?
     private var receiverTask: Task<Void, Never>?
     private var keepAliveTask: Task<Void, Never>?
-    private var reconnectTask: Task<DeepgramSocketConnection, Error>?
+    private var reconnectTask: Task<Bool, Never>?
+    private var reconnectBlockedUntil: Date?
     private var isActive = false
     private var inputFailures = 0
     private var sendFailures = 0
     private var reconnects = 0
+
+    private static let reconnectAttempts = 4
+    private static let reconnectCooldownSeconds: TimeInterval = 5
+    private static let reconnectCooldown = Duration.seconds(5)
 
     init(config: SttConfig, apiKey: String) {
         self.config = config
@@ -102,89 +107,106 @@ actor DeepgramTranscriber: SttSession, SttHealthReporting {
         eventsContinuation.finish()
     }
 
+    /// A failed send never retries the chunk and never blocks the sender: the
+    /// audio queue has to keep draining while the socket is down, otherwise a
+    /// network outage turns into unbounded memory growth plus a reconnect storm
+    /// of one full backoff cycle per buffered chunk.
     private func sendAudio(_ data: Data) async {
-        guard isActive, let socket else { return }
+        guard isActive, let socket, reconnectTask == nil else { return }
         do {
             try await socket.send(.data(data))
         } catch {
             sendFailures += 1
-            log.error("Falha ao enviar áudio para a Deepgram; reconectando")
-            if self.socket === socket, await reconnect(), let replacement = self.socket {
-                try? await replacement.send(.data(data))
-            }
+            guard self.socket === socket else { return }
+            log.error("Falha ao enviar áudio para a Deepgram; agendando reconexão")
+            startReconnectIfIdle()
         }
     }
 
     private func receiveLoop() async {
         while isActive, !Task.isCancelled {
             guard let socket else {
-                if !(await reconnect()) { return }
+                if !(await reconnect()) {
+                    try? await Task.sleep(for: Self.reconnectCooldown)
+                }
                 continue
             }
             do {
-            while isActive, !Task.isCancelled {
-                let message = try await socket.receive()
-                let data: Data
-                switch message {
-                case .data(let value): data = value
-                case .string(let value): data = Data(value.utf8)
-                @unknown default: continue
+                while isActive, !Task.isCancelled {
+                    let message = try await socket.receive()
+                    let data: Data
+                    switch message {
+                    case .data(let value): data = value
+                    case .string(let value): data = Data(value.utf8)
+                    @unknown default: continue
+                    }
+                    if let event = assembler.consume(data) {
+                        eventsContinuation.yield(event)
+                    }
                 }
-                if let event = assembler.consume(data) {
-                    eventsContinuation.yield(event)
-                }
-            }
             } catch {
                 guard isActive, !Task.isCancelled else { return }
                 guard self.socket === socket else { continue }
                 log.error("Stream da Deepgram foi interrompido; reconectando")
-                if !(await reconnect()) { return }
+                if !(await reconnect()) {
+                    try? await Task.sleep(for: Self.reconnectCooldown)
+                }
             }
         }
     }
 
+    /// Circuit breaker: after a failed backoff cycle no new attempt starts until
+    /// the cooldown expires, so callers stay cheap while the network is down.
+    private var isReconnectBlocked: Bool {
+        guard let reconnectBlockedUntil else { return false }
+        return Date() < reconnectBlockedUntil
+    }
+
+    private func startReconnectIfIdle() {
+        guard isActive, reconnectTask == nil, !isReconnectBlocked else { return }
+        reconnectTask = Task { [weak self] in
+            guard let self else { return false }
+            return await self.performReconnect()
+        }
+    }
+
     private func reconnect() async -> Bool {
-        guard isActive else { return false }
-        if let reconnectTask {
-            return (try? await reconnectTask.value) != nil
-        }
-        let config = config
-        let apiKey = apiKey
-        let task = Task<DeepgramSocketConnection, Error> {
-            var lastError: Error = DeepgramError.connectionFailed
-            for attempt in 0..<4 {
-                if attempt > 0 {
-                    try await Task.sleep(for: .milliseconds(250 * (1 << (attempt - 1))))
-                }
-                do {
-                    return try await DeepgramSocketConnector.connect(config: config, apiKey: apiKey)
-                } catch {
-                    lastError = error
-                }
+        startReconnectIfIdle()
+        guard let task = reconnectTask else { return false }
+        return await task.value
+    }
+
+    private func performReconnect() async -> Bool {
+        defer { reconnectTask = nil }
+        var lastError: Error?
+        for attempt in 0..<Self.reconnectAttempts {
+            guard isActive, !Task.isCancelled else { return false }
+            if attempt > 0 {
+                do { try await Task.sleep(for: .milliseconds(250 * (1 << (attempt - 1)))) }
+                catch { return false }
             }
-            throw lastError
-        }
-        reconnectTask = task
-        do {
-            let connection = try await task.value
-            reconnectTask = nil
-            guard isActive else {
-                connection.socket.cancel(with: .goingAway, reason: nil)
-                connection.session.invalidateAndCancel()
-                return false
+            do {
+                let connection = try await DeepgramSocketConnector.connect(config: config, apiKey: apiKey)
+                guard isActive else {
+                    connection.socket.cancel(with: .goingAway, reason: nil)
+                    connection.session.invalidateAndCancel()
+                    return false
+                }
+                socket?.cancel(with: .goingAway, reason: nil)
+                networkSession?.invalidateAndCancel()
+                socket = connection.socket
+                networkSession = connection.session
+                reconnectBlockedUntil = nil
+                reconnects += 1
+                log.info("Deepgram reconectada (reconexão \(self.reconnects, privacy: .public))")
+                return true
+            } catch {
+                lastError = error
             }
-            socket?.cancel(with: .goingAway, reason: nil)
-            networkSession?.invalidateAndCancel()
-            socket = connection.socket
-            networkSession = connection.session
-            reconnects += 1
-            log.info("Deepgram reconectada (tentativa bem-sucedida \(self.reconnects, privacy: .public))")
-            return true
-        } catch {
-            reconnectTask = nil
-            log.error("Deepgram não reconectou após backoff")
-            return false
         }
+        reconnectBlockedUntil = Date().addingTimeInterval(Self.reconnectCooldownSeconds)
+        log.error("Deepgram não reconectou após backoff: \(lastError?.localizedDescription ?? "-", privacy: .public)")
+        return false
     }
 
     private func keepAliveLoop() async {

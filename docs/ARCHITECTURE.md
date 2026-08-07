@@ -44,7 +44,8 @@ minimal and hand buffers to the async world via non-dropping `AsyncStream`s;
 `LiveAudioRouter` performs the recording/STT fan-out outside the main actor.
 Shared state lives in actors; the UI reads an `@Observable` `AppModel` on the
 main actor, while `LiveSnapshotWriter` coalesces filesystem snapshots on its own
-serial queue.
+serial queue. Teardown waits on provider and framework code through
+`withDeadline`, so a wedged lane degrades the session instead of freezing it.
 
 ## Components
 
@@ -74,7 +75,11 @@ serial queue.
   hooks/user settings/tools/MCP disabled), `DeepSeekSession` (direct DeepSeek HTTP/SSE, stateless,
   non-thinking; keyed via `DeepSeekCredential` in the Keychain, see
   [ADR 0013](adr/0013-deepseek-coach-via-direct-api.md)) — both behind the
-  `CoachSession` protocol, `Summary` and `Coaching` lanes, `SessionPostProcessor`
+  `CoachSession` protocol, `FailoverCoachSession` (commits the primary after its
+  second delta so cards stream from a single provider, and hands a stalled
+  primary over to the backup, see
+  [ADR 0042](adr/0042-bounded-teardown-and-committed-coach-streaming.md)),
+  `Summary` and `Coaching` lanes, `SessionPostProcessor`
   (structured session review, follow-ups and questions), `Prompts` (expert-panel
   coach persona + per-mode playbooks, see [ADR 0011](adr/0011-expert-coach-persona-and-playbooks.md)).
 - **Context preflight** — reusable `MeetingContext` documents are selected per

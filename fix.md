@@ -101,3 +101,49 @@ new version.
 - Released as `v1.4.0` on 2026-08-06.
 - Published `CueMe-1.4.0.dmg`, `CueMe-1.4.0.dmg.sha256` and `appcast.xml`.
 - The release-assets workflow verified the asset set and EdDSA-signed appcast.
+
+---
+
+# Follow-up review of the 1.4.0 implementation
+
+A verification pass over the merged work found four defects introduced by the
+fixes themselves and five items left incomplete. All are addressed by
+[ADR 0042](docs/adr/0042-bounded-teardown-and-committed-coach-streaming.md).
+
+## Defects introduced by the 1.4.0 fixes
+
+1. **Coach cards stopped streaming.** `FailoverCoachSession` buffered the entire
+   primary response and emitted it only after the stream ended. Since every coach
+   and summary session is wrapped in a failover, no card streamed at all and the
+   local latency fallback fired on nearly every cue. The primary now commits after
+   its second delta and passes through from then on, which still denies a
+   stalled-after-one-fragment provider any visible output.
+2. **`stop()` could hang forever.** The fixed teardown sleeps were replaced by
+   unbounded awaits on provider and framework code, and `NativeTranscriber.finish()`
+   waited on a results stream that is not guaranteed to end. Every teardown wait
+   now runs under `withDeadline`.
+3. **Reconnect storm on network loss.** Each failed Deepgram send retried the
+   payload through a full 4-attempt backoff, serialized behind an unbounded queue.
+   A failed send now drops that payload and schedules one reconnect, guarded by a
+   cooldown after a failed cycle.
+4. **The drop counter could never fire.** With an unbounded capture queue,
+   `yield` never reports `.dropped`, so the watchdog check was dead code. The
+   backlog (`accepted - routed`) is sampled instead and reported as degraded health.
+
+## Items that were incomplete
+
+5. **Library projection cost.** The empty-query shortcut fixed the idle path, but
+   typing in the search still re-chunked the whole archive on every keystroke.
+   `MemoryChunkBuilder.contentSignature` hashes the indexed fields directly.
+6. **Speculative cues still swallowed turns.** `hasContent` is true for the local
+   `InstantCue` placeholder, so a confirmed turn was discarded while the model was
+   still thinking — and lost entirely if the answer came back `NADA`. Only a cue
+   carrying model output counts now.
+7. **Duplicated cooldown table.** The gate and the countdown had already diverged.
+   `CoachTriggerPolicy.cooldown` is the single source.
+8. **Missing unit coverage.** `CoachPresentationPolicyTests` was listed above but
+   never existed. `CoachCardNavigationTests`, `LiveSnapshotWriterTests` and
+   `AsyncDeadlineTests` cover the gaps.
+9. **Echo window.** Reviewed and deliberately left at 2 s: both origins share one
+   provider, and widening it starts deleting the user's own speech. The existing
+   boundary test stands.
