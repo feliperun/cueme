@@ -60,14 +60,15 @@ tasks:
 
   - id: T004
     title: OKFSectionMarkers — splitter de seções e escape
-    status: pending
+    status: done
     depends_on: [T002]
     branch: felipe/okf-T004-section-markers
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [f613e47]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Aprovado com dois testes acrescentados por mim (concatenacao de secao repetida e de residual multiplo), que passaram de primeira. Worktree do agente nasceu em main; recoletei e revalidei na branch de integracao.
 
   - id: T005
     title: NoteItemAttributes — codec do comentário inline
@@ -82,14 +83,15 @@ tasks:
 
   - id: T006
     title: OKFBundle — layout, slugs e nomes reservados
-    status: pending
+    status: done
     depends_on: [T002]
     branch: felipe/okf-T006-bundle-layout
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [4cf17dd]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 1, verdict: approved, findings: [] }
+    notes: >-
+      Rodada 1: trocado um static var timeZoneOverride global por parametro com valor padrao, porque estado compartilhado entre testes contraria a constitution.
 
   - id: T007
     title: Tirar diagnostics do modelo durável
