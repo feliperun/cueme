@@ -22,12 +22,10 @@ enum SessionOrigin: String, Codable, CaseIterable, Sendable, Identifiable {
 /// The canonical domain entity. Session-specific fields are optional enrichment
 /// around a user-owned Markdown note rather than the product's primary object.
 struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
-    static let currentSchemaVersion = 4
     static func == (l: MemoryNote, r: MemoryNote) -> Bool { l.id == r.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
     let id: UUID
-    var schemaVersion: Int
     var startedAt: Date
     var recordingStartedAt: Date?
     var endedAt: Date
@@ -38,7 +36,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     var goal: String
     var transcript: [TranscriptLine]
     var coachCards: [CoachCard]
-    var summaryBullets: [String]
     var minutes: MeetingMinutes
     var participantNames: [Speaker: String]
     var coachModel: CoachModel?
@@ -67,7 +64,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
 
     init(
         id: UUID = UUID(),
-        schemaVersion: Int = MemoryNote.currentSchemaVersion,
         startedAt: Date,
         recordingStartedAt: Date? = nil,
         endedAt: Date = Date(),
@@ -78,7 +74,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         goal: String,
         transcript: [TranscriptLine],
         coachCards: [CoachCard],
-        summaryBullets: [String],
         minutes: MeetingMinutes = .empty,
         participantNames: [Speaker: String] = [.self: "Você", .other: "Interlocutor"],
         coachModel: CoachModel? = nil,
@@ -106,7 +101,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         relativeFolderPath: String? = nil
     ) {
         self.id = id
-        self.schemaVersion = schemaVersion
         self.startedAt = startedAt
         self.recordingStartedAt = recordingStartedAt
         self.endedAt = endedAt
@@ -117,7 +111,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.goal = goal
         self.transcript = transcript
         self.coachCards = coachCards
-        self.summaryBullets = summaryBullets
         self.minutes = minutes
         self.participantNames = participantNames
         self.coachModel = coachModel
@@ -150,7 +143,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
-        schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         startedAt = try c.decode(Date.self, forKey: .startedAt)
         recordingStartedAt = try c.decodeIfPresent(Date.self, forKey: .recordingStartedAt)
         endedAt = try c.decode(Date.self, forKey: .endedAt)
@@ -161,9 +153,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         goal = try c.decode(String.self, forKey: .goal)
         transcript = try c.decode([TranscriptLine].self, forKey: .transcript)
         coachCards = try c.decode([CoachCard].self, forKey: .coachCards)
-        summaryBullets = try c.decode([String].self, forKey: .summaryBullets)
-        minutes = try c.decodeIfPresent(MeetingMinutes.self, forKey: .minutes)
-            ?? (summaryBullets.isEmpty ? .empty : MeetingMinutes(overview: summaryBullets.joined(separator: " ")))
+        minutes = try c.decodeIfPresent(MeetingMinutes.self, forKey: .minutes) ?? .empty
         participantNames = try c.decodeIfPresent([Speaker: String].self, forKey: .participantNames)
             ?? [.self: "Você", .other: "Interlocutor"]
         coachModel = try c.decodeIfPresent(CoachModel.self, forKey: .coachModel)

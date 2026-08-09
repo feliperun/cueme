@@ -81,7 +81,7 @@ struct CollapsiblePanels: View {
                 icon: "list.bullet.rectangle",
                 badge: app.summaryBackendError != nil
                     ? "!"
-                    : (app.summaryBullets.isEmpty ? nil : "\(app.summaryBullets.count)"),
+                    : (app.minutes.topics.isEmpty ? nil : "\(app.minutes.topics.count)"),
                 isExpanded: $app.showSummary
             ) {
                 SummaryPane().frame(height: 130)

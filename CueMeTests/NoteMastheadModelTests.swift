@@ -21,7 +21,6 @@ final class NoteMastheadModelTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             participantNames: participantNames,
             origin: origin,
             personIDs: personIDs,

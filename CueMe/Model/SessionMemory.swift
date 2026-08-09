@@ -19,26 +19,29 @@ struct SessionTakeaway: Codable, Identifiable, Sendable, Hashable {
     var text: String
     var isDone: Bool
     var evidence: [MemoryEvidence]
-    var confidence: Double?
+    /// Quantized to 3 decimals wherever it is set. Beyond that the number has
+    /// no meaning, and pinning it here rather than at serialization is what
+    /// makes the Markdown round trip byte-idempotent.
+    var confidence: Double? {
+        didSet { confidence = Self.quantizedConfidence(confidence) }
+    }
     var assignee: String?
     var dueAt: Date?
-    var createdInSessionID: UUID?
     let createdAt: Date
 
     init(
         id: UUID = UUID(), text: String, isDone: Bool = false, createdAt: Date = Date(),
         evidence: [MemoryEvidence] = [], confidence: Double? = nil, assignee: String? = nil,
-        dueAt: Date? = nil, createdInSessionID: UUID? = nil
+        dueAt: Date? = nil
     ) {
         self.id = id
         self.text = text
         self.isDone = isDone
         self.createdAt = createdAt
         self.evidence = evidence
-        self.confidence = confidence
+        self.confidence = Self.quantizedConfidence(confidence)
         self.assignee = assignee
         self.dueAt = dueAt
-        self.createdInSessionID = createdInSessionID
     }
 
     init(from decoder: Decoder) throws {
@@ -48,10 +51,13 @@ struct SessionTakeaway: Codable, Identifiable, Sendable, Hashable {
         isDone = try c.decode(Bool.self, forKey: .isDone)
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         evidence = try c.decodeIfPresent([MemoryEvidence].self, forKey: .evidence) ?? []
-        confidence = try c.decodeIfPresent(Double.self, forKey: .confidence)
+        confidence = Self.quantizedConfidence(try c.decodeIfPresent(Double.self, forKey: .confidence))
         assignee = try c.decodeIfPresent(String.self, forKey: .assignee)
         dueAt = try c.decodeIfPresent(Date.self, forKey: .dueAt)
-        createdInSessionID = try c.decodeIfPresent(UUID.self, forKey: .createdInSessionID)
+    }
+
+    static func quantizedConfidence(_ value: Double?) -> Double? {
+        value.map { ($0 * 1_000).rounded() / 1_000 }
     }
 }
 
@@ -59,19 +65,20 @@ struct MeetingReviewItem: Codable, Identifiable, Sendable, Hashable {
     let id: UUID
     var text: String
     var evidence: [MemoryEvidence]
-    var confidence: Double?
-    var createdInSessionID: UUID?
+    /// Same quantization rule as `SessionTakeaway.confidence`.
+    var confidence: Double? {
+        didSet { confidence = SessionTakeaway.quantizedConfidence(confidence) }
+    }
     var supersedesID: UUID?
 
     init(
         id: UUID = UUID(), text: String, evidence: [MemoryEvidence] = [],
-        confidence: Double? = nil, createdInSessionID: UUID? = nil, supersedesID: UUID? = nil
+        confidence: Double? = nil, supersedesID: UUID? = nil
     ) {
         self.id = id
         self.text = text
         self.evidence = evidence
-        self.confidence = confidence
-        self.createdInSessionID = createdInSessionID
+        self.confidence = SessionTakeaway.quantizedConfidence(confidence)
         self.supersedesID = supersedesID
     }
 
@@ -80,8 +87,7 @@ struct MeetingReviewItem: Codable, Identifiable, Sendable, Hashable {
         id = try c.decode(UUID.self, forKey: .id)
         text = try c.decode(String.self, forKey: .text)
         evidence = try c.decodeIfPresent([MemoryEvidence].self, forKey: .evidence) ?? []
-        confidence = try c.decodeIfPresent(Double.self, forKey: .confidence)
-        createdInSessionID = try c.decodeIfPresent(UUID.self, forKey: .createdInSessionID)
+        confidence = SessionTakeaway.quantizedConfidence(try c.decodeIfPresent(Double.self, forKey: .confidence))
         supersedesID = try c.decodeIfPresent(UUID.self, forKey: .supersedesID)
     }
 }

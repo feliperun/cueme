@@ -54,7 +54,6 @@ final class ReliabilityPolicyTests: XCTestCase {
                 TranscriptLine(speaker: .other, text: "rascunho", isFinal: false)
             ],
             coachCards: [],
-            summaryBullets: [],
             hasAudio: true,
             audioDuration: 90
         )
@@ -121,7 +120,6 @@ final class ReliabilityPolicyTests: XCTestCase {
                 goal: "",
                 transcript: [],
                 coachCards: [],
-                summaryBullets: [],
                 hasAudio: hasAudio,
                 audioDuration: 0
             )

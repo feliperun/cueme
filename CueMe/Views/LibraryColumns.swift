@@ -227,7 +227,6 @@ enum LibraryFormat {
         if let snippet, !snippet.isEmpty { return snippet }
         let overview = r.minutes.overview.trimmingCharacters(in: .whitespacesAndNewlines)
         if !overview.isEmpty { return overview }
-        if let bullet = r.summaryBullets.first, !bullet.isEmpty { return bullet }
         let body = r.markdownBody.trimmingCharacters(in: .whitespacesAndNewlines)
         return body.isEmpty ? nil : String(body.prefix(120))
     }

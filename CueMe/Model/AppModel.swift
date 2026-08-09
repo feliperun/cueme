@@ -11,7 +11,6 @@ import Sparkle
 final class AppModel {
     let isUITesting: Bool
     var transcript: [TranscriptLine] = []
-    var summaryBullets: [String] = []
     var minutes: MeetingMinutes = .empty
     var meetingReview: MeetingReview = .empty
     var coachCards: [CoachCard] = []
@@ -436,7 +435,6 @@ final class AppModel {
         activeCoachCardID = nil
         dismissedCoachCardIDs = []
         pinnedCoachCardIDs = []
-        summaryBullets = []
         minutes = .empty
         meetingReview = .empty
         conversationStyle = .fallback(for: brief.mode)
@@ -576,7 +574,6 @@ final class AppModel {
             goal: brief.goal,
             transcript: transcript,
             coachCards: coachCards.filter(\.hasContent).map { var c = $0; c.isStreaming = false; return c },
-            summaryBullets: summaryBullets,
             minutes: minutes,
             participantNames: participantNames,
             coachModel: coachModel,

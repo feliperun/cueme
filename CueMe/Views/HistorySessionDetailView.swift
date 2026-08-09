@@ -19,17 +19,6 @@ struct HistorySessionDetailView: View {
                         ForEach(record.coachCards.reversed()) { card in SavedHistoryCoachCard(card: card) }
                     }
                 }
-                if !record.summaryBullets.isEmpty {
-                    section("Resumo") {
-                        ForEach(Array(record.summaryBullets.enumerated()), id: \.offset) { _, bullet in
-                            HStack(alignment: .top, spacing: 6) {
-                                Text("•").foregroundStyle(.secondary)
-                                Text(bullet)
-                            }
-                            .font(.system(size: 13))
-                        }
-                    }
-                }
                 section("Transcrição") {
                     ForEach(record.transcript) { line in
                         SavedHistoryLine(

@@ -43,7 +43,6 @@ final class LiveSnapshotWriterTests: XCTestCase {
             goal: goal,
             transcript: [],
             coachCards: [],
-            summaryBullets: []
         )
     }
 }

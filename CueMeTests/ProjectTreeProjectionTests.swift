@@ -175,7 +175,6 @@ final class ProjectTreeProjectionTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             projectID: projectID
         )
     }

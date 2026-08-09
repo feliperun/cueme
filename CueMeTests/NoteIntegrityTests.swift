@@ -15,7 +15,6 @@ final class NoteIntegrityTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: []
         )
         record.integrity = NoteIntegrity(recoveries: 2, errors: 1)
 

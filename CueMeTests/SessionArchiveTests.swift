@@ -37,7 +37,6 @@ final class SessionArchiveTests: XCTestCase {
             goal: "Definir próximos passos",
             transcript: [line],
             coachCards: [],
-            summaryBullets: ["Entrega combinada para sexta."],
             minutes: MeetingMinutes(
                 overview: "Entrega e responsáveis foram alinhados.",
                 topics: [.init(title: "Cronograma", summary: "Entrega combinada para sexta-feira.")]

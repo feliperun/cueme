@@ -15,7 +15,6 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             origin: .audioFile,
             displayTitle: "Reunião de arquitetura"
         )
@@ -337,7 +336,6 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             minutes: MeetingMinutes(
                 overview: summary,
                 topics: topic.isEmpty ? [] : [.init(title: topic, summary: summary)]

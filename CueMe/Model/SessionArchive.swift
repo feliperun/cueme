@@ -45,7 +45,7 @@ enum SessionArchive {
     }
 
     private static func appendSummary(_ record: MemoryNote, to lines: inout [String]) {
-        guard !record.minutes.isEmpty || !record.summaryBullets.isEmpty else { return }
+        guard !record.minutes.isEmpty else { return }
         lines += ["## Ata", ""]
         if !record.minutes.overview.isEmpty {
             lines += [record.minutes.overview, ""]
@@ -55,8 +55,6 @@ enum SessionArchive {
             for topic in record.minutes.topics {
                 lines += ["#### \(topic.title)", "", topic.summary, ""]
             }
-        } else {
-            lines += record.summaryBullets.map { "- \($0)" }
         }
         lines.append("")
     }

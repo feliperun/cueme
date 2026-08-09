@@ -31,6 +31,16 @@ extension MemoryNote {
         hasAudio || attachments.contains { $0.kind == .recording || $0.kind == .audio }
     }
 
+    /// One line that stands in for the note wherever a preview is needed.
+    /// Derived from the minutes rather than kept in a parallel field, so it can
+    /// never drift out of sync with them.
+    var shortSummary: String {
+        let overview = minutes.overview.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !overview.isEmpty { return overview }
+        if let topic = minutes.topics.first { return "\(topic.title): \(topic.summary)" }
+        return title
+    }
+
     var turnCount: Int { transcript.filter { $0.isFinal }.count }
     var isForeign: Bool { SessionBrief.baseCode(conversationLang) != SessionBrief.baseCode(nativeLang) }
 

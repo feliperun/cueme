@@ -140,10 +140,7 @@ extension AppModel {
     func insertLiveReference(to recordID: UUID) {
         guard let startedAt = sessionStartTime,
               let source = history.first(where: { $0.id == recordID }) else { return }
-        let snippet = source.minutes.overview.isEmpty
-            ? (source.summaryBullets.first ?? source.title)
-            : source.minutes.overview
-        let text = "↪ Ref · \(source.title): \(String(snippet.prefix(160)))"
+        let text = "↪ Ref · \(source.title): \(String(source.shortSummary.prefix(160)))"
         sessionNotes.append(.init(timeOffset: Date().timeIntervalSince(startedAt), text: text))
         persistLiveSnapshot()
     }
@@ -152,10 +149,7 @@ extension AppModel {
     /// Same explicit-invocation rule as "Use relevant memory in Coach".
     func sendMemoryToCoach(_ recordID: UUID) {
         guard let source = history.first(where: { $0.id == recordID }) else { return }
-        let snippet = source.minutes.overview.isEmpty
-            ? (source.summaryBullets.first ?? source.title)
-            : source.minutes.overview
-        manualInput = "Contexto de \"\(source.title)\": \(String(snippet.prefix(240)))"
+        manualInput = "Contexto de \"\(source.title)\": \(String(source.shortSummary.prefix(240)))"
         ask()
     }
 
@@ -409,7 +403,6 @@ extension AppModel {
                         }
                         extraction.takeaways = extraction.takeaways.map { enriched($0, record: updated) }
                         updated.minutes = extraction.minutes
-                        updated.summaryBullets = extraction.minutes.topics.map { "\($0.title): \($0.summary)" }
                         let existing = Set(updated.takeaways.map { $0.text.lowercased() })
                         updated.takeaways.append(contentsOf: extraction.takeaways.filter {
                             !existing.contains($0.text.lowercased())
@@ -419,7 +412,6 @@ extension AppModel {
                 case .summary:
                     if let minutes = MeetingMinutes.parse(modelOutput: output, preserving: updated.minutes) {
                         updated.minutes = minutes
-                        updated.summaryBullets = minutes.topics.map { "\($0.title): \($0.summary)" }
                     }
                 case .takeaways:
                     let generated = SessionReviewParser.parseTakeaways(output)
@@ -461,7 +453,6 @@ extension AppModel {
             goal: brief.goal,
             transcript: transcript,
             coachCards: coachCards.filter(\.hasContent),
-            summaryBullets: summaryBullets,
             minutes: minutes,
             participantNames: participantNames,
             coachModel: coachModel,
@@ -492,7 +483,6 @@ extension AppModel {
         var item = item
         item.evidence = MemoryEvidenceLinker.evidence(for: item.text, in: record)
         item.confidence = item.evidence.isEmpty ? 0.65 : 0.9
-        item.createdInSessionID = record.id
         return item
     }
 
@@ -500,7 +490,6 @@ extension AppModel {
         var item = item
         item.evidence = MemoryEvidenceLinker.evidence(for: item.text, in: record)
         item.confidence = item.evidence.isEmpty ? 0.65 : 0.9
-        item.createdInSessionID = record.id
         return item
     }
 }

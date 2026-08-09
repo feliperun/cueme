@@ -239,7 +239,6 @@ final class NoteListProjectionTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             hasAudio: hasAudio,
             origin: origin,
             displayTitle: title,

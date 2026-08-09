@@ -32,7 +32,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
         let record = MemoryNote(
             startedAt: Date(), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             notes: [.init(timeOffset: 0, text: "O veículo será trocado na próxima semana")]
         )
         let index = SemanticMemoryIndex(embedder: TestEmbedder(), url: url)
@@ -51,7 +51,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
         let record = MemoryNote(
             startedAt: Date(), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             notes: [.init(timeOffset: 0, text: "O veículo será trocado na próxima semana")]
         )
         let index = SemanticMemoryIndex(embedder: TestEmbedder(), url: url)
@@ -81,7 +81,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
         var record = MemoryNote(
             startedAt: Date(), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             notes: [.init(timeOffset: 0, text: "Primeira versão da anotação")]
         )
         let index = SemanticMemoryIndex(embedder: TestEmbedder(), url: url)
@@ -99,7 +99,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
         var record = MemoryNote(
             startedAt: Date(timeIntervalSince1970: 0), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             notes: [.init(timeOffset: 0, text: "Primeira versão")]
         )
         let original = MemoryChunkBuilder.contentSignature(record)

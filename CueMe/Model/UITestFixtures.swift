@@ -148,19 +148,19 @@ enum UITestFixtures {
                     text: "O veículo elétrico será adotado no próximo trimestre.",
                     isFinal: true, ts: now.addingTimeInterval(42)
                 )
-            ], coachCards: [], summaryBullets: [],
+            ], coachCards: [],
             minutes: MeetingMinutes(
                 overview: "A equipe aprovou a migração da frota.",
                 topics: [.init(title: "Mobilidade", summary: "Troca gradual da frota por veículos elétricos.")]
             ), notes: [.init(timeOffset: 50, text: "Orçamento reservado para carregadores")],
             takeaways: [.init(
                 text: "Solicitar propostas aos fornecedores", evidence: [evidence],
-                confidence: 0.94, assignee: "Marina", createdInSessionID: sessionID
+                confidence: 0.94, assignee: "Marina"
             )], displayTitle: "Estratégia de frota elétrica",
             review: MeetingReview(
                 decisions: [.init(
                     id: decisionID, text: "Adotar veículos elétricos no próximo trimestre", evidence: [evidence],
-                    confidence: 0.97, createdInSessionID: sessionID
+                    confidence: 0.97
                 )],
                 openQuestions: [.init(text: "Qual fornecedor terá melhor cobertura?", evidence: [evidence])]
             ), projectID: projectID, personIDs: [personID]
@@ -169,7 +169,7 @@ enum UITestFixtures {
             id: earlierID, startedAt: now.addingTimeInterval(-86_400),
             endedAt: now.addingTimeInterval(-84_600), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Mapear custos",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             minutes: MeetingMinutes(overview: "Custos iniciais da frota foram levantados."),
             displayTitle: "Levantamento de custos", projectID: projectID
         )

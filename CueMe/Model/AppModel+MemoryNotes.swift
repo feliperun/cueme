@@ -51,7 +51,6 @@ extension AppModel {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             origin: .written,
             displayTitle: initialTitle,
             projectID: activeProjectID,

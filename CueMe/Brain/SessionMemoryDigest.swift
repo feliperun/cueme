@@ -13,8 +13,6 @@ enum SessionMemoryDigest {
         if !record.minutes.isEmpty {
             let topics = record.minutes.topics.map { "- \($0.title): \($0.summary)" }.joined(separator: "\n")
             parts.append("Ata atual:\n\(record.minutes.overview)\n\(topics)")
-        } else if !record.summaryBullets.isEmpty {
-            parts.append("Resumo atual:\n" + record.summaryBullets.map { "- \($0)" }.joined(separator: "\n"))
         }
         if !record.notes.isEmpty {
             let notes = record.notes.map {

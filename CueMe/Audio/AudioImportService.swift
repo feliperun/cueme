@@ -46,7 +46,6 @@ enum AudioImportService {
             goal: "Memória importada de \(sourceURL.lastPathComponent)",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             participantNames: [.self: "Pessoa 2", .other: "Pessoa 1"],
             hasAudio: true,
             audioDuration: duration,

@@ -13,7 +13,6 @@ final class SessionRecordTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: []
         )
 
         let encoded = try JSONEncoder().encode(record)
@@ -38,7 +37,6 @@ final class SessionRecordTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: []
         )
         XCTAssertEqual(record.audioTimelineStart, audioStart)
     }
@@ -53,7 +51,6 @@ final class SessionRecordTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: []
         )
         let encoded = try JSONEncoder().encode(record)
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
