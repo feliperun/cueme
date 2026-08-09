@@ -9,6 +9,8 @@ import Foundation
 enum OKFBundle {
     static let okfVersion = "0.2"
     static let rawDirectoryName = "raw"
+    /// Where a note's document points at its captured transcript.
+    static let transcriptRelativePath = "raw/transcript.md"
     static let attachmentsDirectoryName = "attachments"
     static let indexFileName = "index.md"
     static let logFileName = "log.md"

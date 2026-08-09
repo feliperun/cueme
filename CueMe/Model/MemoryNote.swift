@@ -54,6 +54,8 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     var artifacts: [SessionArtifact]
     var projectID: UUID?
     var personIDs: [UUID]
+    /// Untyped relations to other notes, as bundle-relative paths.
+    var links: [String]
     var noteKind: MemoryNoteKind
     var markdownBody: String
     var labels: [String]
@@ -61,6 +63,13 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     var titleSource: NoteTitleSource
     var modifiedAt: Date
     var relativeFolderPath: String?
+    /// Frontmatter keys this build does not know, preserved verbatim. OKF
+    /// requires consumers to keep unknown keys: without this, opening a note
+    /// written by another tool and saving it would drop its metadata.
+    var unknownFrontmatterYAML: String
+    /// Body content the parser did not claim, preserved so an appendix written
+    /// by hand at the end of the file survives the next autosave.
+    var residualMarkdown: String
 
     init(
         id: UUID = UUID(),
@@ -92,13 +101,16 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         artifacts: [SessionArtifact] = [],
         projectID: UUID? = nil,
         personIDs: [UUID] = [],
+        links: [String] = [],
         noteKind: MemoryNoteKind? = nil,
         markdownBody: String = "",
         labels: [String] = [],
         attachments: [NoteAttachment] = [],
         titleSource: NoteTitleSource? = nil,
         modifiedAt: Date? = nil,
-        relativeFolderPath: String? = nil
+        relativeFolderPath: String? = nil,
+        unknownFrontmatterYAML: String = "",
+        residualMarkdown: String = ""
     ) {
         self.id = id
         self.startedAt = startedAt
@@ -130,6 +142,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.artifacts = artifacts
         self.projectID = projectID
         self.personIDs = personIDs
+        self.links = links
         self.noteKind = noteKind ?? MemoryNoteKind.inferred(mode: mode, origin: origin)
         self.markdownBody = markdownBody
         self.labels = Self.normalizedLabels(labels)
@@ -137,6 +150,8 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.titleSource = titleSource ?? (displayTitle == nil ? .fallback : .generated)
         self.modifiedAt = modifiedAt ?? endedAt
         self.relativeFolderPath = relativeFolderPath ?? "_Inbox/\(resolvedFolderName)"
+        self.unknownFrontmatterYAML = unknownFrontmatterYAML
+        self.residualMarkdown = residualMarkdown
     }
 
     /// Decode tolerante: sessões salvas antes do gravador não têm hasAudio/audioDuration.
@@ -173,6 +188,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         artifacts = try c.decodeIfPresent([SessionArtifact].self, forKey: .artifacts) ?? []
         projectID = try c.decodeIfPresent(UUID.self, forKey: .projectID)
         personIDs = try c.decodeIfPresent([UUID].self, forKey: .personIDs) ?? []
+        links = try c.decodeIfPresent([String].self, forKey: .links) ?? []
         noteKind = try c.decodeIfPresent(MemoryNoteKind.self, forKey: .noteKind)
             ?? MemoryNoteKind.inferred(mode: mode, origin: origin)
         markdownBody = try c.decodeIfPresent(String.self, forKey: .markdownBody) ?? ""
@@ -182,6 +198,8 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
             ?? (displayTitle == nil ? .fallback : .generated)
         modifiedAt = try c.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? endedAt
         relativeFolderPath = try c.decodeIfPresent(String.self, forKey: .relativeFolderPath)
+        unknownFrontmatterYAML = try c.decodeIfPresent(String.self, forKey: .unknownFrontmatterYAML) ?? ""
+        residualMarkdown = try c.decodeIfPresent(String.self, forKey: .residualMarkdown) ?? ""
     }
 
     /// Lowercased, de-duplicated, length-capped and sorted. Lives here rather

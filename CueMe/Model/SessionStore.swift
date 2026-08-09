@@ -7,19 +7,6 @@ enum SessionStore {
     nonisolated(unsafe) static var rootOverride: URL?
     private static let configuredRootKey = "sessionArchiveRootPath"
 
-    private static let encoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return encoder
-    }()
-
-    private static let decoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
-
     static var rootURL: URL {
         if let rootOverride { return rootOverride }
         if let path = UserDefaults.standard.string(forKey: configuredRootKey), !path.isEmpty {
@@ -58,7 +45,7 @@ enum SessionStore {
         let directory = archiveDirectory(for: record)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let data = try encoder.encode(record)
+            let data = try SessionArchiveCodec.encoder.encode(record)
             try data.write(to: directory.appendingPathComponent("session.json"), options: .atomic)
             let markdown = SessionArchive.markdown(for: record)
             try markdown.write(
@@ -74,7 +61,7 @@ enum SessionStore {
 
     static func loadAll() -> [MemoryNote] {
         var records: [UUID: MemoryNote] = [:]
-        for record in loadArchive() { records[record.id] = record }
+        for record in SessionArchiveCodec.loadArchive() { records[record.id] = record }
         return records.values.sorted { $0.startedAt > $1.startedAt }
     }
 
@@ -91,24 +78,4 @@ enum SessionStore {
         }
     }
 
-    private static func loadArchive() -> [MemoryNote] {
-        guard let enumerator = FileManager.default.enumerator(
-            at: rootURL,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else { return [] }
-        var records: [MemoryNote] = []
-        for case let url as URL in enumerator where url.lastPathComponent == "session.json" {
-            guard var record = try? decoder.decode(MemoryNote.self, from: Data(contentsOf: url)) else { continue }
-            let folder = url.deletingLastPathComponent()
-            let relative = folder.path.replacingOccurrences(of: rootURL.path + "/", with: "")
-            if !relative.isEmpty, relative != folder.path { record.relativeFolderPath = relative }
-            record = NoteDocument.mergeCanonicalFields(
-                from: folder.appendingPathComponent(NoteDocument.filename),
-                into: record
-            )
-            records.append(record)
-        }
-        return records
-    }
 }

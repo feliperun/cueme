@@ -14,7 +14,6 @@ actor ClaudeSession {
     private let cliPath: String
     private let model: String
     private let system: String
-    private let shell = "/bin/zsh"
 
     private var process: Process?
     private var stdin: FileHandle?
@@ -48,37 +47,12 @@ actor ClaudeSession {
         guard !shuttingDown else { throw ClaudeSessionError.notRunning }
         if let p = process, p.isRunning { return }
 
-        let script = #"exec "$LC_CLAUDE" -p --model "$LC_MODEL" --system-prompt "$LC_SYS" --input-format stream-json --output-format stream-json --include-partial-messages --verbose --tools "" --strict-mcp-config --mcp-config '{"mcpServers":{}}' --disable-slash-commands --no-chrome --no-session-persistence --setting-sources project,local --settings "$LC_SETTINGS""#
+        let launched = try ClaudeProcessLauncher(cliPath: cliPath, model: model, system: system).launch()
 
-        var env = ProcessInfo.processInfo.environment
-        env["LC_CLAUDE"] = cliPath
-        env["LC_MODEL"] = model
-        env["LC_SYS"] = system
-        env["LC_SETTINGS"] = #"{"disableAllHooks":true}"#
-
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: shell)
-        proc.arguments = ["-lc", script]
-        proc.environment = env
-        // cwd isolado + zero tools/MCP/plugins/user settings: evita carregar contexto
-        // pessoal e reduz drasticamente tokens/latência do processo de texto puro.
-        let isolated = FileManager.default.temporaryDirectory.appendingPathComponent("CueMeCLI", isDirectory: true)
-        try? FileManager.default.createDirectory(at: isolated, withIntermediateDirectories: true)
-        proc.currentDirectoryURL = isolated
-
-        let inPipe = Pipe()
-        let outPipe = Pipe()
-        let errPipe = Pipe()
-        proc.standardInput = inPipe
-        proc.standardOutput = outPipe
-        proc.standardError = errPipe
-
-        try proc.run()
-
-        self.process = proc
-        self.stdin = inPipe.fileHandleForWriting
-        let outHandle = outPipe.fileHandleForReading
-        let errHandle = errPipe.fileHandleForReading
+        self.process = launched.process
+        self.stdin = launched.stdin
+        let outHandle = launched.stdout
+        let errHandle = launched.stderr
 
         readerTask = Task { [weak self] in
             do {
