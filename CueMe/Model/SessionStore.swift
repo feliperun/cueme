@@ -91,37 +91,6 @@ enum SessionStore {
         }
     }
 
-    /// Moves the complete note folder, including recordings and attachments,
-    /// without persisting any absolute path. The project directory itself is a
-    /// user-readable filesystem object with its own Markdown descriptor.
-    static func relocate(_ value: MemoryNote, to project: KnowledgeProject?) -> MemoryNote? {
-        var record = value
-        let source = archiveDirectory(for: record)
-        let parentRelative = ProjectWorkspaceStore.relativeDirectory(for: project)
-        let relative = "\(parentRelative)/\(record.archiveFolderName)"
-        let destination = rootURL.appendingPathComponent(relative, isDirectory: true)
-        do {
-            if let project { _ = ProjectWorkspaceStore.save(project) }
-            try FileManager.default.createDirectory(
-                at: destination.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            if source.standardizedFileURL != destination.standardizedFileURL,
-               FileManager.default.fileExists(atPath: source.path) {
-                if FileManager.default.fileExists(atPath: destination.path) {
-                    try FileManager.default.removeItem(at: destination)
-                }
-                try FileManager.default.moveItem(at: source, to: destination)
-            }
-            record.projectID = project?.id
-            record.relativeFolderPath = relative
-            record.modifiedAt = Date()
-            return save(record) == nil ? nil : record
-        } catch {
-            return nil
-        }
-    }
-
     private static func loadArchive() -> [MemoryNote] {
         guard let enumerator = FileManager.default.enumerator(
             at: rootURL,

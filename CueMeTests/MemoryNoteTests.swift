@@ -174,7 +174,7 @@ final class MemoryNoteTests: XCTestCase {
         )
         _ = try XCTUnwrap(SessionStore.save(note))
 
-        note = try XCTUnwrap(SessionStore.relocate(note, to: project))
+        note = try XCTUnwrap(ProjectWorkspaceStore.relocate(note, to: project))
         let directory = SessionStore.archiveDirectory(for: note)
 
         XCTAssertTrue(directory.path.hasPrefix(ProjectWorkspaceStore.directory(for: project).path))

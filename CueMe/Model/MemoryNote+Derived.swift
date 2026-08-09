@@ -41,7 +41,7 @@ extension MemoryNote {
         return title
     }
 
-    var turnCount: Int { transcript.filter { $0.isFinal }.count }
+    var turnCount: Int { transcript.turnCount }
     var isForeign: Bool { SessionBrief.baseCode(conversationLang) != SessionBrief.baseCode(nativeLang) }
 
     func participantName(for speaker: Speaker) -> String {

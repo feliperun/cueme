@@ -60,7 +60,7 @@ extension AppModel {
         )
         SessionStore.save(note)
         if let project = projects.first(where: { $0.id == activeProjectID }),
-           let moved = SessionStore.relocate(note, to: project) {
+           let moved = ProjectWorkspaceStore.relocate(note, to: project) {
             note = moved
         }
         replaceHistoryRecord(note)

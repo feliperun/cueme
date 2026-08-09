@@ -115,12 +115,12 @@ extension AppModel {
         var record = initialRecord
         if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1",
            record.origin == .voiceMemo {
-            record.transcript = [.init(
+            record.transcript = .loaded([.init(
                 speaker: .other,
                 text: "Planejamento semanal compartilhado pelo Voice Memos.",
                 isFinal: true,
                 ts: record.audioTimelineStart
-            )]
+            )])
             record.participantNames[.other] = "Gravação"
             replaceHistoryRecord(record)
             SessionStore.save(record)
@@ -157,7 +157,7 @@ extension AppModel {
                 startedAt: record.audioTimelineStart,
                 deepgramAPIKey: DeepgramCredential.apiKey
             )
-            record.transcript = lines
+            record.transcript = .loaded(lines)
             if sttSource == .native {
                 record.participantNames[.other] = "Gravação"
             }

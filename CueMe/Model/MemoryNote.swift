@@ -34,7 +34,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     var conversationLang: String
     var nativeLang: String
     var goal: String
-    var transcript: [TranscriptLine]
+    var transcript: TranscriptState
     var coachCards: [CoachCard]
     var minutes: MeetingMinutes
     var participantNames: [Speaker: String]
@@ -109,7 +109,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.conversationLang = conversationLang
         self.nativeLang = nativeLang
         self.goal = goal
-        self.transcript = transcript
+        self.transcript = .loaded(transcript)
         self.coachCards = coachCards
         self.minutes = minutes
         self.participantNames = participantNames
@@ -151,7 +151,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         conversationLang = try c.decode(String.self, forKey: .conversationLang)
         nativeLang = try c.decode(String.self, forKey: .nativeLang)
         goal = try c.decode(String.self, forKey: .goal)
-        transcript = try c.decode([TranscriptLine].self, forKey: .transcript)
+        transcript = try c.decode(TranscriptState.self, forKey: .transcript)
         coachCards = try c.decode([CoachCard].self, forKey: .coachCards)
         minutes = try c.decodeIfPresent(MeetingMinutes.self, forKey: .minutes) ?? .empty
         participantNames = try c.decodeIfPresent([Speaker: String].self, forKey: .participantNames)

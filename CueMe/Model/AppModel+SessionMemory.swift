@@ -84,7 +84,7 @@ extension AppModel {
     func assignProject(_ projectID: UUID?, to sessionID: UUID) {
         guard let record = history.first(where: { $0.id == sessionID }) else { return }
         let project = projectID.flatMap { id in projects.first { $0.id == id } }
-        if let moved = SessionStore.relocate(record, to: project) {
+        if let moved = ProjectWorkspaceStore.relocate(record, to: project) {
             replaceHistoryRecord(moved)
         }
     }
@@ -157,13 +157,16 @@ extension AppModel {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         mutateRecord(sessionID) { record in
-            guard let index = record.transcript.firstIndex(where: { $0.id == lineID }) else { return }
-            let original = record.transcript[index].text
-            record.transcript[index].applyCorrection(text)
-            if record.isForeign { record.transcript[index].translation = nil }
-            if learn, original != record.transcript[index].text {
-                _ = record.vocabulary.learnCorrection(from: original, to: record.transcript[index].text)
-                _ = vocabulary.learnCorrection(from: original, to: record.transcript[index].text)
+            guard let original = record.transcript.first(where: { $0.id == lineID })?.text else { return }
+            let isForeign = record.isForeign
+            record.transcript.updateLine(id: lineID) { line in
+                line.applyCorrection(text)
+                if isForeign { line.translation = nil }
+            }
+            guard let corrected = record.transcript.first(where: { $0.id == lineID })?.text else { return }
+            if learn, original != corrected {
+                _ = record.vocabulary.learnCorrection(from: original, to: corrected)
+                _ = vocabulary.learnCorrection(from: original, to: corrected)
             }
         }
     }

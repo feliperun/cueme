@@ -592,7 +592,7 @@ final class AppModel {
         liveSnapshotWriter.flush()
         SessionStore.save(record)
         if let project = projects.first(where: { $0.id == activeProjectID }),
-           let relocated = SessionStore.relocate(record, to: project) {
+           let relocated = ProjectWorkspaceStore.relocate(record, to: project) {
             record = relocated
         }
         replaceHistoryRecord(record)
