@@ -5,8 +5,7 @@ import XCTest
 final class ProjectTreeProjectionTests: XCTestCase {
     private nonisolated(unsafe) var previousArchive: URL?
     private nonisolated(unsafe) var previousInbox: URL?
-    private let uiTestArchive = FileManager.default.temporaryDirectory
-        .appendingPathComponent("CueMeUITests-archive", isDirectory: true)
+    private let uiTestArchive = UITestFixtures.uiTestRoot
 
     override func setUp() {
         super.setUp()

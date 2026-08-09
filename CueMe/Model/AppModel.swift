@@ -183,10 +183,7 @@ final class AppModel {
     init(isUITesting: Bool? = nil) {
         let uiTesting = isUITesting
             ?? (ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1")
-        let uiTestRoot = uiTesting
-            ? FileManager.default.temporaryDirectory
-                .appendingPathComponent("CueMeUITests-archive", isDirectory: true)
-            : nil
+        let uiTestRoot = uiTesting ? UITestFixtures.uiTestRoot : nil
         if let uiTestRoot {
             UITestFixtures.configureIsolatedStorage(at: uiTestRoot)
         }

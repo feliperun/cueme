@@ -36,6 +36,17 @@ enum UITestFixtures {
         glossaryModel: .sonnet
     )
 
+    /// Unique per process. XCTest runs test classes in parallel runner
+    /// processes, and `configureIsolatedStorage` starts by deleting the root —
+    /// with a fixed name, one process wipes another's semantic index mid-test.
+    static var uiTestRoot: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CueMeUITests-archive-\(ProcessInfo.processInfo.processIdentifier)",
+                isDirectory: true
+            )
+    }
+
     static func configureIsolatedStorage(at root: URL) {
         try? FileManager.default.removeItem(at: root)
         SessionStore.rootOverride = root
