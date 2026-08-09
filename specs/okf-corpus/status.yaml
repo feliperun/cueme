@@ -1,6 +1,6 @@
 plan: okf-corpus
 spec_version: 1
-updated_at: "2026-08-08T00:00:00Z"
+updated_at: "2026-08-09T00:00:00Z"
 integration_branch: felipe/okf-corpus
 base_branch: main
 
@@ -35,14 +35,17 @@ tasks:
 
   - id: T002
     title: Adicionar Yams via SPM
-    status: pending
+    status: done
     depends_on: [T001]
     branch: felipe/okf-T002-add-yams
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [8b31f54]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Yams 6.2.2, upToNextMinorVersion, ligado ao target CueMe. package.sh
+      produziu .dmg assinado. Package.resolved mudou fora da lista PODE TOCAR:
+      aceito, e efeito mecanico da resolucao do grafo de pacotes.
 
   - id: T003
     title: OKFFrontmatter — codec YAML com preservação de chaves desconhecidas
@@ -266,7 +269,7 @@ tasks:
 
 adrs:
   - { id: "0043", title: Greenfield compatibility policy for the note corpus, task: T001, status: written }
-  - { id: "0044", title: YAML frontmatter via Yams, task: T002, status: pending }
+  - { id: "0044", title: YAML frontmatter via Yams, task: T002, status: written }
   - { id: "0045", title: Session diagnostics are dev telemetry, task: T007, status: pending }
   - { id: "0046", title: The note corpus is an OKF v0.2 bundle, task: T014, status: pending }
   - { id: "0047", title: Capture and knowledge; note markdown is the only durable copy, task: T016, status: pending }
