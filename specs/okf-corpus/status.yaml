@@ -49,14 +49,18 @@ tasks:
 
   - id: T003
     title: OKFFrontmatter — codec YAML com preservação de chaves desconhecidas
-    status: pending
+    status: done
     depends_on: [T002]
     branch: felipe/okf-T003-frontmatter-codec
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [a09b4fa]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Achou um buraco real no design.md §3: a regra "path/URI sempre entre aspas"
+      nao e derivavel do conteudo. Resolveu com OKFValue.string(alwaysQuoted:),
+      recuperando o estilo do escalar no decode. Verifiquei o teste do golden por
+      mutacao. Split de MemoryNote+Derived feito por mim para o gate passar.
 
   - id: T004
     title: OKFSectionMarkers — splitter de seções e escape
