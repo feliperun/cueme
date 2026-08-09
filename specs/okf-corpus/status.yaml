@@ -1,6 +1,6 @@
 plan: okf-corpus
 spec_version: 1
-updated_at: "2026-08-09T00:00:00Z"
+updated_at: "2026-08-09T12:00:00Z"
 integration_branch: felipe/okf-corpus
 base_branch: main
 
@@ -76,14 +76,19 @@ tasks:
 
   - id: T005
     title: NoteItemAttributes — codec do comentário inline
-    status: pending
+    status: done
     depends_on: [T003]
     branch: felipe/okf-T005-item-attributes
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [62cf1c8]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Agente morreu no limite de gasto da conta com o trabalho ja escrito;
+      coletei do worktree e revisei sem relatorio dele. Duas correcoes minhas:
+      acessores viraram metodos (a superficie que eu especifiquei alocava closure
+      por acesso), e um teste novo para <!--cueme literal no texto visivel, buraco
+      que a mutacao expos.
 
   - id: T006
     title: OKFBundle — layout, slugs e nomes reservados
@@ -114,14 +119,17 @@ tasks:
 
   - id: T008
     title: Deletar campos derivados e quantizar confidence
-    status: pending
+    status: blocked
     depends_on: [T007]
     branch: felipe/okf-T008-derived-fields
     agent: null
     commits: []
     verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
     review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    notes: >-
+      Despachada e morta pelo limite de gasto mensal da conta antes de escrever
+      qualquer arquivo. Worktree ficou vazio, nada perdido. Requer limite
+      liberado ou execucao pelo orquestrador.
 
   - id: T009
     title: TranscriptState e helper assertDeepEqual
