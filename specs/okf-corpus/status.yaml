@@ -1,0 +1,274 @@
+plan: okf-corpus
+spec_version: 1
+updated_at: "2026-08-08T00:00:00Z"
+integration_branch: felipe/okf-corpus
+base_branch: main
+
+policy:
+  branch_per_task: true
+  push_on_done: true
+  pr_target: integration_branch
+  review: required
+  max_fix_rounds: 2
+  verification:
+    build: "xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO"
+    unit: "xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -skip-testing:CueMeUITests test"
+    sentrux_check: "sentrux check ."
+    sentrux_gate: "sentrux gate ."
+
+# status: pending | in_progress | review | changes_requested | done | blocked
+tasks:
+  - id: T001
+    title: Renumerar ADR de política greenfield para 0043
+    status: done
+    depends_on: []
+    branch: felipe/okf-corpus
+    agent: orchestrator
+    commits: [b7d3fd8]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Absorvida na resolução de conflito do rebase do commit greenfield sobre
+      main. Commitar dois ADR 0038 e corrigir depois seria um estado quebrado
+      intermediário sem ganho. ADR renumerado para 0043, README e AGENTS.md
+      atualizados, `supersedes` de 0031 corrigido.
+
+  - id: T002
+    title: Adicionar Yams via SPM
+    status: pending
+    depends_on: [T001]
+    branch: felipe/okf-T002-add-yams
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T003
+    title: OKFFrontmatter — codec YAML com preservação de chaves desconhecidas
+    status: pending
+    depends_on: [T002]
+    branch: felipe/okf-T003-frontmatter-codec
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T004
+    title: OKFSectionMarkers — splitter de seções e escape
+    status: pending
+    depends_on: [T002]
+    branch: felipe/okf-T004-section-markers
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T005
+    title: NoteItemAttributes — codec do comentário inline
+    status: pending
+    depends_on: [T003]
+    branch: felipe/okf-T005-item-attributes
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T006
+    title: OKFBundle — layout, slugs e nomes reservados
+    status: pending
+    depends_on: [T002]
+    branch: felipe/okf-T006-bundle-layout
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T007
+    title: Tirar diagnostics do modelo durável
+    status: pending
+    depends_on: [T001]
+    branch: felipe/okf-T007-diagnostics-out
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T008
+    title: Deletar campos derivados e quantizar confidence
+    status: pending
+    depends_on: [T007]
+    branch: felipe/okf-T008-derived-fields
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T009
+    title: TranscriptState e helper assertDeepEqual
+    status: pending
+    depends_on: [T008]
+    branch: felipe/okf-T009-transcript-state
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T010
+    title: NoteDocumentWriter
+    status: pending
+    depends_on: [T003, T004, T005, T006, T009]
+    branch: felipe/okf-T010-note-writer
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T011
+    title: TranscriptDocument
+    status: pending
+    depends_on: [T003, T004, T005, T006, T009]
+    branch: felipe/okf-T011-transcript-document
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T012
+    title: NoteDocumentReader e round-trip
+    status: pending
+    depends_on: [T010, T011]
+    branch: felipe/okf-T012-note-reader
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T013
+    title: NoteTree e CorpusStore
+    status: pending
+    depends_on: [T012]
+    branch: felipe/okf-T013-corpus-store
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T014
+    title: Deletar session.json e o export JSON
+    status: pending
+    depends_on: [T013]
+    branch: felipe/okf-T014-drop-json
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T015
+    title: Mover e renomear nota, reescrevendo links de entrada
+    status: pending
+    depends_on: [T014]
+    branch: felipe/okf-T015-move-rename
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T016
+    title: Colapsar projetos e pessoas em notas
+    status: pending
+    depends_on: [T015]
+    branch: felipe/okf-T016-collapse-entities
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T017
+    title: Aninhar nota por arrastar e soltar
+    status: pending
+    depends_on: [T016]
+    branch: felipe/okf-T017-drag-nesting
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T018
+    title: index.md por nível, log append-only e AGENTS.md do corpus
+    status: pending
+    depends_on: [T016]
+    branch: felipe/okf-T018-indexes-log-agents
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T019
+    title: Append incremental de transcrição e guard de mtime
+    status: pending
+    depends_on: [T016]
+    branch: felipe/okf-T019-live-append
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T020
+    title: Script one-shot de migração para OKF
+    status: pending
+    depends_on: [T018]
+    branch: felipe/okf-T020-migration-script
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T021
+    title: E2E de edição externa e aninhamento
+    status: pending
+    depends_on: [T017, T018]
+    branch: felipe/okf-T021-e2e
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+  - id: T022
+    title: Documentar o corpus OKF
+    status: pending
+    depends_on: [T020, T021]
+    branch: felipe/okf-T022-docs
+    agent: null
+    commits: []
+    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
+    review: { round: 0, verdict: null, findings: [] }
+    notes: null
+
+adrs:
+  - { id: "0043", title: Greenfield compatibility policy for the note corpus, task: T001, status: written }
+  - { id: "0044", title: YAML frontmatter via Yams, task: T002, status: pending }
+  - { id: "0045", title: Session diagnostics are dev telemetry, task: T007, status: pending }
+  - { id: "0046", title: The note corpus is an OKF v0.2 bundle, task: T014, status: pending }
+  - { id: "0047", title: Capture and knowledge; note markdown is the only durable copy, task: T016, status: pending }
+  - { id: "0048", title: One entity, hierarchy by path, links untyped, task: T018, status: pending }
+  - { id: "0049", title: One-shot external migration; the app ships no migration code, task: T020, status: pending }
