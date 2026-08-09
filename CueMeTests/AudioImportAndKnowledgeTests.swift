@@ -6,7 +6,7 @@ import XCTest
 
 final class AudioImportAndKnowledgeTests: XCTestCase {
     func testImportedSessionKeepsSourceAndExplicitTitle() throws {
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: Date(timeIntervalSince1970: 1_000),
             mode: .recording,
             training: false,
@@ -30,7 +30,7 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         payload.removeValue(forKey: "origin")
         payload.removeValue(forKey: "displayTitle")
         let legacy = try JSONSerialization.data(withJSONObject: payload)
-        let decoded = try JSONDecoder().decode(SessionRecord.self, from: legacy)
+        let decoded = try JSONDecoder().decode(MemoryNote.self, from: legacy)
         XCTAssertEqual(decoded.origin, .live)
     }
 
@@ -327,8 +327,8 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         summary: String = "",
         note: String = "",
         takeaway: String = ""
-    ) -> SessionRecord {
-        SessionRecord(
+    ) -> MemoryNote {
+        MemoryNote(
             startedAt: startedAt,
             mode: .meeting,
             training: false,

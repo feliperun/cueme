@@ -129,7 +129,7 @@ final class AppModel {
     // Histórico de sessões e índice local pré-normalizado para busca instantânea.
     @ObservationIgnored private var knowledgeIndex = SessionKnowledgeIndex()
     @ObservationIgnored private let semanticMemoryIndex: SemanticMemoryIndex
-    var history: [SessionRecord] = [] {
+    var history: [MemoryNote] = [] {
         didSet { knowledgeIndex.rebuild(history) }
     }
     var projects: [KnowledgeProject] = []
@@ -289,10 +289,7 @@ final class AppModel {
             let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
             self.projects = fileProjects
             self.people = entities.people
-            let loadedHistory = SessionStore.loadAll()
-            self.history = isTesting
-                ? loadedHistory
-                : SessionStore.migrateToWorkspace(loadedHistory, projects: fileProjects)
+            self.history = SessionStore.loadAll()
             self.knowledgeIndex.rebuild(history)
             if !isTesting { try? KnowledgeEntityStore.save(projects: fileProjects, people: entities.people) }
         }
@@ -388,7 +385,7 @@ final class AppModel {
         query: String,
         date: HistoryDateFilter,
         type: HistoryTypeFilter,
-        records: [SessionRecord]
+        records: [MemoryNote]
     ) -> [SessionSearchResult] {
         semanticMemoryIndex.search(query: query, date: date, type: type, records: records)
     }
@@ -479,7 +476,7 @@ final class AppModel {
     func stop() {
         if isUITesting, sessionStartedAt != nil {
             sessionState = .stopping
-            saveSessionRecord(stopResult: .init(audioDuration: 75, recordingStartedAt: sessionStartedAt))
+            saveMemoryNote(stopResult: .init(audioDuration: 75, recordingStartedAt: sessionStartedAt))
             activeCoachCardID = nil
             sessionState = .idle
             return
@@ -493,7 +490,7 @@ final class AppModel {
         sessionState = .stopping
         Task { @MainActor in
             let result = await coord?.stop() ?? .empty
-            self.saveSessionRecord(stopResult: result)
+            self.saveMemoryNote(stopResult: result)
             self.coordinator = nil
             self.activeCoachCardID = nil
             self.sessionState = .idle
@@ -556,7 +553,7 @@ final class AppModel {
         sessionState = .stopping
         Task { @MainActor in
             let result = await coord?.stop() ?? .empty
-            self.saveSessionRecord(stopResult: result)
+            self.saveMemoryNote(stopResult: result)
             self.coordinator = nil
             self.sessionState = .idle
             self.start()
@@ -564,10 +561,10 @@ final class AppModel {
     }
 
     /// Saves the complete session snapshot in both JSON and Markdown.
-    private func saveSessionRecord(stopResult: SessionStopResult) {
+    private func saveMemoryNote(stopResult: SessionStopResult) {
         defer { sessionStartedAt = nil; currentSessionID = nil }
         guard let startedAt = sessionStartedAt else { return }
-        var record = SessionRecord(
+        var record = MemoryNote(
             id: currentSessionID ?? UUID(),
             startedAt: startedAt,
             recordingStartedAt: stopResult.recordingStartedAt,

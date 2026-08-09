@@ -77,7 +77,7 @@ proposed → active → superseded
 | [0028](0028-evidence-first-longitudinal-semantic-memory.md) | Evidence-first longitudinal memory with hybrid SQLite search | active |
 | [0029](0029-key-feature-e2e-regression-gate.md) | Key-feature E2E regression gate | active |
 | [0030](0030-stable-release-identity-for-tcc.md) | Stable release identity for persistent macOS permissions | active |
-| [0031](0031-file-first-memory-note-corpus.md) | File-first Memory Note corpus | active |
+| [0031](0031-file-first-memory-note-corpus.md) | File-first Memory Note corpus | superseded by 0043 |
 | [0032](0032-second-brain-writing-workspace.md) | Second Brain writing workspace | active |
 | [0033](0033-explicit-personal-memory-for-live-coach.md) | Explicit personal memory for the live Coach | active |
 | [0034](0034-native-markdown-block-editor.md) | Native visual blocks with canonical Markdown | active |
@@ -89,3 +89,4 @@ proposed → active → superseded
 | [0040](0040-render-cheap-library-projections-and-live-snapshots.md) | Render-cheap library projections and off-main live snapshots | active |
 | [0041](0041-recoverable-stt-and-stall-aware-coach.md) | Recoverable STT and stall-aware Coach delivery | superseded by 0042 |
 | [0042](0042-bounded-teardown-and-committed-coach-streaming.md) | Bounded teardown, committed Coach streaming and backlog visibility | active |
+| [0043](0043-greenfield-compatibility-policy.md) | Greenfield compatibility policy for the note corpus | active |

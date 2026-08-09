@@ -43,7 +43,7 @@ final class SemanticMemoryIndex: @unchecked Sendable {
 
     deinit { if let db { sqlite3_close(db) } }
 
-    func rebuild(_ records: [SessionRecord]) {
+    func rebuild(_ records: [MemoryNote]) {
         // The archive is editable after a meeting, so the fingerprint has to cover
         // indexed content — corrections, notes and regenerated artifacts must
         // invalidate the projection even when session metadata did not change.
@@ -64,7 +64,7 @@ final class SemanticMemoryIndex: @unchecked Sendable {
         }
     }
 
-    func search(query: String, date: HistoryDateFilter, type: HistoryTypeFilter, records: [SessionRecord]) -> [SessionSearchResult] {
+    func search(query: String, date: HistoryDateFilter, type: HistoryTypeFilter, records: [MemoryNote]) -> [SessionSearchResult] {
         let clean = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else {
             return SessionKnowledgeIndex(records: records).search(query: "", date: date, type: type)

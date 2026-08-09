@@ -77,7 +77,7 @@ struct ProjectTreeRows: View {
         .background(selected ? Theme.canvas : .clear, in: RoundedRectangle(cornerRadius: 7))
     }
 
-    private func projectRecordRow(_ record: SessionRecord) -> some View {
+    private func projectRecordRow(_ record: MemoryNote) -> some View {
         let selected = app.selectedSessionID == record.id
         return Button { app.selectProjectTreeRecord(record) } label: {
             HStack(spacing: 7) {

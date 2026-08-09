@@ -77,8 +77,8 @@ final class ReliabilityPolicyTests: XCTestCase {
 
     func testIntegrityReportDistinguishesDisabledFromMissingRecording() {
         let start = Date(timeIntervalSince1970: 1_000)
-        func record(hasAudio: Bool) -> SessionRecord {
-            SessionRecord(
+        func record(hasAudio: Bool) -> MemoryNote {
+            MemoryNote(
                 startedAt: start,
                 endedAt: start.addingTimeInterval(60),
                 mode: .meeting,

@@ -14,7 +14,7 @@ enum MemoryChunkBuilder {
     /// that cost proportional to the whole archive — allocating a struct and a
     /// joined string per chunk — which stalled the live session. Hashing the same
     /// source fields keeps every in-memory edit detectable at a fraction of it.
-    static func contentSignature(_ record: SessionRecord) -> Int {
+    static func contentSignature(_ record: MemoryNote) -> Int {
         var hasher = Hasher()
         hasher.combine(record.id)
         hasher.combine(record.projectID)
@@ -41,7 +41,7 @@ enum MemoryChunkBuilder {
         return hasher.finalize()
     }
 
-    static func chunks(_ record: SessionRecord) -> [MemoryChunk] {
+    static func chunks(_ record: MemoryNote) -> [MemoryChunk] {
         var result: [MemoryChunk] = []
         let finals = record.transcript.filter(\.isFinal)
         for start in stride(from: 0, to: finals.count, by: 5) {

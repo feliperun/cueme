@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor
 extension AppModel {
-    var selectedSession: SessionRecord? {
+    var selectedSession: MemoryNote? {
         guard let selectedSessionID else { return nil }
         return history.first { $0.id == selectedSessionID }
     }
@@ -89,7 +89,7 @@ extension AppModel {
         }
     }
 
-    func project(for record: SessionRecord) -> KnowledgeProject? {
+    func project(for record: MemoryNote) -> KnowledgeProject? {
         guard let projectID = record.projectID else { return nil }
         return projects.first { $0.id == projectID }
     }
@@ -435,13 +435,13 @@ extension AppModel {
         postProcessingSessionID = nil
     }
 
-    func replaceHistoryRecord(_ record: SessionRecord) {
+    func replaceHistoryRecord(_ record: MemoryNote) {
         history.removeAll { $0.id == record.id }
         history.append(record)
         history.sort { $0.startedAt > $1.startedAt }
     }
 
-    func mutateRecord(_ id: UUID, mutation: (inout SessionRecord) -> Void) {
+    func mutateRecord(_ id: UUID, mutation: (inout MemoryNote) -> Void) {
         guard let index = history.firstIndex(where: { $0.id == id }) else { return }
         mutation(&history[index])
         history[index].modifiedAt = Date()
@@ -450,7 +450,7 @@ extension AppModel {
 
     func persistLiveSnapshot() {
         guard let startedAt = sessionStartTime, let id = currentSessionID else { return }
-        let record = SessionRecord(
+        let record = MemoryNote(
             id: id,
             startedAt: startedAt,
             endedAt: Date(),
@@ -488,7 +488,7 @@ extension AppModel {
         }
     }
 
-    private func enriched(_ item: MeetingReviewItem, record: SessionRecord) -> MeetingReviewItem {
+    private func enriched(_ item: MeetingReviewItem, record: MemoryNote) -> MeetingReviewItem {
         var item = item
         item.evidence = MemoryEvidenceLinker.evidence(for: item.text, in: record)
         item.confidence = item.evidence.isEmpty ? 0.65 : 0.9
@@ -496,7 +496,7 @@ extension AppModel {
         return item
     }
 
-    private func enriched(_ item: SessionTakeaway, record: SessionRecord) -> SessionTakeaway {
+    private func enriched(_ item: SessionTakeaway, record: MemoryNote) -> SessionTakeaway {
         var item = item
         item.evidence = MemoryEvidenceLinker.evidence(for: item.text, in: record)
         item.confidence = item.evidence.isEmpty ? 0.65 : 0.9

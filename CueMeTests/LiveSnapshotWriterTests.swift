@@ -32,8 +32,8 @@ final class LiveSnapshotWriterTests: XCTestCase {
         XCTAssertEqual(recorded.snapshot().count, 1)
     }
 
-    private func liveSnapshot(id: UUID, goal: String) -> SessionRecord {
-        SessionRecord(
+    private func liveSnapshot(id: UUID, goal: String) -> MemoryNote {
+        MemoryNote(
             id: id,
             startedAt: Date(timeIntervalSince1970: 0),
             mode: .meeting,
@@ -50,13 +50,13 @@ final class LiveSnapshotWriterTests: XCTestCase {
 
 private final class SavedSnapshots: @unchecked Sendable {
     private let lock = NSLock()
-    private var records: [SessionRecord] = []
+    private var records: [MemoryNote] = []
 
-    func store(_ record: SessionRecord) {
+    func store(_ record: MemoryNote) {
         lock.withLock { records.append(record) }
     }
 
-    func snapshot() -> [SessionRecord] {
+    func snapshot() -> [MemoryNote] {
         lock.withLock { records }
     }
 }

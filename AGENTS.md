@@ -6,6 +6,11 @@
 
 Critical guardrails for this repository — read before writing code or opening a PR.
 
+Write the minimum code that runs. No fluff, no gold-plating.
+
+- Do not preserve backward compatibility. Remove obsolete paths instead of adding
+  compatibility layers, fallbacks, or migrations.
+
 ---
 
 ## 1. Privacy & secrets (hard rules)
@@ -35,10 +40,12 @@ Critical guardrails for this repository — read before writing code or opening 
 
 ```bash
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
-xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' test
+xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -skip-testing:CueMeUITests test
 sentrux check .
 sentrux gate .
 ```
+
+The UI suite is **not** part of the local loop — run it on demand (see below).
 
 ---
 
@@ -68,12 +75,21 @@ but do not replace an E2E regression test. Key workflows include capture,
 recording, STT, playback, memory/search/embeddings, persistence, evidence,
 projects/people, Coach/AI generation, import/export, privacy and failover.
 
-Before declaring work complete, the agent must run both suites explicitly:
+**Writing the E2E scenario stays mandatory. Running it locally does not.** The UI
+suite runs **on demand** and is enforced by the `ui-e2e` CI job, which is a
+required check. Locally, run unit tests on every loop and the UI suite only when
+you are working on the flow it covers, or when asked:
 
 ```bash
+# every local loop
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -skip-testing:CueMeUITests test
+
+# on demand only
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -only-testing:CueMeUITests test
 ```
+
+When you skip the local UI run, say so when reporting the work — CI is then the
+first place the scenario executes.
 
 E2E fixtures must be synthetic, deterministic and isolated from the user's
 archive, Keychain, network providers and production SQLite database. Use stable
@@ -84,13 +100,15 @@ the PR. See [ADR 0029](docs/adr/0029-key-feature-e2e-regression-gate.md).
 ### Check suite (runs on every push / PR)
 
 ```bash
-xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO           # compile
-xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' test                                   # XCTest (signed test host)
+xcodebuild ... build CODE_SIGNING_ALLOWED=NO                    # compile
+xcodebuild ... -skip-testing:CueMeUITests test                  # unit + integration
+xcodebuild ... -only-testing:CueMeUITests test                  # UI E2E (separate CI job)
 sentrux check .           # architectural rules (.sentrux/rules.toml)
 sentrux gate .            # no structural regression vs baseline
 ```
 
-CI mirrors this — see `.github/workflows/quality.yml`.
+CI runs all of it, with unit and UI as separate jobs — see
+`.github/workflows/quality.yml`. Locally, only the UI line is optional.
 
 ### Code conventions
 
@@ -98,8 +116,8 @@ CI mirrors this — see `.github/workflows/quality.yml`.
 - **Surgical changes.** Match existing style; don't refactor unrelated code.
 - **Validate at boundaries.** Don't bypass schema validation with `any`.
 - **`MemoryNote` is the durable base entity.** A recording/session is an enriched
-  Note, not a parallel persistence hierarchy. `SessionRecord` is a compatibility
-  alias only; use the new vocabulary in product code and docs.
+  Note, not a parallel persistence hierarchy. It is the only name for it — the
+  `SessionRecord` alias was removed ([ADR 0043](docs/adr/0043-greenfield-compatibility-policy.md)).
 - **Files are authoritative.** `note.md`, `project.md`, relative Project/Note
   folders, audio and attachments are the user-owned corpus. SQLite/FTS5/sqlite-vec
   and JSON catalogs are derived indexes or structured sidecars. Never make a
@@ -168,6 +186,12 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
 - **Do not write only to SQLite.** Every new durable note/project field needs a
   Markdown/frontmatter representation and a round-trip test proving filesystem
   edits load back. Search/index tests must also prove the index can be rebuilt.
+- **The UI runner can fail to start on a dev machine**, with
+  `The test runner failed to initialize for UI testing. (Underlying Error: Timed
+  out while enabling automation mode.)`. It is an environment failure, not a test
+  failure — the same command fails on a clean checkout. Verify against a clean
+  tree before blaming your diff, and let the `ui-e2e` CI job be the gate. This is
+  why the local loop skips `CueMeUITests`.
 
 ---
 
@@ -176,7 +200,7 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
 - [ ] `xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` passes locally.
 - [ ] `sentrux check .` passes; `sentrux gate .` shows no degradation on touched files.
 - [ ] CI is green on the PR.
-- [ ] Key user-visible behavior has a deterministic `CueMeUITests` regression and the UI E2E check is green.
+- [ ] Key user-visible behavior has a deterministic `CueMeUITests` regression, and the `ui-e2e` CI job is green (running it locally is optional).
 - [ ] No secrets, tokens, or internal URLs in the diff.
 - [ ] If a structural decision was made: ADR exists and `docs/adr/README.md` index is updated.
 - [ ] Conventional Commit title.

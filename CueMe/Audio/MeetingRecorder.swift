@@ -164,7 +164,7 @@ enum MeetingRecording {
             ?? legacyDirectory(for: sessionID)
     }
 
-    static func directory(for record: SessionRecord) -> URL {
+    static func directory(for record: MemoryNote) -> URL {
         SessionStore.archiveDirectory(for: record)
     }
 
@@ -176,11 +176,11 @@ enum MeetingRecording {
     static func selfURL(for sessionID: UUID) -> URL { directory(for: sessionID).appendingPathComponent(selfFilename) }
     static func otherURL(for sessionID: UUID) -> URL { directory(for: sessionID).appendingPathComponent(otherFilename) }
 
-    static func selfURL(for record: SessionRecord) -> URL {
+    static func selfURL(for record: MemoryNote) -> URL {
         preferredURL(filename: selfFilename, legacyFilename: legacySelfFilename, record: record)
     }
 
-    static func otherURL(for record: SessionRecord) -> URL {
+    static func otherURL(for record: MemoryNote) -> URL {
         preferredURL(filename: otherFilename, legacyFilename: legacyOtherFilename, record: record)
     }
 
@@ -203,7 +203,7 @@ enum MeetingRecording {
         try? FileManager.default.removeItem(at: legacyDirectory(for: sessionID))
     }
 
-    private static func preferredURL(filename: String, legacyFilename: String, record: SessionRecord) -> URL {
+    private static func preferredURL(filename: String, legacyFilename: String, record: MemoryNote) -> URL {
         let archive = directory(for: record)
         let legacy = legacyDirectory(for: record.id)
         for candidate in [

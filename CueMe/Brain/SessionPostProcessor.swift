@@ -14,7 +14,7 @@ enum SessionPostProcessorError: LocalizedError {
 
 enum SessionPostProcessor {
     static func generate(
-        record: SessionRecord,
+        record: MemoryNote,
         request: String,
         kind: SessionArtifactKind,
         model: CoachModel
@@ -25,7 +25,7 @@ enum SessionPostProcessor {
             \(request)
 
             MEMÓRIA DA SESSÃO:
-            \(context(for: record))
+            \(SessionMemoryDigest.text(for: record))
             """
         let models: [CoachModel] = model.isDeepSeek ? [model, .sonnet] : [model, .deepseekPro]
         var lastError: Error = SessionPostProcessorError.backendUnavailable
@@ -47,33 +47,6 @@ enum SessionPostProcessor {
             }
         }
         throw lastError
-    }
-
-    static func context(for record: SessionRecord) -> String {
-        var parts = [
-            "Título: \(record.title)",
-            "Objetivo: \(record.goal)",
-            "Data: \(record.startedAt.formatted(date: .long, time: .shortened))"
-        ]
-        if !record.minutes.isEmpty {
-            let topics = record.minutes.topics.map { "- \($0.title): \($0.summary)" }.joined(separator: "\n")
-            parts.append("Ata atual:\n\(record.minutes.overview)\n\(topics)")
-        } else if !record.summaryBullets.isEmpty {
-            parts.append("Resumo atual:\n" + record.summaryBullets.map { "- \($0)" }.joined(separator: "\n"))
-        }
-        if !record.notes.isEmpty {
-            let notes = record.notes.map {
-                "Nota \(SessionArchive.clock($0.timeOffset)): \($0.text)"
-            }.joined(separator: "\n")
-            parts.append("Anotações:\n\(notes)")
-        }
-        let transcript = record.transcript.filter(\.isFinal).map { line in
-            let speaker = record.participantName(for: line.speaker).uppercased()
-            let translation = line.translation.map { " | Tradução: \($0)" } ?? ""
-            return "[\(speaker)] \(line.text)\(translation)"
-        }.joined(separator: "\n")
-        parts.append("Transcrição:\n\(transcript.isEmpty ? "(vazia)" : transcript)")
-        return String(parts.joined(separator: "\n\n").prefix(60_000))
     }
 
     private static func systemPrompt(language: String, kind: SessionArtifactKind) -> String {

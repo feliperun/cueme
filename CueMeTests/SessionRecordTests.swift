@@ -4,7 +4,7 @@ import XCTest
 final class SessionRecordTests: XCTestCase {
     func testLegacyRecordFallsBackToSessionClock() throws {
         let startedAt = Date(timeIntervalSince1970: 1_000)
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: startedAt,
             mode: .meeting,
             training: false,
@@ -20,7 +20,7 @@ final class SessionRecordTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         object.removeValue(forKey: "recordingStartedAt")
         let legacy = try JSONSerialization.data(withJSONObject: object)
-        let decoded = try JSONDecoder().decode(SessionRecord.self, from: legacy)
+        let decoded = try JSONDecoder().decode(MemoryNote.self, from: legacy)
 
         XCTAssertEqual(decoded.audioTimelineStart, startedAt)
     }
@@ -28,7 +28,7 @@ final class SessionRecordTests: XCTestCase {
     func testRecordingClockWinsWhenPresent() {
         let sessionStart = Date(timeIntervalSince1970: 1_000)
         let audioStart = sessionStart.addingTimeInterval(12)
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: sessionStart,
             recordingStartedAt: audioStart,
             mode: .meeting,
@@ -44,7 +44,7 @@ final class SessionRecordTests: XCTestCase {
     }
 
     func testLegacyRecordWithoutDiagnosticsStillDecodes() throws {
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: Date(timeIntervalSince1970: 1_000),
             mode: .meeting,
             training: false,
@@ -60,13 +60,13 @@ final class SessionRecordTests: XCTestCase {
         object.removeValue(forKey: "diagnostics")
         let legacy = try JSONSerialization.data(withJSONObject: object)
 
-        let decoded = try JSONDecoder().decode(SessionRecord.self, from: legacy)
+        let decoded = try JSONDecoder().decode(MemoryNote.self, from: legacy)
 
         XCTAssertTrue(decoded.diagnostics.events.isEmpty)
     }
 
     func testLegacyRecordWithoutMemoryFieldsStillDecodes() throws {
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: Date(timeIntervalSince1970: 1_000),
             mode: .meeting,
             training: false,
@@ -90,7 +90,7 @@ final class SessionRecordTests: XCTestCase {
         object.removeValue(forKey: "review")
         let legacy = try JSONSerialization.data(withJSONObject: object)
 
-        let decoded = try JSONDecoder().decode(SessionRecord.self, from: legacy)
+        let decoded = try JSONDecoder().decode(MemoryNote.self, from: legacy)
 
         XCTAssertFalse(decoded.archiveFolderName.isEmpty)
         XCTAssertTrue(decoded.notes.isEmpty)

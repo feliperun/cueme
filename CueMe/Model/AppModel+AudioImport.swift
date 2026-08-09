@@ -111,7 +111,7 @@ extension AppModel {
         }
     }
 
-    private func processImportedRecord(_ initialRecord: SessionRecord) async {
+    private func processImportedRecord(_ initialRecord: MemoryNote) async {
         var record = initialRecord
         if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1",
            record.origin == .voiceMemo {

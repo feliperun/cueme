@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct HistoryExportToolbar: ToolbarContent {
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var copied = false
 
     var body: some ToolbarContent {

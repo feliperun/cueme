@@ -6,15 +6,15 @@ import Foundation
 final class LiveSnapshotWriter: @unchecked Sendable {
     private let queue = DispatchQueue(label: "CueMe.LiveSnapshotWriter", qos: .utility)
     private let lock = NSLock()
-    private var pending: [UUID: SessionRecord] = [:]
+    private var pending: [UUID: MemoryNote] = [:]
     private var drainScheduled = false
-    private let save: @Sendable (SessionRecord) -> Void
+    private let save: @Sendable (MemoryNote) -> Void
 
-    init(save: @escaping @Sendable (SessionRecord) -> Void = { _ = SessionStore.save($0) }) {
+    init(save: @escaping @Sendable (MemoryNote) -> Void = { _ = SessionStore.save($0) }) {
         self.save = save
     }
 
-    func submit(_ record: SessionRecord) {
+    func submit(_ record: MemoryNote) {
         let shouldSchedule = lock.withLock {
             pending[record.id] = record
             guard !drainScheduled else { return false }
@@ -30,7 +30,7 @@ final class LiveSnapshotWriter: @unchecked Sendable {
     }
 
     private func drain() {
-        while let record = lock.withLock({ () -> SessionRecord? in
+        while let record = lock.withLock({ () -> MemoryNote? in
             guard let entry = pending.first else {
                 drainScheduled = false
                 return nil

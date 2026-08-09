@@ -31,7 +31,7 @@ extension AppModel {
             .search(query: cleanQuery, date: historyDateFilter, type: typeFilter)
     }
 
-    var filteredHistory: [SessionRecord] {
+    var filteredHistory: [MemoryNote] {
         let records = Dictionary(uniqueKeysWithValues: history.map { ($0.id, $0) })
         return historySearchResults.compactMap { records[$0.recordID] }
     }

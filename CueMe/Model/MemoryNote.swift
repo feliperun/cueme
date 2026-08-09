@@ -67,7 +67,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
 
     init(
         id: UUID = UUID(),
-        schemaVersion: Int = SessionRecord.currentSchemaVersion,
+        schemaVersion: Int = MemoryNote.currentSchemaVersion,
         startedAt: Date,
         recordingStartedAt: Date? = nil,
         endedAt: Date = Date(),
@@ -284,7 +284,3 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         return s
     }
 }
-
-/// Source compatibility while older capture and review modules migrate their
-/// vocabulary. New product code should use `MemoryNote`.
-typealias SessionRecord = MemoryNote

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Read-only detail retained for the legacy History window.
 struct HistorySessionDetailView: View {
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var player = MeetingPlayer()
     @State private var envelope: [Float] = []
     @State private var loadingWaveform = true

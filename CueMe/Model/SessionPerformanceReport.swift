@@ -40,7 +40,7 @@ struct SessionIntegrityReport: Sendable, Equatable {
     let recoveries: Int
     let errors: Int
 
-    init(record: SessionRecord) {
+    init(record: MemoryNote) {
         recordingExpected = record.hasAudio
         if record.hasAudio, record.duration > 0 {
             audioCoveragePercent = min(100, max(0, Int((record.audioDuration / record.duration * 100).rounded())))

@@ -2,39 +2,41 @@ import SwiftUI
 
 struct SessionWorkspaceView: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var tab: SessionWorkspaceTab
     @State private var player = MeetingPlayer()
     @State private var envelope: [Float] = []
     @State private var loadingWaveform = false
+    @State private var editor = NoteEditorState()
 
-    init(record: SessionRecord) {
+    init(record: MemoryNote) {
         self.record = record
         _tab = State(initialValue: record.origin == .written ? .note : .review)
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 0) {
-                SessionWorkspaceHeader(record: record)
-                if isCapturingLive { LiveStrip() }
-                if record.containsRecording {
-                    WaveformPlayerView(player: player, envelope: envelope, loading: loadingWaveform)
-                        .padding(.horizontal, 16).padding(.bottom, 10)
-                }
-                SessionWorkspaceTabs(record: record, selection: $tab)
+            NoteWorkspaceHeaderBar(record: record, selection: $tab, editor: editor)
+            if isCapturingLive { LiveStrip() }
+            if record.containsRecording {
+                WaveformPlayerView(player: player, envelope: envelope, loading: loadingWaveform)
+                    .padding(.horizontal, 26).padding(.vertical, 10)
+                    .background(Theme.paper)
+                    .overlay(alignment: .bottom) { Rectangle().fill(Theme.line2).frame(height: 1) }
             }
-            .background(Theme.sidebar)
-            Rectangle().fill(Theme.divider).frame(height: 1)
-            SessionWorkspacePane(record: record, selection: tab, player: player)
+            // No `.id(tab)` here: an explicit identity freezes the pane's inputs,
+            // so a note edited (or swapped) underneath it kept rendering the
+            // previous record. The `switch` in `SessionWorkspacePane` already
+            // gives each projection its own identity.
+            SessionWorkspacePane(record: record, selection: tab, player: player, editor: editor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .id(tab)
-                .transition(.opacity)
             AskCueMeBar(record: record, tab: $tab)
         }
         .background(Theme.paper)
-        .animation(.snappy(duration: 0.18), value: tab)
-        .task(id: record.id) { await loadAudio() }
+        .task(id: record.id) {
+            editor.reset()
+            await loadAudio()
+        }
         .onDisappear { player.teardown() }
     }
 

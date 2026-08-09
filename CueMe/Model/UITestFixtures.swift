@@ -120,7 +120,7 @@ enum UITestFixtures {
     }
 
     struct Memory {
-        let records: [SessionRecord]
+        let records: [MemoryNote]
         let projects: [KnowledgeProject]
         let people: [KnowledgePerson]
     }
@@ -138,7 +138,7 @@ enum UITestFixtures {
             id: evidenceID, turnID: turnID, timestamp: 42,
             quote: "O veículo elétrico será adotado no próximo trimestre."
         )
-        let current = SessionRecord(
+        let current = MemoryNote(
             id: sessionID, startedAt: now, endedAt: now.addingTimeInterval(1_800),
             mode: .meeting, training: false, conversationLang: "pt-BR", nativeLang: "pt-BR",
             goal: "Definir a estratégia de mobilidade", transcript: [
@@ -164,7 +164,7 @@ enum UITestFixtures {
                 openQuestions: [.init(text: "Qual fornecedor terá melhor cobertura?", evidence: [evidence])]
             ), projectID: projectID, personIDs: [personID]
         )
-        let earlier = SessionRecord(
+        let earlier = MemoryNote(
             id: earlierID, startedAt: now.addingTimeInterval(-86_400),
             endedAt: now.addingTimeInterval(-84_600), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Mapear custos",
@@ -179,7 +179,7 @@ enum UITestFixtures {
         )
     }
 
-    static func answer(for records: [SessionRecord]) -> String {
+    static func answer(for records: [MemoryNote]) -> String {
         guard let record = records.first else { return "Nenhuma memória relevante encontrada." }
         return "A frota elétrica foi aprovada para o próximo trimestre [S1].\n\nFontes\n[S1] \(record.title)"
     }

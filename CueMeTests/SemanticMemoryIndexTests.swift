@@ -29,7 +29,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + "-wal"))
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + "-shm"))
         }
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: Date(), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
             transcript: [], coachCards: [], summaryBullets: [],
@@ -48,7 +48,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + "-wal"))
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + "-shm"))
         }
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: Date(), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
             transcript: [], coachCards: [], summaryBullets: [],
@@ -78,7 +78,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + "-wal"))
             try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + "-shm"))
         }
-        var record = SessionRecord(
+        var record = MemoryNote(
             startedAt: Date(), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
             transcript: [], coachCards: [], summaryBullets: [],
@@ -96,7 +96,7 @@ final class SemanticMemoryIndexTests: XCTestCase {
     /// The signature replaces chunking-to-hash on the library search path, so it
     /// has to stay sensitive to every field the index actually reads.
     func testContentSignatureTracksIndexedFieldsAndIgnoresNothingEdited() {
-        var record = SessionRecord(
+        var record = MemoryNote(
             startedAt: Date(timeIntervalSince1970: 0), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
             transcript: [], coachCards: [], summaryBullets: [],

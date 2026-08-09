@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HistoryDiagnosticsSection: View {
-    let record: SessionRecord
+    let record: MemoryNote
 
     private var report: SessionPerformanceReport {
         SessionPerformanceReport(diagnostics: record.diagnostics)

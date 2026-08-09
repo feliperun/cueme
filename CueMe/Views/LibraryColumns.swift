@@ -99,7 +99,7 @@ struct NoteListColumn: View {
 
 private struct NoteRow: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let snippet: String?
     let compact: Bool
 
@@ -209,7 +209,7 @@ private struct LivePulse: ViewModifier {
 // MARK: - Formatting
 
 enum LibraryFormat {
-    static func kindTag(_ r: SessionRecord) -> String {
+    static func kindTag(_ r: MemoryNote) -> String {
         switch r.libraryPresentationKind {
         case .note: return "NOTE"
         case .journal: return "JOURNAL"
@@ -217,13 +217,13 @@ enum LibraryFormat {
         }
     }
 
-    static func rightMeta(_ r: SessionRecord) -> String {
+    static func rightMeta(_ r: MemoryNote) -> String {
         var parts = [relative(r.startedAt)]
         if r.containsRecording, r.audioDuration > 0 { parts.append(duration(r.audioDuration)) }
         return parts.joined(separator: " · ")
     }
 
-    static func preview(_ r: SessionRecord, snippet: String?) -> String? {
+    static func preview(_ r: MemoryNote, snippet: String?) -> String? {
         if let snippet, !snippet.isEmpty { return snippet }
         let overview = r.minutes.overview.trimmingCharacters(in: .whitespacesAndNewlines)
         if !overview.isEmpty { return overview }

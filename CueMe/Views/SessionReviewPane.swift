@@ -2,12 +2,16 @@ import SwiftUI
 
 struct SessionReviewPane: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
+                // The masthead belongs to the note, not to a tab: it stays put
+                // whichever projection is on screen. PR 4 folds the rest of this
+                // pane into the same document band.
+                NoteMasthead(record: record)
                 toolbar
                 CoachCuesBlock(record: record)
                 EditableOverview(record: record)
@@ -97,13 +101,13 @@ struct ReviewSection<Content: View>: View {
 /// Session health behind a collapsed row. Coach P50/P95 is dev jargon inside a
 /// note — expanded by default only when the session had recoveries or errors.
 private struct SessionHealthDisclosure: View {
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var expanded: Bool
 
     private let integrity: SessionIntegrityReport
     private let performance: SessionPerformanceReport
 
-    init(record: SessionRecord) {
+    init(record: MemoryNote) {
         self.record = record
         let integrity = SessionIntegrityReport(record: record)
         let performance = SessionPerformanceReport(diagnostics: record.diagnostics)
@@ -172,7 +176,7 @@ private struct SessionHealthDisclosure: View {
 
 struct EditableOverview: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var draft = ""
 
     var body: some View {
@@ -255,7 +259,7 @@ struct EditableTakeawayRow: View {
 }
 
 private struct EditableTakeawaysSection: View {
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
     var body: some View {
         ReviewSection(title: "AÇÕES", icon: "checklist") {
@@ -267,7 +271,7 @@ private struct EditableTakeawaysSection: View {
 
 private struct ReviewItemsSection: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
     let openQuestion: Bool
     @State private var newItem = ""
@@ -368,7 +372,7 @@ private struct EvidenceButton: View {
 
 private struct EditableFollowUp: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var draft = ""
 
     var body: some View {
@@ -395,7 +399,7 @@ struct ReviewEmptyRow: View {
 /// Post-hoc coach cues as a collapsed log block (mint = coach). Expands to the
 /// card carousel; loud hero treatment is reserved for the live layout.
 private struct CoachCuesBlock: View {
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var expanded = false
 
     private var cards: [CoachCard] { record.coachCards.filter(\.hasContent) }

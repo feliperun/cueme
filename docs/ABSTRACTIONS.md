@@ -45,7 +45,7 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
    recorded experience is one portable Note directory. Canonical `note.md`
    frontmatter/body and canonical `project.md` folder metadata are user-owned;
    `session.json` preserves lossless transcript/Coach/minutes state and audio is
-   stored beside it. `SessionRecord` remains only a source-compatibility alias.
+   stored beside it. `MemoryNote` is the only name for the entity.
    `SessionOrigin` records whether memory came from live capture, an audio file
    or a Voice Memos share; imported sources never persist their original absolute
    path. Public external handoffs converge on an atomic `ExternalAudioInbox`.
@@ -135,8 +135,8 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
   after its second delta and passes through from then on; a provider that emits
   one fragment and stalls loses the race with none of its output shown.
 - **Audio replay uses the recorder's clock, not the Start-button clock.**
-  `SessionRecord.recordingStartedAt` is persisted with the stop result; legacy
-  records fall back to `startedAt`.
+  `MemoryNote.recordingStartedAt` is persisted with the stop result; notes
+  without one fall back to `startedAt`.
 - **New recordings use portable, speech-quality AAC-LC.** Each speaker is stored
   separately as mono 48 kHz/128 kbps `.m4a`; STT keeps its independent 16 kHz
   conversion. `MeetingRecording` must continue resolving legacy `.caf` files.

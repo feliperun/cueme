@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SessionWorkspaceTabs: View {
-    let record: SessionRecord
+    let record: MemoryNote
     @Binding var selection: SessionWorkspaceTab
 
     var body: some View {
@@ -15,14 +15,11 @@ struct SessionWorkspaceTabs: View {
             .padding(2)
             .background(Theme.soft, in: RoundedRectangle(cornerRadius: 8))
 
-            Spacer(minLength: 8)
-
             // Secondary lanes stay reachable (and keep their test identifiers).
             HStack(spacing: 5) {
                 ForEach(secondaryTabs) { tab in secondaryChip(tab) }
             }
         }
-        .padding(.horizontal, 16).padding(.bottom, 12)
     }
 
     // MARK: Segments
@@ -109,14 +106,19 @@ struct SessionWorkspaceTabs: View {
 }
 
 struct SessionWorkspacePane: View {
-    let record: SessionRecord
+    let record: MemoryNote
     let selection: SessionWorkspaceTab
     let player: MeetingPlayer
+    let editor: NoteEditorState
+
+    var body: some View {
+        content
+    }
 
     @ViewBuilder
-    var body: some View {
+    private var content: some View {
         switch selection {
-        case .note: MemoryNoteEditor(record: record)
+        case .note: MemoryNoteEditor(record: record, editor: editor)
         case .review: SessionReviewPane(record: record, player: player)
         case .coach: SessionCoachPane(record: record)
         case .summary: SessionSummaryPane(record: record)

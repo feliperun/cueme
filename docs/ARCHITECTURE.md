@@ -96,10 +96,10 @@ serial queue. Teardown waits on provider and framework code through
   `TrainingCoordinator` (voice interviewer for practice/e2e testing),
   `HotkeyManager` (global ⌥Space show/hide), `SessionBrief` (+ `BriefStore`),
   reusable `BriefProfile`s, `MemoryNote` (the base entity for written and recorded
-  experiences; `SessionRecord` is a migration alias), `NoteDocument` (canonical
+  experiences), `NoteDocument` (canonical
   Markdown/frontmatter), `MarkdownBlockDocument` (transient visual block projection),
   `ProjectWorkspaceStore` (Project folders and `project.md`),
-  `SessionArchive`/`SessionStore` (recursive file-first persistence and migration),
+  `SessionArchive`/`SessionStore` (recursive file-first persistence),
   `ExternalAudioInbox` (atomic App Group handoff shared with the audio-only
   Share Extension), `ImportMeetingAudioIntent` (Shortcuts ingress),
   `SessionKnowledgeIndex` (lexical fallback), `SemanticMemoryIndex` (rebuildable

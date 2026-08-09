@@ -228,8 +228,8 @@ final class NoteListProjectionTests: XCTestCase {
         attachments: [NoteAttachment] = [],
         projectID: UUID? = nil,
         labels: [String] = []
-    ) -> SessionRecord {
-        SessionRecord(
+    ) -> MemoryNote {
+        MemoryNote(
             startedAt: startedAt,
             endedAt: startedAt.addingTimeInterval(60),
             mode: .meeting,

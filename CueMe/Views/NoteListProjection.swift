@@ -2,13 +2,13 @@ import Foundation
 
 /// A single immutable result set for one middle-column render.
 struct NoteListProjection {
-    let scopedRecords: [SessionRecord]
-    let visibleRecords: [SessionRecord]
+    let scopedRecords: [MemoryNote]
+    let visibleRecords: [MemoryNote]
     private let counts: [HistoryTypeFilter: Int]
     private let snippets: [UUID: String]
 
     init(
-        history: [SessionRecord],
+        history: [MemoryNote],
         searchResults: [SessionSearchResult],
         section: LibrarySection,
         selectedType: HistoryTypeFilter
@@ -34,9 +34,9 @@ struct NoteListProjection {
     }
 
     private static func scope(
-        _ records: [SessionRecord],
+        _ records: [MemoryNote],
         to section: LibrarySection
-    ) -> [SessionRecord] {
+    ) -> [MemoryNote] {
         switch section {
         case .all:
             return records
@@ -47,7 +47,7 @@ struct NoteListProjection {
         }
     }
 
-    private static func counts(in records: [SessionRecord]) -> [HistoryTypeFilter: Int] {
+    private static func counts(in records: [MemoryNote]) -> [HistoryTypeFilter: Int] {
         [
             .all: records.count,
             .meeting: records.filter(HistoryTypeFilter.meeting.matches).count,
@@ -57,7 +57,7 @@ struct NoteListProjection {
 
     private static func snippets(
         from results: [SessionSearchResult],
-        scopedTo records: [SessionRecord]
+        scopedTo records: [MemoryNote]
     ) -> [UUID: String] {
         let scopedIDs = Set(records.map(\.id))
         return results.reduce(into: [:]) { snippets, result in

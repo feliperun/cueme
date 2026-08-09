@@ -4,7 +4,7 @@ import SwiftUI
 enum LibrarySection: Equatable { case all, inbox, journal }
 
 enum ProjectTreeProjection {
-    static func records(in history: [SessionRecord], projectID: UUID) -> [SessionRecord] {
+    static func records(in history: [MemoryNote], projectID: UUID) -> [MemoryNote] {
         history
             .filter { $0.projectID == projectID }
             .sorted { $0.startedAt > $1.startedAt }
@@ -48,7 +48,7 @@ extension AppModel {
 
     /// Records nested under a project in the tree always come from the complete
     /// archive, never from the currently searched or type-filtered note list.
-    func projectTreeRecords(for projectID: UUID) -> [SessionRecord] {
+    func projectTreeRecords(for projectID: UUID) -> [MemoryNote] {
         ProjectTreeProjection.records(in: history, projectID: projectID)
     }
 
@@ -67,7 +67,7 @@ extension AppModel {
             || isProjectForcedExpanded(projectID)
     }
 
-    func selectProjectTreeRecord(_ record: SessionRecord) {
+    func selectProjectTreeRecord(_ record: MemoryNote) {
         guard let projectID = record.projectID else { return }
         selectLibraryProject(projectID)
         historySearch = ""

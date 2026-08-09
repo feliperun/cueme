@@ -163,8 +163,8 @@ final class ProjectTreeProjectionTests: XCTestCase {
         )
     }
 
-    private func makeRecord(id: UUID, startedAt: Date, projectID: UUID) -> SessionRecord {
-        SessionRecord(
+    private func makeRecord(id: UUID, startedAt: Date, projectID: UUID) -> MemoryNote {
+        MemoryNote(
             id: id,
             startedAt: startedAt,
             endedAt: startedAt.addingTimeInterval(60),

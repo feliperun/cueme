@@ -26,7 +26,7 @@ enum AudioImportService {
         conversationLanguage: String,
         nativeLanguage: String,
         title: String? = nil
-    ) async throws -> SessionRecord {
+    ) async throws -> MemoryNote {
         let asset = AVURLAsset(url: sourceURL)
         let duration = try await asset.load(.duration).seconds
         guard duration.isFinite, duration > 0 else { throw AudioImportError.invalidDuration }
@@ -34,7 +34,7 @@ enum AudioImportService {
         let values = try? sourceURL.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
         let startedAt = values?.creationDate ?? values?.contentModificationDate ?? Date()
         let id = UUID()
-        let record = SessionRecord(
+        let record = MemoryNote(
             id: id,
             startedAt: startedAt,
             recordingStartedAt: startedAt,

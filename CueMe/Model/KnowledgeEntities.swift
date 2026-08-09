@@ -80,7 +80,7 @@ enum KnowledgeEntityStore {
         try encoder.encode(Payload(projects: projects, people: people)).write(to: url, options: .atomic)
     }
 
-    static func timeline(projectID: UUID, records: [SessionRecord]) -> [ProjectTimelineEntry] {
+    static func timeline(projectID: UUID, records: [MemoryNote]) -> [ProjectTimelineEntry] {
         records.filter { $0.projectID == projectID }.flatMap { record in
             var entries = [ProjectTimelineEntry(
                 id: "meeting-\(record.id)", sessionID: record.id, date: record.startedAt,

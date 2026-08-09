@@ -32,3 +32,6 @@ dist/
 
 # Scratch / prototype (not shipped)
 temp/
+
+# Claude Code local settings
+.claude/settings.local.json

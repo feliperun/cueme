@@ -26,7 +26,7 @@ final class SessionArchiveTests: XCTestCase {
             ts: startedAt.addingTimeInterval(12)
         )
         line.applyCorrection("Vamos entregar no monorepo na sexta-feira.", at: startedAt.addingTimeInterval(20))
-        let record = SessionRecord(
+        let record = MemoryNote(
             id: UUID(uuidString: "12345678-1234-1234-1234-1234567890AB")!,
             startedAt: startedAt,
             endedAt: startedAt.addingTimeInterval(90),
@@ -57,7 +57,11 @@ final class SessionArchiveTests: XCTestCase {
 
         XCTAssertTrue(directory.lastPathComponent.hasPrefix("2024-01-01_"))
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("session.json").path))
-        let markdownURL = directory.appendingPathComponent("session.md")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: directory.appendingPathComponent("session.md").path),
+            "session.md was the pre-1.0 compatibility mirror and must no longer be written"
+        )
+        let markdownURL = directory.appendingPathComponent(NoteDocument.filename)
         let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
         XCTAssertTrue(markdown.contains("# Vamos entregar no monorepo na sexta-feira."))
         XCTAssertTrue(markdown.contains("## Anotações"))

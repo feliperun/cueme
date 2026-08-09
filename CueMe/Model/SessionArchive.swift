@@ -9,7 +9,7 @@ enum SessionArchive {
         return "\(formatter.string(from: startedAt))_\(id.uuidString.prefix(8))"
     }
 
-    static func markdown(for record: SessionRecord) -> String {
+    static func markdown(for record: MemoryNote) -> String {
         var lines = NoteDocument.frontmatter(for: record) + [
             "",
             "# \(record.title)",
@@ -44,7 +44,7 @@ enum SessionArchive {
             : String(format: "%02d:%02d", minutes, seconds)
     }
 
-    private static func appendSummary(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendSummary(_ record: MemoryNote, to lines: inout [String]) {
         guard !record.minutes.isEmpty || !record.summaryBullets.isEmpty else { return }
         lines += ["## Ata", ""]
         if !record.minutes.overview.isEmpty {
@@ -61,7 +61,7 @@ enum SessionArchive {
         lines.append("")
     }
 
-    private static func appendTakeaways(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendTakeaways(_ record: MemoryNote, to lines: inout [String]) {
         lines += ["## Pendências", ""]
         if record.takeaways.isEmpty {
             lines.append("_Nenhuma pendência registrada._")
@@ -74,7 +74,7 @@ enum SessionArchive {
         lines.append("")
     }
 
-    private static func appendReview(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendReview(_ record: MemoryNote, to lines: inout [String]) {
         guard !record.review.isEmpty else { return }
         if !record.review.decisions.isEmpty {
             lines += ["## Decisões", ""]
@@ -103,7 +103,7 @@ enum SessionArchive {
         }
     }
 
-    private static func appendNotes(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendNotes(_ record: MemoryNote, to lines: inout [String]) {
         guard !record.notes.isEmpty else { return }
         lines += ["## Anotações", ""]
         lines += record.notes.sorted { $0.timeOffset < $1.timeOffset }
@@ -111,7 +111,7 @@ enum SessionArchive {
         lines.append("")
     }
 
-    private static func appendCoach(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendCoach(_ record: MemoryNote, to lines: inout [String]) {
         let cards = record.coachCards.filter(\.hasContent)
         guard !cards.isEmpty else { return }
         lines += ["## Coach", ""]
@@ -126,7 +126,7 @@ enum SessionArchive {
         }
     }
 
-    private static func appendTranscript(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendTranscript(_ record: MemoryNote, to lines: inout [String]) {
         guard !record.transcript.isEmpty else { return }
         lines += ["## Transcrição", ""]
         for line in record.transcript where line.isFinal {
@@ -145,7 +145,7 @@ enum SessionArchive {
         }
     }
 
-    private static func appendArtifacts(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendArtifacts(_ record: MemoryNote, to lines: inout [String]) {
         guard !record.artifacts.isEmpty else { return }
         lines += ["## Conteúdo gerado", ""]
         for artifact in record.artifacts {
@@ -153,7 +153,7 @@ enum SessionArchive {
         }
     }
 
-    private static func appendHealth(_ record: SessionRecord, to lines: inout [String]) {
+    private static func appendHealth(_ record: MemoryNote, to lines: inout [String]) {
         let report = SessionIntegrityReport(record: record)
         let audioCoverage = report.recordingExpected ? "\(report.audioCoveragePercent)%" : "desativada"
         lines += [
@@ -201,7 +201,7 @@ enum SessionStore {
         UserDefaults.standard.set(url.standardizedFileURL.path, forKey: configuredRootKey)
     }
 
-    static func archiveDirectory(for record: SessionRecord) -> URL {
+    static func archiveDirectory(for record: MemoryNote) -> URL {
         rootURL.appendingPathComponent(record.storageRelativePath, isDirectory: true)
     }
 
@@ -217,7 +217,7 @@ enum SessionStore {
     }
 
     @discardableResult
-    static func save(_ record: SessionRecord) -> URL? {
+    static func save(_ record: MemoryNote) -> URL? {
         let directory = archiveDirectory(for: record)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -229,29 +229,20 @@ enum SessionStore {
                 atomically: true,
                 encoding: .utf8
             )
-            // Compatibility mirror for pre-1.0 automations. `note.md` is the
-            // canonical document and the only Markdown read back by CueMe.
-            try markdown.write(
-                to: directory.appendingPathComponent("session.md"),
-                atomically: true,
-                encoding: .utf8
-            )
             return directory
         } catch {
             return nil
         }
     }
 
-    static func loadAll() -> [SessionRecord] {
-        var records: [UUID: SessionRecord] = [:]
+    static func loadAll() -> [MemoryNote] {
+        var records: [UUID: MemoryNote] = [:]
         for record in loadArchive() { records[record.id] = record }
-        for record in loadLegacy() where records[record.id] == nil { records[record.id] = record }
         return records.values.sorted { $0.startedAt > $1.startedAt }
     }
 
-    static func delete(_ record: SessionRecord) {
+    static func delete(_ record: MemoryNote) {
         try? FileManager.default.removeItem(at: archiveDirectory(for: record))
-        try? FileManager.default.removeItem(at: legacyDirectory().appendingPathComponent("\(record.id.uuidString).json"))
         MeetingRecording.deleteLegacy(for: record.id)
     }
 
@@ -259,7 +250,6 @@ enum SessionStore {
         if let record = loadAll().first(where: { $0.id == id }) {
             delete(record)
         } else {
-            try? FileManager.default.removeItem(at: legacyDirectory().appendingPathComponent("\(id.uuidString).json"))
             MeetingRecording.deleteLegacy(for: id)
         }
     }
@@ -267,7 +257,7 @@ enum SessionStore {
     /// Moves the complete note folder, including recordings and attachments,
     /// without persisting any absolute path. The project directory itself is a
     /// user-readable filesystem object with its own Markdown descriptor.
-    static func relocate(_ value: SessionRecord, to project: KnowledgeProject?) -> SessionRecord? {
+    static func relocate(_ value: MemoryNote, to project: KnowledgeProject?) -> MemoryNote? {
         var record = value
         let source = archiveDirectory(for: record)
         let parentRelative = ProjectWorkspaceStore.relativeDirectory(for: project)
@@ -295,33 +285,15 @@ enum SessionStore {
         }
     }
 
-    /// One-time, idempotent layout migration for archives created before 1.0.
-    /// Existing top-level session folders become Note folders inside `_Inbox`
-    /// or their linked Project. The document contents are never rewritten into
-    /// the database; `note.md` remains the canonical, user-owned source.
-    static func migrateToWorkspace(
-        _ records: [SessionRecord],
-        projects: [KnowledgeProject]
-    ) -> [SessionRecord] {
-        let projectsByID = Dictionary(uniqueKeysWithValues: projects.map { ($0.id, $0) })
-        return records.map { record in
-            let project = record.projectID.flatMap { projectsByID[$0] }
-            let desired = "\(ProjectWorkspaceStore.relativeDirectory(for: project))/\(record.archiveFolderName)"
-            guard record.storageRelativePath != desired else { return record }
-            return relocate(record, to: project) ?? record
-        }
-        .sorted { $0.startedAt > $1.startedAt }
-    }
-
-    private static func loadArchive() -> [SessionRecord] {
+    private static func loadArchive() -> [MemoryNote] {
         guard let enumerator = FileManager.default.enumerator(
             at: rootURL,
             includingPropertiesForKeys: [.isRegularFileKey],
             options: [.skipsHiddenFiles, .skipsPackageDescendants]
         ) else { return [] }
-        var records: [SessionRecord] = []
+        var records: [MemoryNote] = []
         for case let url as URL in enumerator where url.lastPathComponent == "session.json" {
-            guard var record = try? decoder.decode(SessionRecord.self, from: Data(contentsOf: url)) else { continue }
+            guard var record = try? decoder.decode(MemoryNote.self, from: Data(contentsOf: url)) else { continue }
             let folder = url.deletingLastPathComponent()
             let relative = folder.path.replacingOccurrences(of: rootURL.path + "/", with: "")
             if !relative.isEmpty, relative != folder.path { record.relativeFolderPath = relative }
@@ -332,21 +304,5 @@ enum SessionStore {
             records.append(record)
         }
         return records
-    }
-
-    private static func loadLegacy() -> [SessionRecord] {
-        guard rootOverride == nil,
-              let files = try? FileManager.default.contentsOfDirectory(
-                at: legacyDirectory(),
-                includingPropertiesForKeys: nil
-              ) else { return [] }
-        return files.filter { $0.pathExtension == "json" }.compactMap {
-            try? decoder.decode(SessionRecord.self, from: Data(contentsOf: $0))
-        }
-    }
-
-    private static func legacyDirectory() -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("CueMe/sessions", isDirectory: true)
     }
 }

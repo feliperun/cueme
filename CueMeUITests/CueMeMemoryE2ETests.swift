@@ -626,4 +626,80 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertTrue(action.waitForExistence(timeout: 3))
         XCTAssertEqual(readText(action), "Buscar atualizações")
     }
+
+    // MARK: Note masthead and single-row header
+
+    func testNoteMastheadCarriesTheTitleMetadataAndDocumentActions() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let newNote = app.buttons["home.new-note"]
+        XCTAssertTrue(newNote.waitForExistence(timeout: 5))
+        newNote.click()
+
+        // The document scrolls as one page: masthead first, then the blocks.
+        let masthead = app.groups["note.masthead"]
+        XCTAssertTrue(masthead.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["note.rename"].exists)
+        XCTAssertTrue(app.staticTexts["note.breadcrumb"].exists)
+
+        // Metadata affordances survived the move out of the old chrome bar.
+        XCTAssertTrue(app.buttons["note.labels"].exists)
+        XCTAssertTrue(app.buttons["session.project"].exists)
+        XCTAssertTrue(app.buttons["note.attach"].exists)
+
+        // A brand-new note takes the very first keystroke, no extra click.
+        let editor = app.textViews["note.block.editor.0"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 3))
+        editor.click()
+        editor.typeText("Primeira linha")
+
+        let source = app.buttons["note.editor.source"]
+        XCTAssertTrue(source.exists)
+        source.click()
+        let raw = app.textViews["note.editor.raw"]
+        XCTAssertTrue(raw.waitForExistence(timeout: 3))
+        XCTAssertEqual(raw.value as? String, "Primeira linha")
+        source.click()
+        XCTAssertTrue(app.textViews["note.block.editor.0"].waitForExistence(timeout: 3))
+    }
+
+    func testBlankNoteOpensTheBlockMenuFromItsEmptyState() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let newNote = app.buttons["home.new-note"]
+        XCTAssertTrue(newNote.waitForExistence(timeout: 5))
+        newNote.click()
+
+        let insert = app.buttons["note.blank.insert-block"]
+        XCTAssertTrue(insert.waitForExistence(timeout: 5))
+        insert.click()
+        XCTAssertTrue(app.buttons["note.block.command.heading1"].waitForExistence(timeout: 3))
+    }
+
+    func testCapturedNoteKeepsTheMastheadOnItsReviewProjection() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let session = app.buttons["session.20000000-0000-0000-0000-000000000001"]
+        XCTAssertTrue(session.waitForExistence(timeout: 5))
+        session.click()
+
+        XCTAssertTrue(app.groups["note.masthead"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["note.rename"].label.contains("Estratégia de frota elétrica"))
+        // A captured note has a room, so it names it.
+        XCTAssertTrue(app.buttons["note.participants"].exists)
+        XCTAssertTrue(app.menuButtons["note.share"].exists)
+
+        // Leaving and returning to the document projection restores the masthead.
+        app.buttons["session.tab.transcript"].click()
+        let document = app.buttons["session.tab.review"]
+        XCTAssertTrue(document.waitForExistence(timeout: 3))
+        document.click()
+        XCTAssertTrue(app.groups["note.masthead"].waitForExistence(timeout: 3))
+    }
 }

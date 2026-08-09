@@ -21,7 +21,7 @@ final class SessionPostProcessorTests: XCTestCase {
 
     func testContextIncludesNotesSummaryAndBothSpeakers() {
         let startedAt = Date(timeIntervalSince1970: 1_000)
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: startedAt,
             mode: .meeting,
             training: false,
@@ -37,7 +37,7 @@ final class SessionPostProcessorTests: XCTestCase {
             notes: [.init(timeOffset: 4, text: "Validar prazo")]
         )
 
-        let context = SessionPostProcessor.context(for: record)
+        let context = SessionMemoryDigest.text(for: record)
 
         XCTAssertTrue(context.contains("Objetivo: Planejar entrega"))
         XCTAssertTrue(context.contains("Resumo atual:\n- Plano será preparado."))
