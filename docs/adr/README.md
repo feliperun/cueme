@@ -90,3 +90,4 @@ proposed → active → superseded
 | [0041](0041-recoverable-stt-and-stall-aware-coach.md) | Recoverable STT and stall-aware Coach delivery | superseded by 0042 |
 | [0042](0042-bounded-teardown-and-committed-coach-streaming.md) | Bounded teardown, committed Coach streaming and backlog visibility | active |
 | [0043](0043-greenfield-compatibility-policy.md) | Greenfield compatibility policy for the note corpus | active |
+| [0044](0044-yaml-frontmatter-via-yams.md) | YAML frontmatter via Yams | active |

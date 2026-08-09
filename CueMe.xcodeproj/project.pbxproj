@@ -188,6 +188,7 @@
 			productName = CueMe;
 			packageProductDependencies = (
 				CC0000000000000000000003 /* Sparkle */,
+				FF0000000000000000000002 /* Yams */,
 			);
 			productReference = AA0000000000000000000006 /* CueMe.app */;
 			productType = "com.apple.product-type.application";
@@ -294,6 +295,7 @@
 			productRefGroup = AA0000000000000000000003 /* Products */;
 			packageReferences = (
 				CC0000000000000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				FF0000000000000000000001 /* XCRemoteSwiftPackageReference "Yams" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -395,6 +397,14 @@
 				minimumVersion = 2.9.2;
 			};
 		};
+		FF0000000000000000000001 /* XCRemoteSwiftPackageReference "Yams" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jpsim/Yams";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 6.2.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -402,6 +412,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = CC0000000000000000000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		FF0000000000000000000002 /* Yams */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FF0000000000000000000001 /* XCRemoteSwiftPackageReference "Yams" */;
+			productName = Yams;
 		};
 /* End XCSwiftPackageProductDependency section */
 
