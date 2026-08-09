@@ -91,3 +91,4 @@ proposed → active → superseded
 | [0042](0042-bounded-teardown-and-committed-coach-streaming.md) | Bounded teardown, committed Coach streaming and backlog visibility | active |
 | [0043](0043-greenfield-compatibility-policy.md) | Greenfield compatibility policy for the note corpus | active |
 | [0044](0044-yaml-frontmatter-via-yams.md) | YAML frontmatter via Yams | active |
+| [0045](0045-session-diagnostics-are-dev-telemetry.md) | Session diagnostics are dev telemetry | active |

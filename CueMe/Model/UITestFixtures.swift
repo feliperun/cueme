@@ -40,6 +40,7 @@ enum UITestFixtures {
         try? FileManager.default.removeItem(at: root)
         SessionStore.rootOverride = root
         ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
+        DiagnosticsLog.rootOverride = root.appendingPathComponent("Logs", isDirectory: true)
     }
 
     static func semanticIndexURL(at root: URL) -> URL {

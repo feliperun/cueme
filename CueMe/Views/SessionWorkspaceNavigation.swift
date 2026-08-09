@@ -104,28 +104,3 @@ struct SessionWorkspaceTabs: View {
         }
     }
 }
-
-struct SessionWorkspacePane: View {
-    let record: MemoryNote
-    let selection: SessionWorkspaceTab
-    let player: MeetingPlayer
-    let editor: NoteEditorState
-
-    var body: some View {
-        content
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        switch selection {
-        case .note: MemoryNoteEditor(record: record, editor: editor)
-        case .review: SessionReviewPane(record: record, player: player)
-        case .coach: SessionCoachPane(record: record)
-        case .summary: SessionSummaryPane(record: record)
-        case .transcript: SessionTranscriptPane(record: record, player: player)
-        case .notes: SessionNotesPane(record: record, player: player)
-        case .takeaways: SessionTakeawaysPane(record: record)
-        case .generated: SessionArtifactsPane(record: record)
-        }
-    }
-}

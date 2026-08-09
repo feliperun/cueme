@@ -1,5 +1,13 @@
 import Foundation
 
+/// The only diagnostics data that survives with the note itself. Everything
+/// else — individual events, names, durations — is dev telemetry and lives in
+/// `DiagnosticsLog`, outside the corpus (ADR 0045).
+struct NoteIntegrity: Codable, Sendable, Hashable {
+    var recoveries: Int = 0
+    var errors: Int = 0
+}
+
 /// Metadata-only session telemetry. It intentionally excludes transcript text,
 /// audio samples, credentials, prompts, and provider responses.
 struct DiagnosticEvent: Codable, Sendable, Hashable, Identifiable {

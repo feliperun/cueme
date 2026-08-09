@@ -851,7 +851,7 @@ final class SessionCoordinator {
         }
         app.updateConversationStyle()
         app.recordDiagnostic(kind: .transcription, name: "stt_final", speaker: event.speaker)
-        if app.diagnostics.count("stt_final").isMultiple(of: 25) {
+        if app.diagnosticsLog.count("stt_final").isMultiple(of: 25) {
             app.persistLiveSnapshot()
         }
         watchdog.observeTranscript(event.speaker)

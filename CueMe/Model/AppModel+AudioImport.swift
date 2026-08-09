@@ -161,9 +161,6 @@ extension AppModel {
             if sttSource == .native {
                 record.participantNames[.other] = "Gravação"
             }
-            for line in lines {
-                record.diagnostics.record(.init(kind: .transcription, name: "stt_final", speaker: line.speaker))
-            }
             replaceHistoryRecord(record)
             SessionStore.save(record)
 
@@ -189,7 +186,8 @@ extension AppModel {
                 sessionID: record.id
             )
         } catch {
-            record.diagnostics.record(.init(kind: .error, name: "audio_import_processing_failed"))
+            recordDiagnostic(kind: .error, name: "audio_import_processing_failed")
+            record.integrity.errors += 1
             replaceHistoryRecord(record)
             SessionStore.save(record)
             audioImportStatus = .init(

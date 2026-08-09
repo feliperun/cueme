@@ -15,7 +15,7 @@ final class AppModel {
     var minutes: MeetingMinutes = .empty
     var meetingReview: MeetingReview = .empty
     var coachCards: [CoachCard] = []
-    var diagnostics = SessionDiagnostics()
+    let diagnosticsLog: DiagnosticsLog
     var runtimeHealth: RuntimeHealth = .healthy
     @ObservationIgnored private var stickyRuntimeHealth: RuntimeHealth?
     var coachFeedback: [UUID: CoachFeedback] = [:]
@@ -191,6 +191,7 @@ final class AppModel {
         if let uiTestRoot {
             UITestFixtures.configureIsolatedStorage(at: uiTestRoot)
         }
+        self.diagnosticsLog = DiagnosticsLog()
         self.isUITesting = uiTesting
         self.semanticMemoryIndex = uiTestRoot.map {
             SemanticMemoryIndex(
@@ -452,7 +453,7 @@ final class AppModel {
         coachBackendError = nil
         coachCooldownUntil = nil
         summaryBackendError = nil
-        diagnostics = .init()
+        diagnosticsLog.resetSession()
         coachFeedback = [:]
         sessionNotes = []
         sessionTakeaways = []
@@ -583,7 +584,7 @@ final class AppModel {
             vocabulary: sessionVocabulary(),
             hasAudio: stopResult.audioDuration != nil,
             audioDuration: stopResult.audioDuration ?? 0,
-            diagnostics: diagnostics,
+            integrity: diagnosticsLog.integrity,
             coachFeedback: coachFeedback,
             notes: sessionNotes,
             takeaways: sessionTakeaways,
@@ -898,7 +899,7 @@ final class AppModel {
         durationMs: Int64? = nil,
         detail: String? = nil
     ) {
-        diagnostics.record(.init(
+        diagnosticsLog.record(.init(
             kind: kind,
             name: name,
             speaker: speaker,

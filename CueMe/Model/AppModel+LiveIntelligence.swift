@@ -19,7 +19,7 @@ extension AppModel {
             recordingEnabled: recordAudio,
             runtime: runtimeHealth,
             sttSource: sttSource,
-            sttTurns: diagnostics.count("stt_final"),
+            sttTurns: diagnosticsLog.count("stt_final"),
             coachEnabled: !brief.mode.isPassive,
             coachReady: coachBackendReady,
             coachError: coachBackendError,

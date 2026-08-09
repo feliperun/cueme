@@ -46,7 +46,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     var vocabulary: CustomVocabulary
     var hasAudio: Bool
     var audioDuration: TimeInterval
-    var diagnostics: SessionDiagnostics
+    var integrity: NoteIntegrity
     var coachFeedback: [UUID: CoachFeedback]
     var archiveFolderName: String
     var notes: [SessionNote]
@@ -86,7 +86,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         vocabulary: CustomVocabulary = .init(),
         hasAudio: Bool = false,
         audioDuration: TimeInterval = 0,
-        diagnostics: SessionDiagnostics = .init(),
+        integrity: NoteIntegrity = .init(),
         coachFeedback: [UUID: CoachFeedback] = [:],
         archiveFolderName: String? = nil,
         notes: [SessionNote] = [],
@@ -125,7 +125,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.vocabulary = vocabulary
         self.hasAudio = hasAudio
         self.audioDuration = audioDuration
-        self.diagnostics = diagnostics
+        self.integrity = integrity
         self.coachFeedback = coachFeedback
         let resolvedFolderName = archiveFolderName ?? SessionArchive.folderName(startedAt: startedAt, id: id)
         self.archiveFolderName = resolvedFolderName
@@ -171,7 +171,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         vocabulary = try c.decodeIfPresent(CustomVocabulary.self, forKey: .vocabulary) ?? .init()
         hasAudio = try c.decodeIfPresent(Bool.self, forKey: .hasAudio) ?? false
         audioDuration = try c.decodeIfPresent(TimeInterval.self, forKey: .audioDuration) ?? 0
-        diagnostics = try c.decodeIfPresent(SessionDiagnostics.self, forKey: .diagnostics) ?? .init()
+        integrity = try c.decodeIfPresent(NoteIntegrity.self, forKey: .integrity) ?? .init()
         coachFeedback = try c.decodeIfPresent([UUID: CoachFeedback].self, forKey: .coachFeedback) ?? [:]
         archiveFolderName = try c.decodeIfPresent(String.self, forKey: .archiveFolderName)
             ?? SessionArchive.folderName(startedAt: startedAt, id: id)

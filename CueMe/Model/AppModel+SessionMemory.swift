@@ -469,7 +469,7 @@ extension AppModel {
             vocabulary: vocabulary,
             hasAudio: recordAudio,
             audioDuration: Date().timeIntervalSince(startedAt),
-            diagnostics: diagnostics,
+            integrity: diagnosticsLog.integrity,
             coachFeedback: coachFeedback,
             notes: sessionNotes,
             takeaways: sessionTakeaways,

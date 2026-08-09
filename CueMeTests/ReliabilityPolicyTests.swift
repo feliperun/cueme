@@ -37,19 +37,52 @@ final class ReliabilityPolicyTests: XCTestCase {
         ))
     }
 
-    func testPerformanceReportCalculatesCoverageAndP95() {
-        var diagnostics = SessionDiagnostics()
-        for _ in 0..<4 { diagnostics.record(.init(kind: .coach, name: "requested")) }
-        for latency in [500, 700, 900] as [Int64] {
-            diagnostics.record(.init(kind: .coach, name: "completed"))
-            diagnostics.record(.init(kind: .coach, name: "first_phrase", durationMs: latency))
-        }
-        diagnostics.record(.init(kind: .recovery, name: "stt_restarted"))
-        let report = SessionPerformanceReport(diagnostics: diagnostics)
-        XCTAssertEqual(report.coveragePercent, 75)
-        XCTAssertEqual(report.firstPhraseP50Ms, 700)
-        XCTAssertEqual(report.firstPhraseP95Ms, 900)
-        XCTAssertEqual(report.recoveries, 1)
+    /// AC3 — the Integrity panel shows exactly four aggregates: audio coverage,
+    /// transcribed turns, recoveries and errors, all read from the persisted note.
+    func testIntegrityReportShowsFourAggregates() {
+        var record = MemoryNote(
+            startedAt: Date(timeIntervalSince1970: 1_000),
+            endedAt: Date(timeIntervalSince1970: 1_100),
+            mode: .meeting,
+            training: false,
+            conversationLang: "pt-BR",
+            nativeLang: "pt-BR",
+            goal: "",
+            transcript: [
+                TranscriptLine(speaker: .other, text: "Um", isFinal: true),
+                TranscriptLine(speaker: .other, text: "Dois", isFinal: true),
+                TranscriptLine(speaker: .other, text: "rascunho", isFinal: false)
+            ],
+            coachCards: [],
+            summaryBullets: [],
+            hasAudio: true,
+            audioDuration: 90
+        )
+        record.integrity = NoteIntegrity(recoveries: 3, errors: 2)
+
+        let report = SessionIntegrityReport(record: record)
+
+        XCTAssertEqual(report.audioCoveragePercent, 90)
+        XCTAssertEqual(report.transcriptTurns, 2)
+        XCTAssertEqual(report.recoveries, 3)
+        XCTAssertEqual(report.errors, 2)
+    }
+
+    /// AC4 — a recovery or error event bumps the matching counter in `integrity`,
+    /// and nothing else does.
+    func testRecoveryAndErrorEventsIncrementIntegrity() {
+        let log = DiagnosticsLog(
+            baseDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent("ReliabilityPolicyTests-\(UUID().uuidString)", isDirectory: true),
+            now: { Date(timeIntervalSince1970: 1_000) }
+        )
+        log.record(.init(kind: .transcription, name: "stt_final"))
+        log.record(.init(kind: .recovery, name: "stt_restarted"))
+        log.record(.init(kind: .recovery, name: "mic_watchdog_restart"))
+        log.record(.init(kind: .error, name: "stt_send_failed"))
+
+        XCTAssertEqual(log.integrity.recoveries, 2)
+        XCTAssertEqual(log.integrity.errors, 1)
     }
 
     func testLiveHealthSnapshotKeepsEverySubsystemVisible() {

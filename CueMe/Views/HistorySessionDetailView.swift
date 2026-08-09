@@ -30,7 +30,6 @@ struct HistorySessionDetailView: View {
                         }
                     }
                 }
-                if !record.diagnostics.events.isEmpty { HistoryDiagnosticsSection(record: record) }
                 section("Transcrição") {
                     ForEach(record.transcript) { line in
                         SavedHistoryLine(
