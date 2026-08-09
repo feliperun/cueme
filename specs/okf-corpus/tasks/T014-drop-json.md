@@ -23,7 +23,9 @@ Aqui também morrem os testes de decode tolerante: sem JSON, eles não testam na
 - `CueMe/Model/MemoryNote.swift` — remover `prettyJSON` e `exportFilename`
 - `CueMe/Views/HistoryExportToolbar.swift`, `NoteWorkspaceHeaderBar.swift`,
   `HistoryView.swift` — "Copiar Markdown"
-- `CueMeTests/SessionRecordTests.swift` — apagar os testes de decode legado;
+- `CueMeTests/SessionRecordTests.swift` — apagar os testes de decode legado
+  (`testLegacyRecordWithoutDiagnosticsStillDecodes` **já foi apagado na T007**,
+  como excecao de escopo concedida — ver `reviews/T007.md`);
   preservar o de correção de `TranscriptLine` movendo-o para o suite de round-trip
 - `CueMeTests/SemanticMemoryIndexTests.swift` — o decode legado de `SessionTakeaway`
 - `docs/adr/0046-note-corpus-is-an-okf-bundle.md` — novo
