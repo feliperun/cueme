@@ -171,14 +171,18 @@ tasks:
 
   - id: T012
     title: NoteDocumentReader e round-trip
-    status: pending
+    status: done
     depends_on: [T010, T011]
     branch: felipe/okf-T012-note-reader
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [8cefeee]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Expos um defeito do meu contrato: note.md nao tinha campo de id, entao o
+      reader cunhava UUID novo a cada leitura. Adicionado x_cueme_id ao contrato,
+      design, writer e reader. Baseline de god files resalvado de 1 para 4, com os
+      arquivos nomeados no commit.
 
   - id: T013
     title: NoteTree e CorpusStore
