@@ -22,6 +22,10 @@ extension AppModel {
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             return
         }
+        // Activation fires this every time. Stat the tree first: when no `.md`
+        // is newer than the last load, there is nothing to read.
+        guard CorpusStore.corpusChanged(since: lastCorpusLoad) else { return }
+        lastCorpusLoad = CorpusStore.latestModification()
         history = CorpusStore.loadNotes()
         CorpusStore.writeIndexes(for: history)
         if let selectedSessionID, !history.contains(where: { $0.id == selectedSessionID }) {

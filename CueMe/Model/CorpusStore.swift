@@ -119,9 +119,15 @@ enum CorpusStore {
 
     // MARK: - Save / load / delete
 
+    /// Writes the note's `.md` and, unless told otherwise, its transcript.
+    ///
+    /// A live snapshot passes `includingTranscript: false`: re-rendering
+    /// hundreds of turns every few seconds is the cost T019 exists to remove,
+    /// and `appendTranscript` has already put the new ones on disk. The final
+    /// save at session end renders the whole thing.
     @discardableResult
-    static func save(_ note: MemoryNote) -> URL? {
-        writeNoteDocument(resolvingLocation(note))
+    static func save(_ note: MemoryNote, includingTranscript: Bool = true) -> URL? {
+        writeNoteDocument(resolvingLocation(note), includingTranscript: includingTranscript)
     }
 
     /// Walks the tree from the root, reading only `.md` files and never
@@ -166,6 +172,97 @@ enum CorpusStore {
         } else {
             MeetingRecording.deleteLegacy(for: id)
         }
+    }
+
+    // MARK: - Live transcript append
+
+    /// Appends the given turns to `raw/transcript.md` without rewriting what is
+    /// already there, and returns the ids actually written.
+    ///
+    /// The invariant that lets this exist: N successive appends produce bytes
+    /// identical to one full render of the same N turns. `renderTurnBlocks` is
+    /// the single grammar both paths use, and the separator between blocks is
+    /// reproduced here — the file ends with a newline, so the append reclaims
+    /// that byte before writing `\n\n<block>\n`.
+    ///
+    /// Only the new turns are needed, so this works while `note.transcript` is
+    /// still `.notLoaded`: appending never requires reading the old turns back.
+    @discardableResult
+    static func appendTranscript(_ lines: [TranscriptLine], to note: MemoryNote) -> [UUID] {
+        let finals = lines.filter(\.isFinal)
+        guard !finals.isEmpty else { return [] }
+        let url = noteFolder(for: note).appendingPathComponent(OKFBundle.transcriptRelativePath)
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            var seed = note
+            seed.transcript = .loaded(finals)
+            guard let document = TranscriptDocument.render(seed) else { return [] }
+            do {
+                try FileManager.default.createDirectory(
+                    at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+                )
+                try document.write(to: url, atomically: true, encoding: .utf8)
+                return finals.map(\.id)
+            } catch {
+                log.error("transcript seed failed")
+                return []
+            }
+        }
+
+        let blocks = TranscriptDocument.renderTurnBlocks(
+            finals, startedAt: note.audioTimelineStart, participantNames: note.participantNames
+        )
+        guard let payload = "\n\n\(blocks)\n".data(using: .utf8) else { return [] }
+        do {
+            let handle = try FileHandle(forUpdating: url)
+            defer { try? handle.close() }
+            // Trim every trailing newline before writing the separator. The
+            // file may end with the last turn, or — when no turn has been
+            // written yet — with the section heading; both have to produce the
+            // single blank line a full render puts between blocks.
+            var end = try handle.seekToEnd()
+            while end > 0 {
+                try handle.seek(toOffset: end - 1)
+                guard try handle.read(upToCount: 1) == Data("\n".utf8) else { break }
+                end -= 1
+            }
+            try handle.truncate(atOffset: end)
+            try handle.seekToEnd()
+            try handle.write(contentsOf: payload)
+            return finals.map(\.id)
+        } catch {
+            log.error("transcript append failed")
+            return []
+        }
+    }
+
+    // MARK: - Change detection
+
+    /// Newest mtime among the corpus `.md` files, or nil when there are none.
+    /// Stat only — nothing is read.
+    static func latestModification() -> Date? {
+        guard let walker = FileManager.default.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+
+        var newest: Date?
+        for case let url as URL in walker where url.pathExtension == "md" {
+            guard let values = try? url.resourceValues(
+                forKeys: [.contentModificationDateKey, .isRegularFileKey]
+            ), values.isRegularFile == true, let date = values.contentModificationDate else { continue }
+            if newest == nil || date > newest! { newest = date }
+        }
+        return newest
+    }
+
+    /// True when any `.md` in the corpus is newer than `stamp`, or when there is
+    /// no stamp yet. A load that would read nothing new is skipped entirely.
+    static func corpusChanged(since stamp: Date?) -> Bool {
+        guard let stamp else { return true }
+        guard let newest = latestModification() else { return false }
+        return newest > stamp
     }
 
     // MARK: - Reserved files
@@ -367,13 +464,13 @@ enum CorpusStore {
     // MARK: - Private
 
     @discardableResult
-    private static func writeNoteDocument(_ note: MemoryNote) -> URL? {
+    private static func writeNoteDocument(_ note: MemoryNote, includingTranscript: Bool = true) -> URL? {
         let folder = noteFolder(for: note)
         let parentDirectoryURL = rootURL.appendingPathComponent(parentDirectory(of: note), isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: parentDirectoryURL, withIntermediateDirectories: true)
             try NoteDocumentWriter.render(note).write(to: noteURL(for: note), atomically: true, encoding: .utf8)
-            if let transcriptMarkdown = TranscriptDocument.render(note) {
+            if includingTranscript, let transcriptMarkdown = TranscriptDocument.render(note) {
                 let rawDirectory = folder.appendingPathComponent(OKFBundle.rawDirectoryName, isDirectory: true)
                 try FileManager.default.createDirectory(at: rawDirectory, withIntermediateDirectories: true)
                 try transcriptMarkdown.write(

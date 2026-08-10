@@ -161,6 +161,9 @@ final class AppModel {
     var draggingNoteID: UUID?
     /// Shown when a drop was refused or failed on disk.
     var noteTreeWarning: String?
+    /// Newest `.md` mtime at the last corpus load, so an activation that
+    /// changed nothing reads nothing.
+    var lastCorpusLoad: Date?
     var postProcessingError: String?
     var globalMemoryAnswer: String?
     var globalMemoryAnswering = false
@@ -287,6 +290,7 @@ final class AppModel {
         // quiet diff.
         CorpusStore.writeAgentsFileIfAbsent()
         CorpusStore.writeIndexes(for: history)
+        self.lastCorpusLoad = uiTesting ? nil : CorpusStore.latestModification()
         if uiTesting {
             self.profiles = [UITestFixtures.profile]
             self.contexts = []
