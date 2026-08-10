@@ -186,36 +186,39 @@ tasks:
 
   - id: T013
     title: NoteTree e CorpusStore
-    status: pending
+    status: done
     depends_on: [T012]
     branch: felipe/okf-T013-corpus-store
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Merged em felipe/okf-corpus (4e54819).
 
   - id: T014
     title: Deletar session.json e o export JSON
-    status: pending
+    status: done
     depends_on: [T013]
     branch: felipe/okf-T014-drop-json
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Merged em felipe/okf-corpus (a7f3c88).
 
   - id: T015
     title: Mover e renomear nota, reescrevendo links de entrada
-    status: pending
+    status: done
     depends_on: [T014]
     branch: felipe/okf-T015-move-rename
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Merged em felipe/okf-corpus (ab49e75).
 
   - id: T016
     title: Colapsar projetos e pessoas em notas
@@ -259,14 +262,16 @@ tasks:
 
   - id: T019
     title: Append incremental de transcrição e guard de mtime
-    status: pending
+    status: done
     depends_on: [T016]
     branch: felipe/okf-T019-live-append
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      save ganhou includingTranscript: o snapshot ao vivo nao re-renderiza
+      mais a transcricao. LiveSnapshotWriterTests dividido em TranscriptAppendTests.
 
   - id: T020
     title: Script one-shot de migração para OKF
