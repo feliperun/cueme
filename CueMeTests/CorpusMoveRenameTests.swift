@@ -68,6 +68,29 @@ final class CorpusMoveRenameTests: XCTestCase {
         XCTAssertEqual(app.linkedNotes(of: reloadedSource).map(\.title), ["Marina Souza"])
     }
 
+    /// The store surface is only worth having if the UI reaches it: an explicit
+    /// rename has to move the document on disk, not just relabel it in memory.
+    @MainActor
+    func testRenamingThroughTheModelMovesTheDocumentAndLogsIt() throws {
+        var note = self.note("Conta Acme")
+        note = CorpusStore.resolvingLocation(note)
+        CorpusStore.save(note)
+        XCTAssertTrue(exists("inbox/conta-acme.md"))
+
+        let app = AppModel(isUITesting: true)
+        CorpusStore.rootOverride = root
+        app.history = CorpusStore.loadNotes()
+
+        app.renameMemoryNote(note.id, to: "Acme")
+
+        XCTAssertFalse(exists("inbox/conta-acme.md"), "the old document must not linger")
+        XCTAssertTrue(exists("inbox/acme.md"))
+        XCTAssertEqual(app.history.first { $0.id == note.id }?.title, "Acme")
+
+        let log = try String(contentsOf: root.appendingPathComponent("log.md"), encoding: .utf8)
+        XCTAssertTrue(log.contains("- **Renomeação**: [Acme](inbox/acme.md) renomeada de `conta-acme`"))
+    }
+
     private func exists(_ relative: String) -> Bool {
         FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path)
     }

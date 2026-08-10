@@ -23,6 +23,7 @@ extension AppModel {
             return
         }
         history = CorpusStore.loadNotes()
+        CorpusStore.writeIndexes(for: history)
         if let selectedSessionID, !history.contains(where: { $0.id == selectedSessionID }) {
             self.selectedSessionID = nil
         }
@@ -65,11 +66,37 @@ extension AppModel {
         }
         replaceHistoryRecord(note)
         selectedSessionID = note.id
+        recordStructuralChange(
+            .created,
+            "\(CorpusLogDocument.link(note.title, path: NoteTreeProjection.subtreePath(of: note) + ".md")) criada."
+        )
         return note.id
     }
 
+    /// An explicit rename is a structural event: the document and its sibling
+    /// folder move to the new slug and every inbound link is rewritten. A title
+    /// generated during post-processing goes through `save` instead, which
+    /// leaves the file where it is.
     func renameMemoryNote(_ id: UUID, to title: String) {
-        mutateRecord(id) { $0.rename(to: title) }
+        guard let note = history.first(where: { $0.id == id }) else { return }
+        guard let outcome = CorpusStore.rename(note, to: title) else {
+            mutateRecord(id) { $0.rename(to: title) }
+            return
+        }
+        replaceHistoryRecord(outcome.note)
+        recordStructuralChange(
+            .renamed,
+            "\(CorpusLogDocument.link(outcome.note.title, path: outcome.toPath)) renomeada de "
+                + "`\(note.archiveFolderName)`; \(outcome.rewrittenDocuments) páginas com links atualizados."
+        )
+    }
+
+    /// Logs a durable structural event and refreshes the reserved files. Called
+    /// once per change, never per keystroke — `log.md` is a history of the
+    /// corpus, not a keystroke journal.
+    func recordStructuralChange(_ operation: CorpusLogDocument.Operation, _ sentence: String) {
+        CorpusStore.appendLog(sentence, operation: operation)
+        CorpusStore.writeIndexes(for: history)
     }
 
     func updateMarkdownBody(_ id: UUID, body: String) {

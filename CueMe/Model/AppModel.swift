@@ -282,6 +282,11 @@ final class AppModel {
         updateReporter.onChange = { [weak self] status in self?.updateStatus = status }
         self.history = uiTesting ? UITestFixtures.memory.records : CorpusStore.loadNotes()
         self.knowledgeIndex.rebuild(history)
+        // The reserved files are refreshed once per load, not per save: an
+        // index whose bytes are unchanged is skipped, so a quiet start is a
+        // quiet diff.
+        CorpusStore.writeAgentsFileIfAbsent()
+        CorpusStore.writeIndexes(for: history)
         if uiTesting {
             self.profiles = [UITestFixtures.profile]
             self.contexts = []
@@ -595,6 +600,7 @@ final class AppModel {
     func deleteHistory(_ id: UUID) {
         if let record = history.first(where: { $0.id == id }) {
             CorpusStore.delete(record)
+            CorpusStore.appendLog("\(record.title) excluída.", operation: .deleted)
         } else {
             CorpusStore.delete(id)
         }

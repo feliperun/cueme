@@ -245,14 +245,17 @@ tasks:
 
   - id: T018
     title: index.md por nível, log append-only e AGENTS.md do corpus
-    status: pending
+    status: done
     depends_on: [T016]
     branch: felipe/okf-T018-indexes-log-agents
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      ADR 0048 nomeado navigable-corpus-and-target-operations (o nome do arquivo
+      de tarefa colidia com o titulo do 0047). Fechou tambem a lacuna do
+      CorpusStore.rename sem caller.
 
   - id: T019
     title: Append incremental de transcrição e guard de mtime
