@@ -131,6 +131,7 @@ sources:                                  # omit when empty; sorted by id
     x_turn_id: <uuid>                     # omit when nil
 x_cueme_links:                            # omit when empty; sorted
   - /pessoas/marina-souza.md
+x_cueme_id: <uuid>                        # the note's own identity, see below
 x_cueme_kind: meeting                     # MemoryNoteKind.rawValue
 x_cueme_mode: meeting                     # Mode.rawValue
 x_cueme_origin: live                      # SessionOrigin.rawValue
@@ -168,6 +169,12 @@ x_cueme_vocabulary:                       # omit when both members empty
 x_cueme_coach_feedback:                   # omit when empty; keys sorted
   a1000000-0000-0000-0000-000000000001: helpful
 ```
+
+**`x_cueme_id` is not optional.** The note's UUID has to survive a reload:
+`MemoryChunkBuilder` derives every chunk id from it, `raw/transcript.md` points
+back at it through `x_cueme_note_id`, and UI selection is keyed on it. A reader
+that minted a fresh id per load would give the same note a new identity on every
+launch. The path is *where* a note lives, not *who* it is.
 
 **Dates** are ISO 8601 with fractional seconds in UTC: `2026-08-08T14:30:11.000Z`.
 **Doubles** are quantized to 3 decimals at the point of assignment in the domain,

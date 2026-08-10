@@ -18,6 +18,7 @@ sources:
     x_turn_id: 70000000-0000-4000-8000-000000000001
 x_cueme_links:
   - "/pessoas/marina-souza.md"
+x_cueme_id: 1a2b3c4d-0000-4000-8000-000000000001
 x_cueme_kind: meeting
 x_cueme_mode: meeting
 x_cueme_origin: live

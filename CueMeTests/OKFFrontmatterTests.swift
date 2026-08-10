@@ -146,14 +146,14 @@ final class OKFFrontmatterTests: XCTestCase {
 
         let knownKeys: Set<String> = [
             "type", "title", "description", "tags", "created_at", "updated_at", "generated", "sources",
-            "x_cueme_links", "x_cueme_kind", "x_cueme_mode", "x_cueme_origin", "x_cueme_training",
+            "x_cueme_links", "x_cueme_id", "x_cueme_kind", "x_cueme_mode", "x_cueme_origin", "x_cueme_training",
             "x_cueme_title_source", "x_cueme_ended_at", "x_cueme_lang", "x_cueme_participant_names",
             "x_cueme_models", "x_cueme_audio", "x_cueme_integrity", "x_cueme_transcript",
             "x_cueme_attachments", "x_cueme_vocabulary", "x_cueme_coach_feedback",
         ]
         let orderedKeys = [
             "type", "title", "description", "tags", "created_at", "updated_at", "generated", "sources",
-            "x_cueme_links", "x_cueme_kind", "x_cueme_mode", "x_cueme_origin", "x_cueme_training",
+            "x_cueme_links", "x_cueme_id", "x_cueme_kind", "x_cueme_mode", "x_cueme_origin", "x_cueme_training",
             "x_cueme_title_source", "x_cueme_ended_at", "x_cueme_lang", "x_cueme_participant_names",
             "x_cueme_models", "x_cueme_audio", "x_cueme_integrity", "x_cueme_transcript",
             "x_cueme_attachments", "x_cueme_vocabulary", "x_cueme_coach_feedback",

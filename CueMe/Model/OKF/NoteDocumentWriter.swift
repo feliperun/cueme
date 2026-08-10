@@ -58,6 +58,7 @@ enum NoteDocumentWriter {
     /// Scalar session metadata that OKF has no home for.
     private static func sessionFields(_ note: MemoryNote) -> [(String, OKFValue)] {
         var out: [(String, OKFValue)] = [
+            ("x_cueme_id", .string(note.id.uuidString.lowercased())),
             ("x_cueme_kind", .string(note.noteKind.rawValue)),
             ("x_cueme_mode", .string(note.mode.rawValue)),
             ("x_cueme_origin", .string(note.origin.rawValue)),
