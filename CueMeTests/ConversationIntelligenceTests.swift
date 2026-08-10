@@ -49,11 +49,11 @@ final class ConversationIntelligenceTests: XCTestCase {
 @MainActor
 final class CoachPresentationPolicyTests: XCTestCase {
     func testUITestAppModelUsesOnlySyntheticPersonalConfiguration() {
-        let previousArchive = SessionStore.rootOverride
+        let previousArchive = CorpusStore.rootOverride
         let previousInbox = ExternalAudioInbox.rootOverride
         let root = UITestFixtures.uiTestRoot
         defer {
-            SessionStore.rootOverride = previousArchive
+            CorpusStore.rootOverride = previousArchive
             ExternalAudioInbox.rootOverride = previousInbox
             try? FileManager.default.removeItem(at: root)
         }

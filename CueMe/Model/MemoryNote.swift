@@ -52,8 +52,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
     var displayTitle: String?
     var review: MeetingReview
     var artifacts: [SessionArtifact]
-    var projectID: UUID?
-    var personIDs: [UUID]
     /// Untyped relations to other notes, as bundle-relative paths.
     var links: [String]
     var noteKind: MemoryNoteKind
@@ -99,8 +97,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         displayTitle: String? = nil,
         review: MeetingReview = .empty,
         artifacts: [SessionArtifact] = [],
-        projectID: UUID? = nil,
-        personIDs: [UUID] = [],
         links: [String] = [],
         noteKind: MemoryNoteKind? = nil,
         markdownBody: String = "",
@@ -140,8 +136,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.displayTitle = displayTitle
         self.review = review
         self.artifacts = artifacts
-        self.projectID = projectID
-        self.personIDs = personIDs
         self.links = links
         self.noteKind = noteKind ?? MemoryNoteKind.inferred(mode: mode, origin: origin)
         self.markdownBody = markdownBody
@@ -149,7 +143,7 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         self.attachments = attachments
         self.titleSource = titleSource ?? (displayTitle == nil ? .fallback : .generated)
         self.modifiedAt = modifiedAt ?? endedAt
-        self.relativeFolderPath = relativeFolderPath ?? "_Inbox/\(resolvedFolderName)"
+        self.relativeFolderPath = relativeFolderPath
         self.unknownFrontmatterYAML = unknownFrontmatterYAML
         self.residualMarkdown = residualMarkdown
     }
@@ -186,8 +180,6 @@ struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
         displayTitle = try c.decodeIfPresent(String.self, forKey: .displayTitle)
         review = try c.decodeIfPresent(MeetingReview.self, forKey: .review) ?? .empty
         artifacts = try c.decodeIfPresent([SessionArtifact].self, forKey: .artifacts) ?? []
-        projectID = try c.decodeIfPresent(UUID.self, forKey: .projectID)
-        personIDs = try c.decodeIfPresent([UUID].self, forKey: .personIDs) ?? []
         links = try c.decodeIfPresent([String].self, forKey: .links) ?? []
         noteKind = try c.decodeIfPresent(MemoryNoteKind.self, forKey: .noteKind)
             ?? MemoryNoteKind.inferred(mode: mode, origin: origin)

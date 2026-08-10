@@ -7,8 +7,11 @@ extension AppModel {
     }
 
     func historySearchResults(typeFilter: HistoryTypeFilter) -> [SessionSearchResult] {
+        // Scoping is by subtree: selecting a node in the tree means "this note
+        // and everything under it", which is what "belongs to" now means.
+        let scoped = librarySubtreeNoteID.map { Set(noteSubtree(of: $0).map(\.id)) }
         let scopedHistory = history.filter { record in
-            (libraryProjectFilterID == nil || record.projectID == libraryProjectFilterID)
+            (scoped == nil || scoped?.contains(record.id) == true)
                 && (libraryLabelFilter == nil || record.labels.contains(libraryLabelFilter ?? ""))
         }
         let cleanQuery = historySearch.trimmingCharacters(in: .whitespacesAndNewlines)

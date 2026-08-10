@@ -1,26 +1,28 @@
 import SwiftUI
 
-struct ProjectTreeRows: View {
+/// The corpus tree, one level at a time. A container is just a note other
+/// notes sit under, so every row is the same kind of thing.
+struct NoteTreeRows: View {
     @Environment(AppModel.self) private var app
-    @Binding var expandedProjectIDs: Set<UUID>
+    @Binding var expandedNoteIDs: Set<UUID>
 
     var body: some View {
         VStack(spacing: 1) {
-            ForEach(app.projects.filter { !$0.archived }) { project in
-                let forcedExpanded = app.isProjectForcedExpanded(project.id)
-                let expanded = app.isProjectExpanded(project.id, explicitly: expandedProjectIDs)
+            ForEach(app.rootNotes) { note in
+                let forcedExpanded = app.isNoteForcedExpanded(note)
+                let expanded = app.isNoteExpanded(note, explicitly: expandedNoteIDs)
                 VStack(spacing: 1) {
-                    projectRow(project, expanded: expanded, forcedExpanded: forcedExpanded)
+                    containerRow(note, expanded: expanded, forcedExpanded: forcedExpanded)
                     if expanded {
-                        if ProjectTreeProjection.showsLiveChild(
-                            for: project.id,
-                            activeProjectID: app.activeProjectID,
+                        if NoteTreeProjection.showsLiveChild(
+                            for: note.id,
+                            activeParentNoteID: app.activeParentNoteID,
                             isRunning: app.isRunning
                         ) {
-                            liveProjectRow(projectID: project.id)
+                            liveChildRow(parentID: note.id)
                         }
-                        ForEach(app.projectTreeRecords(for: project.id)) { record in
-                            projectRecordRow(record)
+                        ForEach(app.noteTreeChildren(of: note)) { record in
+                            childRow(record)
                         }
                     }
                 }
@@ -28,14 +30,14 @@ struct ProjectTreeRows: View {
         }
     }
 
-    private func projectRow(_ project: KnowledgeProject, expanded: Bool, forcedExpanded: Bool) -> some View {
-        let selected = app.libraryProjectFilterID == project.id
+    private func containerRow(_ note: MemoryNote, expanded: Bool, forcedExpanded: Bool) -> some View {
+        let selected = app.librarySubtreeNoteID == note.id
         return HStack(spacing: 2) {
             Button {
-                if expandedProjectIDs.contains(project.id) {
-                    expandedProjectIDs.remove(project.id)
+                if expandedNoteIDs.contains(note.id) {
+                    expandedNoteIDs.remove(note.id)
                 } else {
-                    expandedProjectIDs.insert(project.id)
+                    expandedNoteIDs.insert(note.id)
                 }
             } label: {
                 Image(systemName: "chevron.right")
@@ -49,18 +51,18 @@ struct ProjectTreeRows: View {
             .disabled(forcedExpanded)
             .accessibilityLabel(
                 forcedExpanded
-                    ? "\(project.name) is expanded for the current selection"
-                    : (expanded ? "Collapse \(project.name)" : "Expand \(project.name)")
+                    ? "\(note.title) is expanded for the current selection"
+                    : (expanded ? "Collapse \(note.title)" : "Expand \(note.title)")
             )
-            .accessibilityIdentifier("tree.project.disclosure.\(project.id.uuidString)")
+            .accessibilityIdentifier("tree.note.disclosure.\(note.id.uuidString)")
             .accessibilityValue(forcedExpanded ? "forced-expanded" : (expanded ? "expanded" : "collapsed"))
 
-            Button { app.selectLibraryProject(project.id) } label: {
+            Button { app.selectLibraryNote(note.id) } label: {
                 HStack(spacing: 8) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(app.libraryColor(for: project.id))
+                        .fill(app.libraryColor(for: note.id))
                         .frame(width: 9, height: 9)
-                    Text(project.name).font(.ui(13, selected ? .semibold : .regular)).lineLimit(1)
+                    Text(note.title).font(.ui(13, selected ? .semibold : .regular)).lineLimit(1)
                     Spacer(minLength: 0)
                 }
                 .foregroundStyle(selected ? Theme.ink : Theme.ink2)
@@ -69,7 +71,7 @@ struct ProjectTreeRows: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("project.\(project.id.uuidString)")
+            .accessibilityIdentifier("tree.container.\(note.id.uuidString)")
             .accessibilityValue(selected ? "selected" : "not-selected")
         }
         .padding(.leading, 1)
@@ -77,9 +79,9 @@ struct ProjectTreeRows: View {
         .background(selected ? Theme.canvas : .clear, in: RoundedRectangle(cornerRadius: 7))
     }
 
-    private func projectRecordRow(_ record: MemoryNote) -> some View {
+    private func childRow(_ record: MemoryNote) -> some View {
         let selected = app.selectedSessionID == record.id
-        return Button { app.selectProjectTreeRecord(record) } label: {
+        return Button { app.selectNoteTreeRecord(record) } label: {
             HStack(spacing: 7) {
                 Image(systemName: record.noteKind.icon)
                     .font(.system(size: 9))
@@ -101,14 +103,14 @@ struct ProjectTreeRows: View {
         .accessibilityValue(selected ? "selected" : "not-selected")
     }
 
-    private func liveProjectRow(projectID: UUID) -> some View {
+    private func liveChildRow(parentID: UUID) -> some View {
         let selected = app.selectedSessionID == nil
         return Button(action: app.showLiveSession) {
             HStack(spacing: 7) {
                 Circle()
                     .fill(Theme.amber)
                     .frame(width: 6, height: 6)
-                    .modifier(ProjectTreeLivePulse())
+                    .modifier(NoteTreeLivePulse())
                 Text(app.brief.goal.isEmpty ? "Live session" : app.brief.goal)
                     .font(.ui(11.5, .semibold))
                     .foregroundStyle(Theme.amberText)
@@ -123,11 +125,11 @@ struct ProjectTreeRows: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Live session")
         .accessibilityIdentifier("tree.live")
-        .accessibilityValue(projectID.uuidString)
+        .accessibilityValue(parentID.uuidString)
     }
 }
 
-private struct ProjectTreeLivePulse: ViewModifier {
+private struct NoteTreeLivePulse: ViewModifier {
     @State private var on = false
 
     func body(content: Content) -> some View {

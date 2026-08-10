@@ -12,7 +12,6 @@ import OSLog
 enum CorpusStore {
     nonisolated(unsafe) static var rootOverride: URL?
     private static let configuredRootKey = "sessionArchiveRootPath"
-    private static let inboxSlug = "inbox"
     private static let log = Logger(subsystem: "CueMe", category: "CorpusStore")
 
     static var rootURL: URL {
@@ -88,13 +87,13 @@ enum CorpusStore {
     /// `specs/okf-corpus/tasks/T013-corpus-store.md`), created the first time
     /// it is needed if it does not already exist.
     static func defaultInboxNote() -> MemoryNote {
-        let url = rootURL.appendingPathComponent("\(inboxSlug).md")
+        let url = rootURL.appendingPathComponent("\(OKFBundle.inboxSlug).md")
         if let markdown = try? String(contentsOf: url, encoding: .utf8),
            var note = NoteDocumentReader.parse(
-               markdown, slug: inboxSlug, turns: NoteTree.declaredTranscriptTurnCount(in: markdown)
+               markdown, slug: OKFBundle.inboxSlug, turns: NoteTree.declaredTranscriptTurnCount(in: markdown)
            ) {
             note.relativeFolderPath = ""
-            note.archiveFolderName = inboxSlug
+            note.archiveFolderName = OKFBundle.inboxSlug
             return note
         }
         var note = MemoryNote(
@@ -113,7 +112,7 @@ enum CorpusStore {
             titleSource: .user
         )
         note.relativeFolderPath = ""
-        note.archiveFolderName = inboxSlug
+        note.archiveFolderName = OKFBundle.inboxSlug
         writeNoteDocument(note)
         return note
     }
@@ -135,7 +134,7 @@ enum CorpusStore {
                 "orphan folders without a sibling note: \(result.orphanFolders.joined(separator: ", "), privacy: .public)"
             )
         }
-        return result.notes
+        return result.notes.sorted { $0.startedAt > $1.startedAt }
     }
 
     /// Fills in a note's transcript from `raw/transcript.md` on demand.
@@ -156,6 +155,17 @@ enum CorpusStore {
         try? FileManager.default.removeItem(at: noteURL(for: note))
         try? FileManager.default.removeItem(at: noteFolder(for: note))
         removeParentFolderIfNowEmpty(note)
+        MeetingRecording.deleteLegacy(for: note.id)
+    }
+
+    /// Deleting by id still has to reach the pre-corpus audio directory, which
+    /// is keyed by id alone, even when no note carries it any more.
+    static func delete(_ id: UUID) {
+        if let note = loadNotes().first(where: { $0.id == id }) {
+            delete(note)
+        } else {
+            MeetingRecording.deleteLegacy(for: id)
+        }
     }
 
     // MARK: - Move and rename
@@ -180,7 +190,7 @@ enum CorpusStore {
     static func move(_ note: MemoryNote, under parent: MemoryNote?) -> RelocationOutcome? {
         let destinationDir = parent.map(childDirectory(of:)) ?? ""
         guard canPlace(note, in: destinationDir) else { return nil }
-        return relocate(note, toParentDirectory: destinationDir, slug: slugFor(note.title, in: destinationDir, movingFrom: note))
+        return place(note, inParentDirectory: destinationDir, slug: slugFor(note.title, in: destinationDir, movingFrom: note))
     }
 
     /// Renames `note`, moving its document and folder to the new slug and
@@ -195,7 +205,7 @@ enum CorpusStore {
         var renamed = note
         renamed.rename(to: title)
         let parentDir = parentDirectory(of: note)
-        return relocate(renamed, toParentDirectory: parentDir, slug: slugFor(renamed.title, in: parentDir, movingFrom: note))
+        return place(renamed, inParentDirectory: parentDir, slug: slugFor(renamed.title, in: parentDir, movingFrom: note))
     }
 
     /// The note's own slug only frees itself up when it is staying in the same
@@ -214,9 +224,9 @@ enum CorpusStore {
         return destinationDir != own && !destinationDir.hasPrefix(own + "/")
     }
 
-    private static func relocate(
+    private static func place(
         _ note: MemoryNote,
-        toParentDirectory destinationDir: String,
+        inParentDirectory destinationDir: String,
         slug: String
     ) -> RelocationOutcome? {
         let fromDocument = noteURL(for: note)
@@ -241,14 +251,14 @@ enum CorpusStore {
             )
             try moveNoteObjects(document: (fromDocument, toDocument), folder: (fromFolder, toFolder))
         } catch {
-            log.error("relocate failed for \(fromPath, privacy: .public)")
+            log.error("move failed for \(fromPath, privacy: .public)")
             return nil
         }
 
         let rewritten = BacklinkIndex.rewriteReferences(from: fromPath, to: toPath, in: rootURL, excluding: toDocument)
         _ = writeNoteDocument(moved)
         removeParentFolderIfNowEmpty(note)
-        log.notice("relocated \(fromPath, privacy: .public) -> \(toPath, privacy: .public), \(rewritten) documents rewritten")
+        log.notice("moved \(fromPath, privacy: .public) -> \(toPath, privacy: .public), \(rewritten) documents rewritten")
         return RelocationOutcome(note: moved, fromPath: fromPath, toPath: toPath, rewrittenDocuments: rewritten)
     }
 

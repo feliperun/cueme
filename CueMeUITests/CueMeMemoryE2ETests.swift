@@ -104,22 +104,22 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let session = app.buttons["session.20000000-0000-0000-0000-000000000001"]
         XCTAssertTrue(session.waitForExistence(timeout: 5))
         session.click()
-        let project = app.buttons["session.project"]
-        XCTAssertTrue(project.waitForExistence(timeout: 5))
-        project.click()
+        let container = app.buttons["session.project"]
+        XCTAssertTrue(container.waitForExistence(timeout: 5))
+        container.click()
 
         XCTAssertTrue(app.staticTexts["TIMELINE"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["timeline.meeting-20000000-0000-0000-0000-000000000001"].exists)
         XCTAssertTrue(app.buttons["timeline.meeting-20000000-0000-0000-0000-000000000002"].exists)
     }
 
-    func testProjectTreeChildrenIgnoreSearchAndSelectBothProjectAndNote() {
+    func testNoteTreeChildrenIgnoreSearchAndSelectBothContainerAndNote() {
         continueAfterFailure = false
         let app = launchApp()
         defer { app.terminate() }
-        let projectID = "10000000-0000-0000-0000-000000000001"
+        let containerID = "10000000-0000-0000-0000-000000000001"
         let recordID = "20000000-0000-0000-0000-000000000001"
-        let disclosure = app.buttons["tree.project.disclosure.\(projectID)"]
+        let disclosure = app.buttons["tree.note.disclosure.\(containerID)"]
         XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
         XCTAssertEqual(disclosure.value as? String, "collapsed")
         disclosure.click()
@@ -144,7 +144,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         treeRecord.click()
         XCTAssertEqual(search.value as? String, "")
-        XCTAssertEqual(app.buttons["project.\(projectID)"].value as? String, "selected")
+        XCTAssertEqual(app.buttons["tree.container.\(containerID)"].value as? String, "selected")
         XCTAssertEqual(treeRecord.value as? String, "selected")
         XCTAssertTrue(app.buttons["session.\(recordID)"].waitForExistence(timeout: 3))
         XCTAssertEqual(disclosure.value as? String, "forced-expanded")
@@ -181,18 +181,18 @@ final class CueMeMemoryE2ETests: XCTestCase {
         continueAfterFailure = false
         let app = launchApp()
         defer { app.terminate() }
-        let projectID = "10000000-0000-0000-0000-000000000001"
+        let containerID = "10000000-0000-0000-0000-000000000001"
         let recordID = "20000000-0000-0000-0000-000000000001"
 
-        let project = app.buttons["project.\(projectID)"]
-        XCTAssertTrue(project.waitForExistence(timeout: 5))
-        project.click()
+        let container = app.buttons["tree.container.\(containerID)"]
+        XCTAssertTrue(container.waitForExistence(timeout: 5))
+        container.click()
         XCTAssertTrue(app.buttons["tree.note.\(recordID)"].waitForExistence(timeout: 3))
 
         app.buttons["session.primary"].click()
         let live = app.buttons["tree.live"]
         XCTAssertTrue(live.waitForExistence(timeout: 5))
-        XCTAssertEqual(live.value as? String, projectID)
+        XCTAssertEqual(live.value as? String, containerID)
         XCTAssertEqual(app.buttons.matching(identifier: "tree.live").count, 1)
         XCTAssertEqual(app.buttons.matching(identifier: "tree.note.\(recordID)").count, 1)
 

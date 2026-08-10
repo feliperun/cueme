@@ -93,5 +93,6 @@ proposed → active → superseded
 | [0044](0044-yaml-frontmatter-via-yams.md) | YAML frontmatter via Yams | active |
 | [0045](0045-session-diagnostics-are-dev-telemetry.md) | Session diagnostics are dev telemetry | active |
 | [0046](0046-note-corpus-is-an-okf-bundle.md) | The note corpus is an OKF v0.2 bundle | active |
+| [0047](0047-one-entity-hierarchy-by-path.md) | One entity, hierarchy by path | active |
 | [0049](0049-one-shot-external-migration.md) | One-shot external migration to the OKF v0.2 corpus | active |
 | [0050](0050-fan-out-ceiling-retired-for-a-no-regression-gate.md) | Fan-out ceiling retired in favour of a no-regression gate | active |

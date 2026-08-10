@@ -23,7 +23,7 @@ struct NoteMetadataChips: View {
     var body: some View {
         HStack(spacing: 7) {
             labelsChip
-            projectChip
+            linksChip
             if record.origin != .written { participantsChip }
             attachChip
             Spacer(minLength: 0)
@@ -103,57 +103,54 @@ struct NoteMetadataChips: View {
         labelDraft = ""
     }
 
-    // MARK: Project
+    // MARK: Links
 
-    private var projectChip: some View {
+    /// One untyped relation. Who is a person, who is a project and who is a
+    /// document is decided by where a note sits in the tree, not by a type on
+    /// the edge — which is the OKF posture and the reason there is a single
+    /// chip here instead of one per entity kind.
+    private var linksChip: some View {
         Button { showProject.toggle() } label: {
             chipLabel(
-                app.project(for: record)?.name ?? "Projeto",
-                icon: "folder.badge.gearshape",
-                active: record.projectID != nil
+                record.links.isEmpty ? "Relacionadas" : "\(record.links.count) relacionadas",
+                icon: "link",
+                active: !record.links.isEmpty
             )
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("session.project")
-        .popover(isPresented: $showProject) { projectPopover }
+        .accessibilityIdentifier("note.links")
+        .popover(isPresented: $showProject) { linksPopover }
     }
 
-    private var projectPopover: some View {
+    private var linksPopover: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text("Projeto").font(.headline)
-            Button("Sem projeto") { app.assignProject(nil, to: record.id); showProject = false }
-                .buttonStyle(.plain)
-            ForEach(app.projects.filter { !$0.archived }) { project in
-                Button(project.name) { app.assignProject(project.id, to: record.id); showProject = false }
-                    .buttonStyle(.plain)
+            Text("Relacionadas").font(.headline)
+            if app.linkedNotes(of: record).isEmpty {
+                Text("Nenhuma nota relacionada.").font(.ui(11)).foregroundStyle(.secondary)
             }
-            if let projectID = record.projectID {
+            ForEach(app.linkedNotes(of: record)) { linked in
+                Button(linked.title) {
+                    app.selectSession(linked.id)
+                    showProject = false
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("note.link.\(linked.id.uuidString)")
+            }
+            if let parent = app.parentNote(of: record) {
                 Divider()
                 Text("TIMELINE").font(.ui(9, .bold)).foregroundStyle(.secondary)
-                ForEach(app.timeline(for: projectID).prefix(6)) { entry in
+                ForEach(app.timeline(for: parent.id).prefix(6)) { entry in
                     Button {
                         app.selectSession(entry.sessionID)
                         showProject = false
                     } label: {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(entry.title).font(.ui(10, .semibold))
-                            Text(entry.detail).font(.ui(9)).foregroundStyle(.secondary).lineLimit(2)
-                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        Text("\(entry.title) · \(entry.detail)").font(.ui(11)).lineLimit(1)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("timeline.\(entry.id)")
                 }
             }
-            Divider()
-            TextField("Novo projeto", text: $newProjectName).textFieldStyle(.roundedBorder)
-            Button("Criar e vincular") {
-                if let id = app.createProject(named: newProjectName) { app.assignProject(id, to: record.id) }
-                newProjectName = ""
-                showProject = false
-            }
-            .buttonStyle(.borderedProminent)
         }
-        .padding(14).frame(width: 260)
+        .padding(14).frame(width: 260, alignment: .leading)
     }
 
     // MARK: Participants
@@ -175,7 +172,6 @@ struct NoteMetadataChips: View {
                 Button("Salvar") {
                     app.setParticipantName(selfName, for: .self, sessionID: record.id)
                     app.setParticipantName(otherName, for: .other, sessionID: record.id)
-                    app.linkPerson(named: otherName, to: record.id)
                     showParticipants = false
                 }
                 .buttonStyle(.borderedProminent)

@@ -16,6 +16,10 @@ enum OKFBundle {
     static let logFileName = "log.md"
     static let agentsFileName = "AGENTS.md"
 
+    /// Where a note lands when nothing else claims it. An ordinary note the
+    /// user may rename or move — only the default is reserved, not the name.
+    static let inboxSlug = "inbox"
+
     private static let maxSlugLength = 54
     private static let fallbackSlug = "nota"
 

@@ -64,10 +64,10 @@ struct BriefEditor: View {
                 }
 
                 Section {
-                    Picker("Projeto", selection: $app.activeProjectID) {
-                        Text("Sem projeto").tag(UUID?.none)
-                        ForEach(app.projects.filter { !$0.archived }) { project in
-                            Text(project.name).tag(Optional(project.id))
+                    Picker("Nota-pai", selection: $app.activeParentNoteID) {
+                        Text("Inbox").tag(UUID?.none)
+                        ForEach(app.rootNotes) { note in
+                            Text(note.title).tag(Optional(note.id))
                         }
                     }
                     Picker("Modo", selection: $app.brief.mode) {

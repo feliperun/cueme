@@ -10,7 +10,7 @@ final class LiveSnapshotWriter: @unchecked Sendable {
     private var drainScheduled = false
     private let save: @Sendable (MemoryNote) -> Void
 
-    init(save: @escaping @Sendable (MemoryNote) -> Void = { _ = SessionStore.save($0) }) {
+    init(save: @escaping @Sendable (MemoryNote) -> Void = { _ = CorpusStore.save($0) }) {
         self.save = save
     }
 
