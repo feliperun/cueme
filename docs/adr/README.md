@@ -77,7 +77,7 @@ proposed → active → superseded
 | [0028](0028-evidence-first-longitudinal-semantic-memory.md) | Evidence-first longitudinal memory with hybrid SQLite search | active |
 | [0029](0029-key-feature-e2e-regression-gate.md) | Key-feature E2E regression gate | active |
 | [0030](0030-stable-release-identity-for-tcc.md) | Stable release identity for persistent macOS permissions | active |
-| [0031](0031-file-first-memory-note-corpus.md) | File-first Memory Note corpus | superseded by 0043 |
+| [0031](0031-file-first-memory-note-corpus.md) | File-first Memory Note corpus | superseded by 0046 |
 | [0032](0032-second-brain-writing-workspace.md) | Second Brain writing workspace | active |
 | [0033](0033-explicit-personal-memory-for-live-coach.md) | Explicit personal memory for the live Coach | active |
 | [0034](0034-native-markdown-block-editor.md) | Native visual blocks with canonical Markdown | active |
@@ -92,5 +92,6 @@ proposed → active → superseded
 | [0043](0043-greenfield-compatibility-policy.md) | Greenfield compatibility policy for the note corpus | active |
 | [0044](0044-yaml-frontmatter-via-yams.md) | YAML frontmatter via Yams | active |
 | [0045](0045-session-diagnostics-are-dev-telemetry.md) | Session diagnostics are dev telemetry | active |
+| [0046](0046-note-corpus-is-an-okf-bundle.md) | The note corpus is an OKF v0.2 bundle | active |
 | [0049](0049-one-shot-external-migration.md) | One-shot external migration to the OKF v0.2 corpus | active |
 | [0050](0050-fan-out-ceiling-retired-for-a-no-regression-gate.md) | Fan-out ceiling retired in favour of a no-regression gate | active |

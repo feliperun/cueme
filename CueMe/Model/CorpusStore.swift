@@ -7,7 +7,6 @@ import OSLog
 /// `specs/okf-corpus/design.md` §1 (layout), §7 (transcript on demand) and §8
 /// (this surface, and the two-object invariant).
 ///
-/// `session.json` is still written by `save(_:)` in this task — T014 removes
 /// it. `loadNotes()` already reads only the Markdown, so this is ordering a
 /// two-sided change inside one PR, not a compatibility layer.
 enum CorpusStore {
@@ -177,10 +176,6 @@ enum CorpusStore {
                     encoding: .utf8
                 )
             }
-            // Transitional (see the file-level doc comment): T014 deletes this.
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let data = try SessionArchiveCodec.encoder.encode(note)
-            try data.write(to: folder.appendingPathComponent("session.json"), options: .atomic)
             return noteURL(for: note)
         } catch {
             return nil

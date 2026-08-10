@@ -29,7 +29,7 @@ struct HistoryView: View {
                                 .contextMenu {
                                     Button("Copiar JSON", systemImage: "doc.on.doc") {
                                         NSPasteboard.general.clearContents()
-                                        NSPasteboard.general.setString(rec.prettyJSON, forType: .string)
+                                        NSPasteboard.general.setString(NoteDocumentWriter.render(rec), forType: .string)
                                     }
                                     Button("Apagar", systemImage: "trash", role: .destructive) {
                                         app.deleteHistory(rec.id)

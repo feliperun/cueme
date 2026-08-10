@@ -247,4 +247,34 @@ final class CorpusStoreTests: XCTestCase {
         XCTAssertEqual(CorpusStore.noteURL(for: first).standardizedFileURL, second.standardizedFileURL)
         XCTAssertEqual(CorpusStore.loadNotes().filter { $0.id == note.id }.count, 1)
     }
+
+    // MARK: - T014
+
+    /// A sidecar left over from the old format is neither read nor deleted:
+    /// the loader simply does not look at it.
+    func testStraySessionJSONIsIgnored() throws {
+        let note = makeNote(title: "Com sidecar antigo")
+        try writeNoteFile(note, at: "com-sidecar-antigo")
+        let folder = root.appendingPathComponent("com-sidecar-antigo", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let sidecar = folder.appendingPathComponent("session.json")
+        try Data(#"{"id":"deadbeef","title":"lixo"}"#.utf8).write(to: sidecar)
+
+        let loaded = CorpusStore.loadNotes()
+
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.title, "Com sidecar antigo")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sidecar.path), "the loader must not delete it either")
+    }
+
+    /// The export and the durable copy are the same bytes.
+    func testExportIsTheNoteMarkdown() throws {
+        let note = makeNote(title: "Nota exportável")
+        let url = try XCTUnwrap(CorpusStore.save(note))
+
+        let onDisk = try String(contentsOf: url, encoding: .utf8)
+
+        XCTAssertEqual(NoteDocumentWriter.render(CorpusStore.resolvingLocation(note)), onDisk)
+        XCTAssertEqual(NoteExport.filename(for: note), "nota-exportavel.md")
+    }
 }

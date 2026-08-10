@@ -81,9 +81,8 @@ struct NoteWorkspaceHeaderBar: View {
 
     private var shareMenu: some View {
         Menu {
-            Button("Copiar Markdown", systemImage: "doc.on.doc") { copy(record.markdownBody) }
-            Button("Copiar JSON", systemImage: "curlybraces") { copy(record.prettyJSON) }
-            Button("Exportar JSON…", systemImage: "square.and.arrow.down", action: exportJSON)
+            Button("Copiar Markdown", systemImage: "doc.on.doc") { copy(NoteDocumentWriter.render(record)) }
+            Button("Exportar Markdown…", systemImage: "square.and.arrow.down", action: exportMarkdown)
             Divider()
             Button("Mostrar arquivos da sessão", systemImage: "folder") {
                 app.revealMemoryNote(record.id)
@@ -103,13 +102,15 @@ struct NoteWorkspaceHeaderBar: View {
         NSPasteboard.general.setString(value, forType: .string)
     }
 
-    private func exportJSON() {
+    /// Exports exactly the bytes that are durable on disk, so the export and
+    /// the note are the same document rather than two renderings of it.
+    private func exportMarkdown() {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = record.exportFilename
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = NoteExport.filename(for: record)
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? record.prettyJSON.data(using: .utf8)?.write(to: url, options: .atomic)
+        try? NoteDocumentWriter.render(record).data(using: .utf8)?.write(to: url, options: .atomic)
     }
 
     // MARK: Styling

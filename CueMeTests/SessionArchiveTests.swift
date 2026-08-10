@@ -16,10 +16,9 @@ final class SessionArchiveTests: XCTestCase {
         root = nil
     }
 
-    /// `SessionStore.save` now delegates to `CorpusStore` (T013): the note
-    /// lands under the default "inbox" note as an OKF concept document, with
-    /// `session.json` still written alongside it as a transitional sidecar
-    /// (T014 removes it) — see `specs/okf-corpus/tasks/T013-corpus-store.md`.
+    /// `SessionStore.save` delegates to `CorpusStore`: the note lands under the
+    /// default "inbox" note as an OKF concept document, and nothing else. The
+    /// `session.json` sidecar is gone — the Markdown is the only durable copy.
     func testSaveWritesTheNoteAsAnOKFDocumentUnderInbox() throws {
         let startedAt = Date(timeIntervalSince1970: 1_704_110_400)
         let record = MemoryNote(
@@ -47,7 +46,10 @@ final class SessionArchiveTests: XCTestCase {
 
         XCTAssertEqual(noteURL.deletingLastPathComponent().lastPathComponent, "inbox")
         let folder = CorpusStore.noteFolder(for: resolved)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("session.json").path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: folder.appendingPathComponent("session.json").path),
+            "saving a note must not create a JSON sidecar"
+        )
 
         let markdown = try String(contentsOf: noteURL, encoding: .utf8)
         XCTAssertTrue(markdown.hasPrefix("---\n"))

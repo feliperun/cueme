@@ -82,18 +82,5 @@ extension MemoryNote {
         return String(clean.prefix(120))
     }
 
-    /// Nome de arquivo sugerido pra exportação.
-    var exportFilename: String {
-        let stamp = startedAt.formatted(.iso8601.year().month().day().dateSeparator(.dash))
-        return "CueMe-\(training ? "treino" : mode.rawValue)-\(stamp).json"
-    }
 
-    /// JSON legível (pretty) pra copiar/exportar.
-    var prettyJSON: String {
-        let e = JSONEncoder()
-        e.dateEncodingStrategy = .iso8601
-        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        guard let data = try? e.encode(self), let s = String(data: data, encoding: .utf8) else { return "{}" }
-        return s
-    }
 }

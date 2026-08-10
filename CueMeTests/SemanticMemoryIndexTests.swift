@@ -61,14 +61,6 @@ final class SemanticMemoryIndexTests: XCTestCase {
         XCTAssertTrue(results.isEmpty)
     }
 
-    func testLegacyEvidenceFieldsDecodeWithSafeDefaults() throws {
-        let action = try JSONDecoder().decode(
-            SessionTakeaway.self,
-            from: Data(#"{"id":"00000000-0000-0000-0000-000000000001","text":"Enviar ata","isDone":false,"createdAt":0}"#.utf8)
-        )
-        XCTAssertTrue(action.evidence.isEmpty)
-        XCTAssertNil(action.assignee)
-    }
 
     func testEditingArchivedContentInvalidatesTheIndex() {
         let url = FileManager.default.temporaryDirectory
