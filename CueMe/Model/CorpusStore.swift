@@ -158,6 +158,127 @@ enum CorpusStore {
         removeParentFolderIfNowEmpty(note)
     }
 
+    // MARK: - Move and rename
+
+    /// Result of a structural change, so the caller can report what happened
+    /// rather than guess. T018 routes these into the corpus `log.md`.
+    struct RelocationOutcome {
+        let note: MemoryNote
+        let fromPath: String
+        let toPath: String
+        let rewrittenDocuments: Int
+    }
+
+    /// Moves `note` — and everything under it — to live under `parent`, or to
+    /// the corpus root when `parent` is nil.
+    ///
+    /// A note is two filesystem objects: `<slug>.md` and, conditionally,
+    /// `<slug>/`. They move folder-first, and the folder is put back if the
+    /// file step fails, so a partial move never strands a subtree away from
+    /// its document.
+    @discardableResult
+    static func move(_ note: MemoryNote, under parent: MemoryNote?) -> RelocationOutcome? {
+        let destinationDir = parent.map(childDirectory(of:)) ?? ""
+        guard canPlace(note, in: destinationDir) else { return nil }
+        return relocate(note, toParentDirectory: destinationDir, slug: slugFor(note.title, in: destinationDir, movingFrom: note))
+    }
+
+    /// Renames `note`, moving its document and folder to the new slug and
+    /// rewriting the links that pointed at the old path.
+    ///
+    /// This is the explicit user rename. A title generated during
+    /// post-processing goes through `applyGeneratedTitle` and `save`, which
+    /// leaves an already-placed note exactly where it is — letting generated
+    /// titles churn files would rewrite links on every summary pass.
+    @discardableResult
+    static func rename(_ note: MemoryNote, to title: String) -> RelocationOutcome? {
+        var renamed = note
+        renamed.rename(to: title)
+        let parentDir = parentDirectory(of: note)
+        return relocate(renamed, toParentDirectory: parentDir, slug: slugFor(renamed.title, in: parentDir, movingFrom: note))
+    }
+
+    /// The note's own slug only frees itself up when it is staying in the same
+    /// directory. Moving somewhere else, an identically named sibling there is
+    /// a real collision and has to be disambiguated.
+    private static func slugFor(_ title: String, in destinationDir: String, movingFrom note: MemoryNote) -> String {
+        var taken = takenSlugs(in: destinationDir)
+        if destinationDir == parentDirectory(of: note) { taken.remove(note.archiveFolderName) }
+        return OKFBundle.uniqueSlug(title, taken: taken)
+    }
+
+    /// True when `note` may be placed in `destinationDir`: a note cannot be
+    /// moved inside its own subtree, which would detach it from the corpus.
+    static func canPlace(_ note: MemoryNote, in destinationDir: String) -> Bool {
+        let own = childDirectory(of: note)
+        return destinationDir != own && !destinationDir.hasPrefix(own + "/")
+    }
+
+    private static func relocate(
+        _ note: MemoryNote,
+        toParentDirectory destinationDir: String,
+        slug: String
+    ) -> RelocationOutcome? {
+        let fromDocument = noteURL(for: note)
+        let fromFolder = noteFolder(for: note)
+        let fromPath = documentPath(parentDir: parentDirectory(of: note), slug: note.archiveFolderName)
+
+        var moved = note
+        moved.archiveFolderName = slug
+        moved.relativeFolderPath = destinationDir.isEmpty ? nil : destinationDir
+        moved.modifiedAt = Date()
+
+        let toDocument = noteURL(for: moved)
+        let toFolder = noteFolder(for: moved)
+        let toPath = documentPath(parentDir: destinationDir, slug: slug)
+        guard fromDocument.standardizedFileURL != toDocument.standardizedFileURL else {
+            return RelocationOutcome(note: note, fromPath: fromPath, toPath: toPath, rewrittenDocuments: 0)
+        }
+
+        do {
+            try FileManager.default.createDirectory(
+                at: toDocument.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            try moveNoteObjects(document: (fromDocument, toDocument), folder: (fromFolder, toFolder))
+        } catch {
+            log.error("relocate failed for \(fromPath, privacy: .public)")
+            return nil
+        }
+
+        let rewritten = BacklinkIndex.rewriteReferences(from: fromPath, to: toPath, in: rootURL, excluding: toDocument)
+        _ = writeNoteDocument(moved)
+        removeParentFolderIfNowEmpty(note)
+        log.notice("relocated \(fromPath, privacy: .public) -> \(toPath, privacy: .public), \(rewritten) documents rewritten")
+        return RelocationOutcome(note: moved, fromPath: fromPath, toPath: toPath, rewrittenDocuments: rewritten)
+    }
+
+    /// Moves a note's two filesystem objects, folder first. If the document
+    /// step fails the folder is put back, so a half-move never strands a
+    /// subtree away from the document that names it.
+    ///
+    /// `moving` is a parameter so the failure path can be exercised: with a
+    /// correct slug rule the second step only fails on real I/O errors, which
+    /// a test cannot provoke on demand.
+    static func moveNoteObjects(
+        document: (from: URL, to: URL),
+        folder: (from: URL, to: URL),
+        moving: (URL, URL) throws -> Void = { try FileManager.default.moveItem(at: $0, to: $1) }
+    ) throws {
+        let hadFolder = FileManager.default.fileExists(atPath: folder.from.path)
+        if hadFolder { try moving(folder.from, folder.to) }
+        do {
+            try moving(document.from, document.to)
+        } catch {
+            if hadFolder { try? moving(folder.to, folder.from) }
+            throw error
+        }
+    }
+
+    /// Bundle-relative path of a note's document, the form links use.
+    static func documentPath(parentDir: String, slug: String) -> String {
+        parentDir.isEmpty ? "/\(slug).md" : "/\(parentDir)/\(slug).md"
+    }
+
     // MARK: - Private
 
     @discardableResult
