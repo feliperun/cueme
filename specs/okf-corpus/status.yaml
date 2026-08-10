@@ -159,14 +159,15 @@ tasks:
 
   - id: T011
     title: TranscriptDocument
-    status: pending
+    status: done
     depends_on: [T003, T004, T005, T006, T009]
     branch: felipe/okf-T011-transcript-document
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [b7e7252]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Agente terminou sem relatorio; coletei e revisei do zero. Golden byte a byte. AC1 (notLoaded nao toca o arquivo) verificado por mutacao, comparando bytes em disco. Primeira tarefa com zero god files novos, gracas aos nomes distintivos.
 
   - id: T012
     title: NoteDocumentReader e round-trip
@@ -258,14 +259,15 @@ tasks:
 
   - id: T020
     title: Script one-shot de migração para OKF
-    status: pending
+    status: done
     depends_on: []
     branch: felipe/okf-T020-migration-script
-    agent: null
-    commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    agent: sonnet
+    commits: [0ba359a]
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Dry-run contra o arquivo real: 49 sessoes, RESULT OK 0 mismatches, hash da origem identico antes e depois (verificado por mim). Mutacao na merge_canonical_fields derruba so os dois testes certos. Pendencia: 36 .caf legados precisam de transcodificacao manual.
 
   - id: T021
     title: E2E de edição externa e aninhamento
@@ -296,4 +298,5 @@ adrs:
   - { id: "0046", title: The note corpus is an OKF v0.2 bundle, task: T014, status: pending }
   - { id: "0047", title: Capture and knowledge; note markdown is the only durable copy, task: T016, status: pending }
   - { id: "0048", title: One entity, hierarchy by path, links untyped, task: T018, status: pending }
-  - { id: "0049", title: One-shot external migration; the app ships no migration code, task: T020, status: pending }
+  - { id: "0049", title: One-shot external migration; the app ships no migration code, task: T020, status: written }
+  - { id: "0050", title: Fan-out ceiling retired in favour of a no-regression gate, task: T011, status: written }
