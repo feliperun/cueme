@@ -3,8 +3,9 @@ import SwiftUI
 struct NoteTreeColumn: View {
     @Environment(AppModel.self) private var app
     @Environment(\.openWindow) private var openWindow
-    @State private var showCreateProject = false
-    @State private var newProjectName = ""
+    @State private var showCreateContainer = false
+    @State private var newContainerName = ""
+    @State private var rootDropTargeted = false
     @State private var expandedNoteIDs: Set<UUID> = []
 
     var body: some View {
@@ -18,18 +19,18 @@ struct NoteTreeColumn: View {
                 .padding(.top, 11)
 
             HStack {
-                Text("PROJECTS").font(.ui(10, .semibold)).tracking(1.3).foregroundStyle(Theme.faint)
+                Text("NOTAS").font(.ui(10, .semibold)).tracking(1.3).foregroundStyle(Theme.faint)
                 Spacer()
-                Button { showCreateProject = true } label: {
+                Button { showCreateContainer = true } label: {
                     Image(systemName: "folder.badge.plus").font(.system(size: 11))
                 }
-                .buttonStyle(.plain).foregroundStyle(Theme.violet).help("Novo projeto")
-                .popover(isPresented: $showCreateProject) {
+                .buttonStyle(.plain).foregroundStyle(Theme.violet).help("Nova nota")
+                .popover(isPresented: $showCreateContainer) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Novo projeto").font(.headline)
-                        TextField("Nome do projeto", text: $newProjectName)
-                            .textFieldStyle(.roundedBorder).onSubmit(createProject)
-                        Button("Criar", action: createProject).buttonStyle(.borderedProminent)
+                        Text("Nova nota").font(.headline)
+                        TextField("Nome da nota", text: $newContainerName)
+                            .textFieldStyle(.roundedBorder).onSubmit(createContainer)
+                        Button("Criar", action: createContainer).buttonStyle(.borderedProminent)
                     }
                     .padding(14).frame(width: 260)
                 }
@@ -38,6 +39,33 @@ struct NoteTreeColumn: View {
 
             ScrollView {
                 NoteTreeRows(expandedNoteIDs: $expandedNoteIDs)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                // Dropping in the empty space below the tree unnests a note.
+                Color.clear
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+                    .overlay(alignment: .top) {
+                        if rootDropTargeted && app.acceptsNoteDrop(onto: nil) {
+                            RoundedRectangle(cornerRadius: 7)
+                                .strokeBorder(Theme.violet, lineWidth: 1.5)
+                                .frame(height: 28)
+                                .padding(.horizontal, 2)
+                        }
+                    }
+                    .onDrop(of: [.text], isTargeted: $rootDropTargeted) { providers in
+                        NoteDragPayload.load(from: providers) { app.dropNote($0, onto: nil) }
+                    }
+                    .accessibilityIdentifier(NoteTreeIdentifier.rootDropZone)
+            }
+            if let warning = app.noteTreeWarning {
+                Text(warning)
+                    .font(.ui(11))
+                    .foregroundStyle(Theme.amberText)
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.violetSoft, in: RoundedRectangle(cornerRadius: 6))
+                    .accessibilityIdentifier("tree.warning")
+                    .onTapGesture { app.noteTreeWarning = nil }
             }
 
             Spacer(minLength: 8)
@@ -262,10 +290,10 @@ struct NoteTreeColumn: View {
         return "pin=\(pin);training=\(training);profile=\(profile)"
     }
 
-    private func createProject() {
-        guard let id = app.createContainerNote(named: newProjectName) else { return }
+    private func createContainer() {
+        guard let id = app.createContainerNote(named: newContainerName) else { return }
         app.selectLibraryNote(id)
-        newProjectName = ""
-        showCreateProject = false
+        newContainerName = ""
+        showCreateContainer = false
     }
 }

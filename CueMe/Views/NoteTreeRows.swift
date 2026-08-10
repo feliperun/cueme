@@ -5,6 +5,7 @@ import SwiftUI
 struct NoteTreeRows: View {
     @Environment(AppModel.self) private var app
     @Binding var expandedNoteIDs: Set<UUID>
+    @State private var hoveredDropID: UUID?
 
     var body: some View {
         VStack(spacing: 1) {
@@ -54,7 +55,7 @@ struct NoteTreeRows: View {
                     ? "\(note.title) is expanded for the current selection"
                     : (expanded ? "Collapse \(note.title)" : "Expand \(note.title)")
             )
-            .accessibilityIdentifier("tree.note.disclosure.\(note.id.uuidString)")
+            .accessibilityIdentifier(NoteTreeIdentifier.disclosure(note.id))
             .accessibilityValue(forcedExpanded ? "forced-expanded" : (expanded ? "expanded" : "collapsed"))
 
             Button { app.selectLibraryNote(note.id) } label: {
@@ -71,12 +72,13 @@ struct NoteTreeRows: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityIdentifier("tree.container.\(note.id.uuidString)")
+            .accessibilityIdentifier(NoteTreeIdentifier.container(note.id))
             .accessibilityValue(selected ? "selected" : "not-selected")
         }
         .padding(.leading, 1)
         .frame(maxWidth: .infinity)
         .background(selected ? Theme.canvas : .clear, in: RoundedRectangle(cornerRadius: 7))
+        .modifier(NoteDropRow(note: note, hovered: $hoveredDropID, cornerRadius: 7))
     }
 
     private func childRow(_ record: MemoryNote) -> some View {
@@ -99,8 +101,9 @@ struct NoteTreeRows: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("tree.note.\(record.id.uuidString)")
+        .accessibilityIdentifier(NoteTreeIdentifier.child(record.id))
         .accessibilityValue(selected ? "selected" : "not-selected")
+        .modifier(NoteDropRow(note: record, hovered: $hoveredDropID, cornerRadius: 6))
     }
 
     private func liveChildRow(parentID: UUID) -> some View {
@@ -124,8 +127,46 @@ struct NoteTreeRows: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Live session")
-        .accessibilityIdentifier("tree.live")
+        .accessibilityIdentifier(NoteTreeIdentifier.live)
         .accessibilityValue(parentID.uuidString)
+    }
+}
+
+/// Makes a tree row both draggable and a drop destination. A row that would
+/// refuse the drop says so while the note is over it, rather than accepting it
+/// and silently doing nothing.
+private struct NoteDropRow: ViewModifier {
+    @Environment(AppModel.self) private var app
+    let note: MemoryNote
+    @Binding var hovered: UUID?
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        let targeted = hovered == note.id
+        let accepts = app.acceptsNoteDrop(onto: note.id)
+        return content
+            .overlay {
+                if targeted {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .strokeBorder(accepts ? Theme.violet : Theme.amber, lineWidth: 1.5)
+                }
+            }
+            .opacity(targeted && !accepts ? 0.55 : 1)
+            .onDrag {
+                app.draggingNoteID = note.id
+                return NoteDragPayload.provider(for: note.id)
+            }
+            .onDrop(
+                of: [.text],
+                isTargeted: Binding(
+                    get: { hovered == note.id },
+                    set: { isOver in
+                        if isOver { hovered = note.id } else if hovered == note.id { hovered = nil }
+                    }
+                )
+            ) { providers in
+                NoteDragPayload.load(from: providers) { app.dropNote($0, onto: note.id) }
+            }
     }
 }
 

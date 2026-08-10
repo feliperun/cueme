@@ -156,6 +156,11 @@ final class AppModel {
     var noteDraft = ""
     var postSessionPrompt = ""
     var postProcessingSessionID: UUID?
+    /// The note currently being dragged in the sidebar tree, so a hovered row
+    /// can tell a valid destination from an invalid one before the drop.
+    var draggingNoteID: UUID?
+    /// Shown when a drop was refused or failed on disk.
+    var noteTreeWarning: String?
     var postProcessingError: String?
     var globalMemoryAnswer: String?
     var globalMemoryAnswering = false

@@ -130,6 +130,45 @@ final class NoteTreeProjectionTests: XCTestCase {
 
     /// The index is a derived cache, so it lives beside the corpus and never
     /// inside it — otherwise `CorpusStore.loadNotes()` would walk over it.
+    /// AC7: the E2E scenario drives the tree through these strings, so they are
+    /// derived from the note id and built in exactly one place.
+    func testRowsExposeStableIdentifiers() {
+        let id = UUID(uuidString: "AAAAAAAA-0000-0000-0000-000000000001")!
+
+        XCTAssertEqual(NoteTreeIdentifier.container(id), "tree.container.\(id.uuidString)")
+        XCTAssertEqual(NoteTreeIdentifier.child(id), "tree.note.\(id.uuidString)")
+        XCTAssertEqual(NoteTreeIdentifier.disclosure(id), "tree.note.disclosure.\(id.uuidString)")
+        XCTAssertEqual(NoteTreeIdentifier.rootDropZone, "tree.root.dropzone")
+        XCTAssertEqual(
+            Set([
+                NoteTreeIdentifier.container(id),
+                NoteTreeIdentifier.child(id),
+                NoteTreeIdentifier.disclosure(id),
+            ]).count,
+            3,
+            "a container and its child row must never collide"
+        )
+    }
+
+    /// The hover highlight asks the same question the drop does, so an invalid
+    /// destination is refused before the user lets go — not silently after.
+    func testHoverFeedbackAgreesWithTheDropDecision() {
+        let app = AppModel(isUITesting: true)
+        let acme = note("Acme", at: "acme")
+        let atas = note("Atas", at: "acme/atas")
+        app.history = [acme, atas]
+
+        XCTAssertFalse(app.acceptsNoteDrop(onto: acme.id), "nothing is being dragged")
+
+        app.draggingNoteID = atas.id
+        XCTAssertFalse(app.acceptsNoteDrop(onto: acme.id), "already inside Acme")
+        XCTAssertTrue(app.acceptsNoteDrop(onto: nil), "the root unnests it")
+
+        app.draggingNoteID = acme.id
+        XCTAssertFalse(app.acceptsNoteDrop(onto: atas.id), "a parent cannot enter its own child")
+        XCTAssertFalse(app.acceptsNoteDrop(onto: nil), "already at the root")
+    }
+
     func testUITestAppCreatesSemanticIndexBesideItsIsolatedCorpus() {
         let app = AppModel(isUITesting: true)
         let index = app.semanticMemoryIndexURLForTesting.standardizedFileURL

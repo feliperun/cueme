@@ -117,6 +117,24 @@ extension AppModel {
         selectSession(record.id)
     }
 
+    /// Tree → drop a dragged note onto another (or onto the root when nil).
+    ///
+    /// The projection is only updated once the store confirms the move: the
+    /// sidebar must never show a shape the filesystem does not have.
+    func dropNote(_ draggedID: UUID, onto targetID: UUID?) {
+        let outcome = NoteTreeMove.apply(dragging: draggedID, onto: targetID, in: history) {
+            CorpusStore.move($0, under: $1)
+        }
+        history = outcome.history
+        noteTreeWarning = outcome.warning
+        draggingNoteID = nil
+    }
+
+    func acceptsNoteDrop(onto targetID: UUID?) -> Bool {
+        guard let draggingNoteID else { return false }
+        return NoteDropTarget.accepts(dragging: draggingNoteID, onto: targetID, in: history)
+    }
+
     /// Stable, distinct accent for a tree dot (violet / mint / amber / cyan).
     func libraryColor(for noteID: UUID?) -> Color {
         guard let noteID, let index = rootNotes.firstIndex(where: { $0.id == noteID }) else { return Theme.faint }
