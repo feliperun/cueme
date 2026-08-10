@@ -15,14 +15,14 @@ struct NoteItemAttributes {
 
     var isEmpty: Bool { values.isEmpty }
 
-    func uuid(_ key: String) -> UUID? {
+    func uuidValue(_ key: String) -> UUID? {
         guard case let .string(raw, _)? = values[key] else { return nil }
         return UUID(uuidString: raw)
     }
 
     /// Dates ride the comment the same way they ride frontmatter (design.md
     /// §3): a double-quoted ISO-8601 string, decoded here as `.string`.
-    func date(_ key: String) -> Date? {
+    func dateValue(_ key: String) -> Date? {
         switch values[key] {
         case .string(let raw, _)?: return Self.parseDate(raw)
         case .date(let d)?: return d
@@ -30,7 +30,7 @@ struct NoteItemAttributes {
         }
     }
 
-    func double(_ key: String) -> Double? {
+    func doubleValue(_ key: String) -> Double? {
         switch values[key] {
         case .double(let d)?: return d
         case .int(let i)?: return Double(i)
@@ -38,12 +38,12 @@ struct NoteItemAttributes {
         }
     }
 
-    func string(_ key: String) -> String? {
+    func stringValue(_ key: String) -> String? {
         guard case let .string(raw, _)? = values[key] else { return nil }
         return raw
     }
 
-    func strings(_ key: String) -> [String]? {
+    func stringsValue(_ key: String) -> [String]? {
         guard case let .array(items)? = values[key] else { return nil }
         return items.compactMap { item -> String? in
             guard case let .string(raw, _) = item else { return nil }

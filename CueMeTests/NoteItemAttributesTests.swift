@@ -27,7 +27,7 @@ final class NoteItemAttributesTests: XCTestCase {
         let (text, attributes) = NoteItemAttributeCodec.decode(line)
 
         XCTAssertEqual(text, "Compare A --> B before deciding")
-        XCTAssertEqual(attributes.uuid("id"), UUID(uuidString: "a0000000-0000-4000-8000-000000000001"))
+        XCTAssertEqual(attributes.uuidValue("id"), UUID(uuidString: "a0000000-0000-4000-8000-000000000001"))
     }
 
     /// The visible text may itself contain something that looks like an
@@ -40,7 +40,7 @@ final class NoteItemAttributesTests: XCTestCase {
         let (text, attributes) = NoteItemAttributeCodec.decode(line)
 
         XCTAssertEqual(text, #"Escreva <!--cueme {exemplo}--> no corpo"#)
-        XCTAssertEqual(attributes.uuid("id"), UUID(uuidString: "a0000000-0000-4000-8000-000000000001"))
+        XCTAssertEqual(attributes.uuidValue("id"), UUID(uuidString: "a0000000-0000-4000-8000-000000000001"))
     }
 
     // MARK: - AC3: malformed comment degrades to plain text, never throws
@@ -66,14 +66,14 @@ final class NoteItemAttributesTests: XCTestCase {
 
         // The present key must resolve correctly, so this test cannot pass
         // vacuously against an implementation that returns nil for everything.
-        XCTAssertEqual(attributes.uuid("id"), UUID(uuidString: "a0000000-0000-4000-8000-000000000001"))
+        XCTAssertEqual(attributes.uuidValue("id"), UUID(uuidString: "a0000000-0000-4000-8000-000000000001"))
 
         XCTAssertNil(attributes["assignee"])
-        XCTAssertNil(attributes.string("assignee"))
-        XCTAssertNil(attributes.date("due"))
-        XCTAssertNil(attributes.double("confidence"))
-        XCTAssertNil(attributes.strings("keyterms"))
-        XCTAssertNil(attributes.uuid("supersedes"))
+        XCTAssertNil(attributes.stringValue("assignee"))
+        XCTAssertNil(attributes.dateValue("due"))
+        XCTAssertNil(attributes.doubleValue("confidence"))
+        XCTAssertNil(attributes.stringsValue("keyterms"))
+        XCTAssertNil(attributes.uuidValue("supersedes"))
     }
 
     // MARK: - AC5: encode -> decode round-trips typed values, including a
@@ -94,11 +94,11 @@ final class NoteItemAttributesTests: XCTestCase {
         let (text, attributes) = NoteItemAttributeCodec.decode(line)
 
         XCTAssertEqual(text, "- [ ] Solicitar propostas")
-        XCTAssertEqual(attributes.uuid("id"), id)
-        XCTAssertEqual(attributes.date("at"), fixedDate)
-        XCTAssertEqual(attributes.double("confidence"), 0.94)
-        XCTAssertEqual(attributes.string("assignee"), "Marina")
-        XCTAssertEqual(attributes.strings("keyterms"), ["fleet", "TCO"])
+        XCTAssertEqual(attributes.uuidValue("id"), id)
+        XCTAssertEqual(attributes.dateValue("at"), fixedDate)
+        XCTAssertEqual(attributes.doubleValue("confidence"), 0.94)
+        XCTAssertEqual(attributes.stringValue("assignee"), "Marina")
+        XCTAssertEqual(attributes.stringsValue("keyterms"), ["fleet", "TCO"])
     }
 
     func testEncodeOfEmptyPairsIsEmptyString() {
@@ -125,7 +125,7 @@ final class NoteItemAttributesTests: XCTestCase {
 
         for line in anchorLines {
             let (_, attributes) = NoteItemAttributeCodec.decode(line)
-            XCTAssertNotNil(attributes.uuid("id"), "expected a parsed `id` for anchor line: \(line)")
+            XCTAssertNotNil(attributes.uuidValue("id"), "expected a parsed `id` for anchor line: \(line)")
         }
     }
 
