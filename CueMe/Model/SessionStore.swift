@@ -1,72 +1,36 @@
 import Foundation
 
-/// Filesystem side of the archive: where a note's folder lives, and the
-/// read, write, move and delete operations over it. Split out of
-/// `SessionArchive`, which is the Markdown rendering side.
+/// Thin facade over `CorpusStore`, kept only because `ProjectWorkspaceStore`
+/// (deleted whole in T016, per `specs/okf-corpus/design.md` §9) still depends
+/// on this exact surface. Every member here forwards to `CorpusStore`, which
+/// is the real implementation as of T013 — see
+/// `specs/okf-corpus/tasks/T013-corpus-store.md`.
 enum SessionStore {
-    nonisolated(unsafe) static var rootOverride: URL?
-    private static let configuredRootKey = "sessionArchiveRootPath"
-
-    static var rootURL: URL {
-        if let rootOverride { return rootOverride }
-        if let path = UserDefaults.standard.string(forKey: configuredRootKey), !path.isEmpty {
-            return URL(fileURLWithPath: path, isDirectory: true)
-        }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return base.appendingPathComponent("CueMe/Session Archive", isDirectory: true)
+    static var rootOverride: URL? {
+        get { CorpusStore.rootOverride }
+        set { CorpusStore.rootOverride = newValue }
     }
 
-    static var hasCustomRoot: Bool {
-        UserDefaults.standard.string(forKey: configuredRootKey) != nil
-    }
+    static var rootURL: URL { CorpusStore.rootURL }
 
-    static func setRoot(_ url: URL) throws {
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        UserDefaults.standard.set(url.standardizedFileURL.path, forKey: configuredRootKey)
-    }
+    static func setRoot(_ url: URL) throws { try CorpusStore.setRoot(url) }
 
-    static func archiveDirectory(for record: MemoryNote) -> URL {
-        rootURL.appendingPathComponent(record.storageRelativePath, isDirectory: true)
-    }
+    static func archiveDirectory(for record: MemoryNote) -> URL { CorpusStore.noteFolder(for: record) }
 
+    @discardableResult
     static func prepareSession(id: UUID, startedAt: Date) -> URL? {
-        let directory = rootURL.appendingPathComponent("_Inbox", isDirectory: true)
-            .appendingPathComponent(SessionArchive.folderName(startedAt: startedAt, id: id), isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            return directory
-        } catch {
-            return nil
-        }
+        CorpusStore.prepareNote(id: id, startedAt: startedAt, under: CorpusStore.defaultInboxNote())
     }
 
     @discardableResult
-    static func save(_ record: MemoryNote) -> URL? {
-        let directory = archiveDirectory(for: record)
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let data = try SessionArchiveCodec.encoder.encode(record)
-            try data.write(to: directory.appendingPathComponent("session.json"), options: .atomic)
-            let markdown = SessionArchive.markdown(for: record)
-            try markdown.write(
-                to: directory.appendingPathComponent(NoteDocument.filename),
-                atomically: true,
-                encoding: .utf8
-            )
-            return directory
-        } catch {
-            return nil
-        }
-    }
+    static func save(_ record: MemoryNote) -> URL? { CorpusStore.save(record) }
 
     static func loadAll() -> [MemoryNote] {
-        var records: [UUID: MemoryNote] = [:]
-        for record in SessionArchiveCodec.loadArchive() { records[record.id] = record }
-        return records.values.sorted { $0.startedAt > $1.startedAt }
+        CorpusStore.loadNotes().sorted { $0.startedAt > $1.startedAt }
     }
 
     static func delete(_ record: MemoryNote) {
-        try? FileManager.default.removeItem(at: archiveDirectory(for: record))
+        CorpusStore.delete(record)
         MeetingRecording.deleteLegacy(for: record.id)
     }
 
@@ -77,5 +41,4 @@ enum SessionStore {
             MeetingRecording.deleteLegacy(for: id)
         }
     }
-
 }

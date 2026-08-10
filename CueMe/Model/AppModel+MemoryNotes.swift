@@ -58,6 +58,7 @@ extension AppModel {
             markdownBody: "",
             titleSource: .fallback
         )
+        note = CorpusStore.resolvingLocation(note)
         SessionStore.save(note)
         if let project = projects.first(where: { $0.id == activeProjectID }),
            let moved = ProjectWorkspaceStore.relocate(note, to: project) {

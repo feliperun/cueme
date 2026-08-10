@@ -139,7 +139,10 @@ final class ProjectTreeProjectionTests: XCTestCase {
         let app = AppModel(isUITesting: true)
 
         XCTAssertEqual(SessionStore.rootOverride?.standardizedFileURL, uiTestArchive.standardizedFileURL)
-        XCTAssertTrue(
+        // The semantic index is a derived cache, not part of the user's
+        // Markdown corpus (T013) — it lives beside the corpus root, not
+        // inside it, so CorpusStore.loadNotes() never walks over it.
+        XCTAssertFalse(
             app.semanticMemoryIndexURLForTesting.standardizedFileURL.path
                 .hasPrefix(uiTestArchive.standardizedFileURL.path + "/")
         )
@@ -156,9 +159,9 @@ final class ProjectTreeProjectionTests: XCTestCase {
 
         XCTAssertTrue(results.contains { $0.recordID == fixtureRecordID })
         XCTAssertTrue(app.semanticMemoryIndexedSessionIDsForTesting.contains(fixtureRecordID))
-        XCTAssertTrue(
-            app.semanticMemoryIndexURLForTesting.standardizedFileURL.path
-                .hasPrefix(uiTestArchive.standardizedFileURL.path + "/")
+        XCTAssertEqual(
+            app.semanticMemoryIndexURLForTesting.standardizedFileURL,
+            UITestFixtures.semanticIndexURL(at: uiTestArchive).standardizedFileURL
         )
     }
 

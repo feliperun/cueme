@@ -160,12 +160,12 @@ enum MeetingRecording {
     }
 
     static func directory(for sessionID: UUID, startedAt: Date) -> URL {
-        SessionStore.prepareSession(id: sessionID, startedAt: startedAt)
+        CorpusStore.prepareNote(id: sessionID, startedAt: startedAt, under: CorpusStore.defaultInboxNote())
             ?? legacyDirectory(for: sessionID)
     }
 
     static func directory(for record: MemoryNote) -> URL {
-        SessionStore.archiveDirectory(for: record)
+        CorpusStore.noteFolder(for: record).appendingPathComponent(OKFBundle.rawDirectoryName, isDirectory: true)
     }
 
     private static func legacyDirectory(for sessionID: UUID) -> URL {

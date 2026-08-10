@@ -49,13 +49,18 @@ enum UITestFixtures {
 
     static func configureIsolatedStorage(at root: URL) {
         try? FileManager.default.removeItem(at: root)
-        SessionStore.rootOverride = root
+        CorpusStore.rootOverride = root
         ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
         DiagnosticsLog.rootOverride = root.appendingPathComponent("Logs", isDirectory: true)
     }
 
+    /// A sibling of the corpus root, not a descendant — the semantic index is
+    /// a derived cache, not part of the user's Markdown corpus, and living
+    /// inside `root` would make `CorpusStore.loadNotes()` walk right over it.
     static func semanticIndexURL(at root: URL) -> URL {
-        root.appendingPathComponent("Derived/Memory/memory.sqlite3")
+        root.deletingLastPathComponent()
+            .appendingPathComponent("\(root.lastPathComponent)-Derived", isDirectory: true)
+            .appendingPathComponent("Memory/memory.sqlite3")
     }
 
     static func audioImportStatus(named name: String) -> AudioImportStatus? {

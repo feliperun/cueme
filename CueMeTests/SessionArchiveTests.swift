@@ -16,16 +16,12 @@ final class SessionArchiveTests: XCTestCase {
         root = nil
     }
 
-    func testSaveWritesPortableJSONAndMarkdownInsideTimestampedFolder() throws {
+    /// `SessionStore.save` now delegates to `CorpusStore` (T013): the note
+    /// lands under the default "inbox" note as an OKF concept document, with
+    /// `session.json` still written alongside it as a transitional sidecar
+    /// (T014 removes it) — see `specs/okf-corpus/tasks/T013-corpus-store.md`.
+    func testSaveWritesTheNoteAsAnOKFDocumentUnderInbox() throws {
         let startedAt = Date(timeIntervalSince1970: 1_704_110_400)
-        var line = TranscriptLine(
-            speaker: .other,
-            text: "Vamos entregar no mono rapo na sexta.",
-            translation: "We will deliver on Friday.",
-            isFinal: true,
-            ts: startedAt.addingTimeInterval(12)
-        )
-        line.applyCorrection("Vamos entregar no monorepo na sexta-feira.", at: startedAt.addingTimeInterval(20))
         let record = MemoryNote(
             id: UUID(uuidString: "12345678-1234-1234-1234-1234567890AB")!,
             startedAt: startedAt,
@@ -35,53 +31,34 @@ final class SessionArchiveTests: XCTestCase {
             conversationLang: "pt-BR",
             nativeLang: "en-US",
             goal: "Definir próximos passos",
-            transcript: [line],
+            transcript: [],
             coachCards: [],
-            minutes: MeetingMinutes(
-                overview: "Entrega e responsáveis foram alinhados.",
-                topics: [.init(title: "Cronograma", summary: "Entrega combinada para sexta-feira.")]
-            ),
-            participantNames: [.self: "Felipe", .other: "Marcelo"],
-            notes: [.init(timeOffset: 9, text: "Confirmar responsável")],
             takeaways: [.init(text: "Enviar cronograma")],
-            review: MeetingReview(
-                decisions: [.init(text: "Entregar na sexta-feira")],
-                openQuestions: [.init(text: "Quem revisa o deploy?")],
-                followUp: "Enviar a ata no Slack."
-            ),
-            artifacts: [.init(kind: .answer, title: "Follow-up", body: "Mandar e-mail amanhã.")]
+            displayTitle: "Alinhamento de entrega",
+            titleSource: .user
         )
 
-        let directory = try XCTUnwrap(SessionStore.save(record))
+        // Resolved once and reused — `resolvingLocation` is deterministic only
+        // relative to what is already on disk, so calling it again after the
+        // save below (which changes what's on disk) would compute a
+        // different, colliding slug.
+        let resolved = CorpusStore.resolvingLocation(record)
+        let noteURL = try XCTUnwrap(SessionStore.save(resolved))
 
-        XCTAssertTrue(directory.lastPathComponent.hasPrefix("2024-01-01_"))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("session.json").path))
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: directory.appendingPathComponent("session.md").path),
-            "session.md was the pre-1.0 compatibility mirror and must no longer be written"
-        )
-        let markdownURL = directory.appendingPathComponent(NoteDocument.filename)
-        let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
-        XCTAssertTrue(markdown.contains("# Vamos entregar no monorepo na sexta-feira."))
-        XCTAssertTrue(markdown.contains("## Anotações"))
-        XCTAssertTrue(markdown.contains("[00:09] Confirmar responsável"))
+        XCTAssertEqual(noteURL.deletingLastPathComponent().lastPathComponent, "inbox")
+        let folder = CorpusStore.noteFolder(for: resolved)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("session.json").path))
+
+        let markdown = try String(contentsOf: noteURL, encoding: .utf8)
+        XCTAssertTrue(markdown.hasPrefix("---\n"))
+        XCTAssertTrue(markdown.contains("type: Note"))
+        XCTAssertTrue(markdown.contains("title: Alinhamento de entrega"))
+        XCTAssertTrue(markdown.contains("# Alinhamento de entrega"))
         XCTAssertTrue(markdown.contains("- [ ] Enviar cronograma"))
-        XCTAssertTrue(markdown.contains("## Decisões"))
-        XCTAssertTrue(markdown.contains("- Entregar na sexta-feira"))
-        XCTAssertTrue(markdown.contains("## Questões em aberto"))
-        XCTAssertTrue(markdown.contains("## Follow-up"))
-        XCTAssertTrue(markdown.contains("## Integridade da sessão"))
-        XCTAssertTrue(markdown.contains("Cobertura de áudio"))
-        XCTAssertTrue(markdown.contains("## Transcrição"))
-        XCTAssertTrue(markdown.contains("## Ata"))
-        XCTAssertTrue(markdown.contains("#### Cronograma"))
-        XCTAssertTrue(markdown.contains("**Marcelo · 00:12**"))
-        XCTAssertTrue(markdown.localizedCaseInsensitiveContains("corrigido"))
-        XCTAssertTrue(markdown.contains("mono rapo"))
-        XCTAssertTrue(markdown.contains("We will deliver on Friday."))
-        XCTAssertTrue(markdown.contains("## Conteúdo gerado"))
-        XCTAssertTrue(markdown.contains("Mandar e-mail amanhã."))
-        XCTAssertEqual(SessionStore.loadAll().map(\.id), [record.id])
+
+        // loadAll() also surfaces the "inbox" note itself now — it is an
+        // ordinary note new sessions are born under, not a hidden container.
+        XCTAssertTrue(SessionStore.loadAll().map(\.id).contains(record.id))
     }
 
     func testFolderNameIsStableAndPortable() {

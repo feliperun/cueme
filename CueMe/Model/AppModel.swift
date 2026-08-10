@@ -589,6 +589,7 @@ final class AppModel {
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             record.applyGeneratedTitle("Plano de mitigação da entrega")
         }
+        record = CorpusStore.resolvingLocation(record)
         liveSnapshotWriter.flush()
         SessionStore.save(record)
         if let project = projects.first(where: { $0.id == activeProjectID }),

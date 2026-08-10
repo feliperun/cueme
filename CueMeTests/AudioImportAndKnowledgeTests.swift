@@ -161,6 +161,60 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         XCTAssertTrue(record.coachCards.isEmpty)
     }
 
+    /// AC7 (specs/okf-corpus/tasks/T013-corpus-store.md): a note saved with
+    /// audio must place it under its sibling folder's `raw/` directory, not
+    /// directly inside the folder itself.
+    func testRecordingLandsInRaw() async throws {
+        let sourceDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeImportSource-\(UUID().uuidString)", isDirectory: true)
+        let archiveDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeImportArchive-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: archiveDirectory, withIntermediateDirectories: true)
+        defer {
+            SessionStore.rootOverride = nil
+            try? FileManager.default.removeItem(at: sourceDirectory)
+            try? FileManager.default.removeItem(at: archiveDirectory)
+        }
+        SessionStore.rootOverride = archiveDirectory
+        let sourceURL = sourceDirectory.appendingPathComponent("raw-landing.m4a")
+        var sourceFile: AVAudioFile? = try AVAudioFile(
+            forWriting: sourceURL,
+            settings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 128_000
+            ]
+        )
+        let format = try XCTUnwrap(AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 1,
+            interleaved: false
+        ))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800))
+        buffer.frameLength = 4_800
+        try sourceFile?.write(from: buffer)
+        sourceFile = nil
+
+        let record = try await AudioImportService.prepare(
+            sourceURL: sourceURL,
+            origin: .audioFile,
+            conversationLanguage: "pt-BR",
+            nativeLanguage: "pt-BR",
+            title: "Raw landing"
+        )
+
+        let audioURL = MeetingRecording.otherURL(for: record)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: audioURL.path))
+        XCTAssertEqual(audioURL.deletingLastPathComponent().lastPathComponent, "raw")
+        XCTAssertEqual(
+            audioURL.deletingLastPathComponent(),
+            CorpusStore.noteFolder(for: record).appendingPathComponent("raw", isDirectory: true)
+        )
+    }
+
     func testExternalAudioInboxAcceptsPortableAudioAndRejectsOtherFiles() {
         XCTAssertTrue(ExternalAudioInbox.isSupported(filename: "Voice Memo.m4a"))
         XCTAssertTrue(ExternalAudioInbox.isSupported(filename: "interview.WAV"))

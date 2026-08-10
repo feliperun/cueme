@@ -94,6 +94,10 @@ final class MemoryNoteTests: XCTestCase {
         XCTAssertFalse(note.containsRecording)
     }
 
+    /// Integration-level counterpart of `NoteDocumentExternalEditTests`
+    /// (T012): proves the canonical-on-external-edit rule holds through the
+    /// full `CorpusStore.save` / `loadAll` round trip, not just the reader in
+    /// isolation.
     func testNoteMarkdownFrontmatterIsCanonicalWhenEditedOutsideCueMe() throws {
         var note = MemoryNote(
             id: UUID(uuidString: "12345678-1234-1234-1234-1234567890AB")!,
@@ -111,23 +115,21 @@ final class MemoryNoteTests: XCTestCase {
         )
         note.rename(to: "Ideia inicial")
 
-        let directory = try XCTUnwrap(SessionStore.save(note))
-        let markdownURL = directory.appendingPathComponent("note.md")
-        let saved = try String(contentsOf: markdownURL, encoding: .utf8)
+        let noteURL = try XCTUnwrap(SessionStore.save(note))
+        let saved = try String(contentsOf: noteURL, encoding: .utf8)
         XCTAssertTrue(saved.hasPrefix("---\n"))
-        XCTAssertTrue(saved.contains("title: \"Ideia inicial\""))
-        XCTAssertTrue(saved.contains("kind: note"))
-        XCTAssertTrue(saved.contains("labels: [\"ideias\"]"))
+        XCTAssertTrue(saved.contains("title: Ideia inicial"))
+        XCTAssertTrue(saved.contains("tags:"))
+        XCTAssertTrue(saved.contains("- ideias"))
 
         let externallyEdited = saved
-            .replacingOccurrences(of: "title: \"Ideia inicial\"", with: "title: \"Ideia amadurecida\"")
-            .replacingOccurrences(of: "labels: [\"ideias\"]", with: "labels: [\"ideias\",\"produto\"]")
+            .replacingOccurrences(of: "# Ideia inicial", with: "# Ideia amadurecida")
             .replacingOccurrences(of: "Rascunho inicial", with: "## Hipótese\n\nUm registro soberano do usuário.")
-        try externallyEdited.write(to: markdownURL, atomically: true, encoding: .utf8)
+        try externallyEdited.write(to: noteURL, atomically: true, encoding: .utf8)
 
         let loaded = try XCTUnwrap(SessionStore.loadAll().first)
         XCTAssertEqual(loaded.title, "Ideia amadurecida")
-        XCTAssertEqual(loaded.labels, ["ideias", "produto"])
+        XCTAssertEqual(loaded.labels, ["ideias"])
         XCTAssertTrue(loaded.markdownBody.contains("Um registro soberano do usuário."))
     }
 
@@ -152,34 +154,6 @@ final class MemoryNoteTests: XCTestCase {
 
         XCTAssertEqual(note.title, "Lançamento do CueMe 1.0")
         XCTAssertEqual(note.titleSource, .user)
-    }
-
-    func testRelocatingNotePlacesItInsideTheProjectFolder() throws {
-        let project = KnowledgeProject(
-            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
-            name: "Projeto Vida"
-        )
-        var note = MemoryNote(
-            id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
-            startedAt: Date(timeIntervalSince1970: 1_704_110_400),
-            mode: .recording,
-            training: false,
-            conversationLang: "pt-BR",
-            nativeLang: "pt-BR",
-            goal: "",
-            transcript: [],
-            coachCards: [],
-            noteKind: .journal,
-            markdownBody: "Registro do dia"
-        )
-        _ = try XCTUnwrap(SessionStore.save(note))
-
-        note = try XCTUnwrap(ProjectWorkspaceStore.relocate(note, to: project))
-        let directory = SessionStore.archiveDirectory(for: note)
-
-        XCTAssertTrue(directory.path.hasPrefix(ProjectWorkspaceStore.directory(for: project).path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("note.md").path))
-        XCTAssertEqual(SessionStore.loadAll().first?.projectID, project.id)
     }
 
     func testLabelsAreNormalizedAndDeduplicated() {

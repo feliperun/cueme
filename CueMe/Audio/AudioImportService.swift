@@ -34,7 +34,7 @@ enum AudioImportService {
         let values = try? sourceURL.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
         let startedAt = values?.creationDate ?? values?.contentModificationDate ?? Date()
         let id = UUID()
-        let record = MemoryNote(
+        var record = MemoryNote(
             id: id,
             startedAt: startedAt,
             recordingStartedAt: startedAt,
@@ -52,7 +52,12 @@ enum AudioImportService {
             origin: origin,
             displayTitle: resolvedTitle(title, sourceURL: sourceURL, origin: origin, date: startedAt)
         )
-        guard let directory = SessionStore.prepareSession(id: id, startedAt: startedAt) else {
+        record = CorpusStore.resolvingLocation(record)
+        let directory = CorpusStore.noteFolder(for: record)
+            .appendingPathComponent(OKFBundle.rawDirectoryName, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
             throw AudioImportError.cannotCreateSession
         }
         let destination = directory.appendingPathComponent(MeetingRecording.otherFilename)
@@ -62,7 +67,7 @@ enum AudioImportService {
             } else {
                 try await exportM4A(asset: asset, destination: destination)
             }
-            guard SessionStore.save(record) != nil else { throw AudioImportError.cannotCreateSession }
+            guard CorpusStore.save(record) != nil else { throw AudioImportError.cannotCreateSession }
             return record
         } catch {
             try? FileManager.default.removeItem(at: directory)
