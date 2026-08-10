@@ -7,9 +7,9 @@ final class NoteMastheadModelTests: XCTestCase {
     private func record(
         origin: SessionOrigin,
         participantNames: [Speaker: String] = [.self: "Você", .other: "Interlocutor"],
-        personIDs: [UUID] = [],
         noteKind: MemoryNoteKind? = nil,
-        endedAfter: TimeInterval = 0
+        endedAfter: TimeInterval = 0,
+        displayTitle: String? = nil
     ) -> MemoryNote {
         MemoryNote(
             startedAt: startedAt,
@@ -23,18 +23,35 @@ final class NoteMastheadModelTests: XCTestCase {
             coachCards: [],
             participantNames: participantNames,
             origin: origin,
-            personIDs: personIDs,
+            displayTitle: displayTitle,
             noteKind: noteKind
         )
     }
 
     // MARK: Participants
 
-    func testWrittenNoteNeverFabricatesParticipants() {
-        let people = [KnowledgePerson(name: "Marina")]
-        let written = record(origin: .written, personIDs: people.map(\.id))
+    func testWrittenNoteNeverFabricatesSpeakersButStillShowsItsLinks() {
+        let marina = record(origin: .written, displayTitle: "Marina")
+        let written = record(origin: .written, participantNames: [.self: "Felipe", .other: "Sofia"])
 
-        XCTAssertTrue(NoteMastheadModel.participants(for: written, people: people).isEmpty)
+        let faces = NoteMastheadModel.participants(for: written, linked: [marina])
+
+        XCTAssertEqual(faces.map(\.name), ["Marina"], "a written note was never in a room")
+        XCTAssertEqual(faces.map(\.role), [.linked])
+        XCTAssertEqual(faces.first?.noteID, marina.id, "the chip has to know where it navigates")
+    }
+
+    /// AC2: the chip is the only affordance that turns a link into navigation,
+    /// so it must carry the target id — a name alone cannot be clicked through.
+    func testLinkedChipCarriesTheTargetNoteWhileSpeakersDoNot() {
+        let marina = record(origin: .written, displayTitle: "Marina")
+        let meeting = record(origin: .live, participantNames: [.self: "Felipe", .other: "Sofia"])
+
+        let faces = NoteMastheadModel.participants(for: meeting, linked: [marina])
+
+        XCTAssertEqual(faces.map(\.name), ["Felipe", "Sofia", "Marina"])
+        XCTAssertEqual(faces.filter { $0.noteID != nil }.map(\.name), ["Marina"])
+        XCTAssertEqual(faces.first { $0.name == "Marina" }?.noteID, marina.id)
     }
 
     func testMeetingUsesTheNamedParticipants() {
@@ -43,7 +60,7 @@ final class NoteMastheadModelTests: XCTestCase {
             participantNames: [.self: "Felipe Broering", .other: "Sofia Reyes"]
         )
 
-        let participants = NoteMastheadModel.participants(for: meeting, people: [])
+        let participants = NoteMastheadModel.participants(for: meeting, linked: [])
 
         XCTAssertEqual(participants.map(\.name), ["Felipe Broering", "Sofia Reyes"])
         XCTAssertEqual(participants.map(\.initials), ["FB", "SR"])
@@ -51,49 +68,38 @@ final class NoteMastheadModelTests: XCTestCase {
     }
 
     func testLinkedPeopleAreAppendedAfterTheParticipants() {
-        let marcus = KnowledgePerson(name: "Marcus Lund")
+        let marcus = record(origin: .written, displayTitle: "Marcus Lund")
         let meeting = record(
             origin: .live,
             participantNames: [.self: "Felipe", .other: "Sofia"],
-            personIDs: [marcus.id]
         )
 
-        let participants = NoteMastheadModel.participants(for: meeting, people: [marcus])
+        let participants = NoteMastheadModel.participants(for: meeting, linked: [marcus])
 
         XCTAssertEqual(participants.map(\.name), ["Felipe", "Sofia", "Marcus Lund"])
         XCTAssertEqual(participants.last?.role, .linked)
     }
 
     func testLinkedPersonMatchingAParticipantIsNotDuplicated() {
-        let sofia = KnowledgePerson(name: "sofia reyes")
+        let sofia = record(origin: .written, displayTitle: "sofia reyes")
         let meeting = record(
             origin: .live,
             participantNames: [.self: "Felipe", .other: "Sofia Reyes"],
-            personIDs: [sofia.id]
         )
 
         XCTAssertEqual(
-            NoteMastheadModel.participants(for: meeting, people: [sofia]).map(\.name),
+            NoteMastheadModel.participants(for: meeting, linked: [sofia]).map(\.name),
             ["Felipe", "Sofia Reyes"]
         )
     }
 
-    func testUnlinkedPeopleAreIgnored() {
-        let stranger = KnowledgePerson(name: "Stranger")
-        let meeting = record(origin: .live, participantNames: [.self: "Felipe", .other: "Sofia"])
-
-        XCTAssertEqual(
-            NoteMastheadModel.participants(for: meeting, people: [stranger]).map(\.name),
-            ["Felipe", "Sofia"]
-        )
-    }
 
     func testBlankParticipantNameIsDropped() {
         let meeting = record(origin: .live, participantNames: [.self: "Felipe", .other: "   "])
 
         // `participantName(for:)` falls back to the speaker label when unnamed.
         XCTAssertEqual(
-            NoteMastheadModel.participants(for: meeting, people: []).map(\.name),
+            NoteMastheadModel.participants(for: meeting, linked: []).map(\.name),
             ["Felipe", "Interlocutor"]
         )
     }

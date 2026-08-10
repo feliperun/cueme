@@ -22,8 +22,7 @@ extension AppModel {
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             return
         }
-        projects = ProjectWorkspaceStore.loadAll()
-        history = SessionStore.loadAll()
+        history = CorpusStore.loadNotes()
         if let selectedSessionID, !history.contains(where: { $0.id == selectedSessionID }) {
             self.selectedSessionID = nil
         }
@@ -53,16 +52,16 @@ extension AppModel {
             coachCards: [],
             origin: .written,
             displayTitle: initialTitle,
-            projectID: activeProjectID,
             noteKind: kind,
             markdownBody: "",
             titleSource: .fallback
         )
+        // Born under the selected tree node, or under `inbox` when none is.
         note = CorpusStore.resolvingLocation(note)
-        SessionStore.save(note)
-        if let project = projects.first(where: { $0.id == activeProjectID }),
-           let moved = ProjectWorkspaceStore.relocate(note, to: project) {
-            note = moved
+        CorpusStore.save(note)
+        if let parent = activeParentNoteID.flatMap({ id in history.first { $0.id == id } }),
+           let moved = CorpusStore.move(note, under: parent) {
+            note = moved.note
         }
         replaceHistoryRecord(note)
         selectedSessionID = note.id
@@ -93,7 +92,7 @@ extension AppModel {
         guard let note = history.first(where: { $0.id == id }) else { return }
         let secured = source.startAccessingSecurityScopedResource()
         defer { if secured { source.stopAccessingSecurityScopedResource() } }
-        let attachments = SessionStore.archiveDirectory(for: note)
+        let attachments = CorpusStore.noteFolder(for: note)
             .appendingPathComponent("attachments", isDirectory: true)
         try FileManager.default.createDirectory(at: attachments, withIntermediateDirectories: true)
         let filename = uniqueFilename(source.lastPathComponent, in: attachments)

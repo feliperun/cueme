@@ -1,11 +1,11 @@
 import SwiftUI
 
-struct ProjectTreeColumn: View {
+struct NoteTreeColumn: View {
     @Environment(AppModel.self) private var app
     @Environment(\.openWindow) private var openWindow
     @State private var showCreateProject = false
     @State private var newProjectName = ""
-    @State private var expandedProjectIDs: Set<UUID> = []
+    @State private var expandedNoteIDs: Set<UUID> = []
 
     var body: some View {
         @Bindable var app = app
@@ -37,7 +37,7 @@ struct ProjectTreeColumn: View {
             .padding(.horizontal, 8).padding(.top, 16).padding(.bottom, 6)
 
             ScrollView {
-                ProjectTreeRows(expandedProjectIDs: $expandedProjectIDs)
+                NoteTreeRows(expandedNoteIDs: $expandedNoteIDs)
             }
 
             Spacer(minLength: 8)
@@ -185,7 +185,7 @@ struct ProjectTreeColumn: View {
     }
 
     private func sectionRow(_ title: String, icon: String, section: LibrarySection, count: Int? = nil) -> some View {
-        let selected = app.libraryProjectFilterID == nil && app.librarySection == section
+        let selected = app.librarySubtreeNoteID == nil && app.librarySection == section
         return Button { app.selectLibrarySection(section) } label: {
             HStack(spacing: 9) {
                 Image(systemName: icon).font(.system(size: 11)).frame(width: 15)
@@ -263,8 +263,8 @@ struct ProjectTreeColumn: View {
     }
 
     private func createProject() {
-        guard let id = app.createProject(named: newProjectName) else { return }
-        app.selectLibraryProject(id)
+        guard let id = app.createContainerNote(named: newProjectName) else { return }
+        app.selectLibraryNote(id)
         newProjectName = ""
         showCreateProject = false
     }

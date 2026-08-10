@@ -41,7 +41,10 @@ struct NoteListProjection {
         case .all:
             return records
         case .inbox:
-            return records.filter { $0.projectID == nil }
+            return records.filter { record in
+                let path = record.relativeFolderPath ?? ""
+                return path == OKFBundle.inboxSlug || path.hasPrefix(OKFBundle.inboxSlug + "/")
+            }
         case .journal:
             return records.filter { $0.libraryPresentationKind == .journal }
         }

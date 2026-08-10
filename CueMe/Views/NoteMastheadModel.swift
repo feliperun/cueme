@@ -13,34 +13,52 @@ struct NoteMastheadParticipant: Identifiable, Equatable, Sendable {
     let name: String
     let initials: String
     let role: Role
+    /// Set only for `.linked`: the note the chip navigates to.
+    let noteID: UUID?
+
+    init(id: String, name: String, initials: String, role: Role, noteID: UUID? = nil) {
+        self.id = id
+        self.name = name
+        self.initials = initials
+        self.role = role
+        self.noteID = noteID
+    }
 }
 
 /// Pure derivations behind `NoteMasthead`. Kept free of SwiftUI so the rules —
 /// who was in the room, what the eyebrow says — stay unit-testable.
 enum NoteMastheadModel {
-    /// Speakers of this note, followed by the `KnowledgePerson`s linked to it.
+    /// Speakers of this note, followed by the notes it links to.
     ///
-    /// A written note has no room, so it gets no avatars: placeholder faces
-    /// would claim a meeting that never happened.
+    /// A written note has no room, so it gets no speaker avatars: placeholder
+    /// faces would claim a meeting that never happened. Links are not speakers
+    /// — a written note that points at another note still shows that chip.
     static func participants(
         for record: MemoryNote,
-        people: [KnowledgePerson]
+        linked: [MemoryNote]
     ) -> [NoteMastheadParticipant] {
-        guard record.origin != .written else { return [] }
-
         var result: [NoteMastheadParticipant] = []
         var seen: Set<String> = []
 
-        func append(_ rawName: String, id: String, role: NoteMastheadParticipant.Role) {
+        func append(
+            _ rawName: String,
+            id: String,
+            role: NoteMastheadParticipant.Role,
+            noteID: UUID? = nil
+        ) {
             let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty, seen.insert(fold(name)).inserted else { return }
-            result.append(.init(id: id, name: name, initials: initials(for: name), role: role))
+            result.append(
+                .init(id: id, name: name, initials: initials(for: name), role: role, noteID: noteID)
+            )
         }
 
-        append(record.participantName(for: .self), id: "self", role: .you)
-        append(record.participantName(for: .other), id: "other", role: .counterpart)
-        for person in people where record.personIDs.contains(person.id) {
-            append(person.name, id: person.id.uuidString, role: .linked)
+        if record.origin != .written {
+            append(record.participantName(for: .self), id: "self", role: .you)
+            append(record.participantName(for: .other), id: "other", role: .counterpart)
+        }
+        for note in linked {
+            append(note.title, id: note.id.uuidString, role: .linked, noteID: note.id)
         }
         return Array(result.prefix(4))
     }

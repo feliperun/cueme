@@ -131,10 +131,10 @@ final class AppModel {
     var history: [MemoryNote] = [] {
         didSet { knowledgeIndex.rebuild(history) }
     }
-    var projects: [KnowledgeProject] = []
-    var people: [KnowledgePerson] = []
-    var activeProjectID: UUID?
-    var libraryProjectFilterID: UUID?
+    /// The tree node new notes and sessions are born under.
+    var activeParentNoteID: UUID?
+    /// Scopes the note list to a tree node and everything under it.
+    var librarySubtreeNoteID: UUID?
     var libraryLabelFilter: String?
     /// Which built-in tree section drives the note list when no project is selected.
     var librarySection: LibrarySection = .all
@@ -275,21 +275,8 @@ final class AppModel {
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
         updateReporter.onChange = { [weak self] status in self?.updateStatus = status }
-        if uiTesting {
-            let fixture = UITestFixtures.memory
-            self.history = fixture.records
-            self.projects = fixture.projects
-            self.people = fixture.people
-            self.knowledgeIndex.rebuild(history)
-        } else {
-            let entities = KnowledgeEntityStore.load()
-            let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
-            self.projects = fileProjects
-            self.people = entities.people
-            self.history = SessionStore.loadAll()
-            self.knowledgeIndex.rebuild(history)
-            if !isTesting { try? KnowledgeEntityStore.save(projects: fileProjects, people: entities.people) }
-        }
+        self.history = uiTesting ? UITestFixtures.memory.records : CorpusStore.loadNotes()
+        self.knowledgeIndex.rebuild(history)
         if uiTesting {
             self.profiles = [UITestFixtures.profile]
             self.contexts = []
@@ -462,7 +449,7 @@ final class AppModel {
         sessionStartedAt = Date()
         currentSessionID = UUID()
         if let currentSessionID, let sessionStartedAt {
-            _ = SessionStore.prepareSession(id: currentSessionID, startedAt: sessionStartedAt)
+            _ = CorpusStore.prepareNote(id: currentSessionID, startedAt: sessionStartedAt, under: CorpusStore.defaultInboxNote())
         }
         let coord = SessionCoordinator(app: self)
         self.coordinator = coord
@@ -535,7 +522,7 @@ final class AppModel {
         systemLevel = 0.55
         coachBackendReady = true
         selectedSessionID = nil
-        if let currentSessionID { _ = SessionStore.prepareSession(id: currentSessionID, startedAt: now) }
+        if let currentSessionID { _ = CorpusStore.prepareNote(id: currentSessionID, startedAt: now, under: CorpusStore.defaultInboxNote()) }
     }
 
     /// Encerra a sessão atual (salva no histórico) e começa uma nova, limpa.
@@ -584,18 +571,13 @@ final class AppModel {
             takeaways: sessionTakeaways,
             review: meetingReview,
             artifacts: sessionArtifacts,
-            projectID: activeProjectID
         )
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             record.applyGeneratedTitle("Plano de mitigação da entrega")
         }
         record = CorpusStore.resolvingLocation(record)
         liveSnapshotWriter.flush()
-        SessionStore.save(record)
-        if let project = projects.first(where: { $0.id == activeProjectID }),
-           let relocated = ProjectWorkspaceStore.relocate(record, to: project) {
-            record = relocated
-        }
+        CorpusStore.save(record)
         replaceHistoryRecord(record)
         selectedSessionID = record.id
         if backendAvailable, !record.transcript.isEmpty {
@@ -607,9 +589,9 @@ final class AppModel {
 
     func deleteHistory(_ id: UUID) {
         if let record = history.first(where: { $0.id == id }) {
-            SessionStore.delete(record)
+            CorpusStore.delete(record)
         } else {
-            SessionStore.delete(id)
+            CorpusStore.delete(id)
         }
         history.removeAll { $0.id == id }
         if selectedSessionID == id { selectedSessionID = nil }

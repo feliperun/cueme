@@ -37,6 +37,37 @@ final class CorpusMoveRenameTests: XCTestCase {
         )
     }
 
+    /// T016 AC3: a link is a path, and paths move. The rewrite in T015 is what
+    /// keeps the masthead chip resolving after the target changes address.
+    @MainActor
+    func testALinkKeepsResolvingAfterItsTargetIsMoved() throws {
+        var target = note("Marina Souza")
+        target = CorpusStore.resolvingLocation(target)
+        CorpusStore.save(target)
+
+        var container = note("Pessoas")
+        container = CorpusStore.resolvingLocation(container)
+        CorpusStore.save(container)
+
+        var source = note("Reunião de kickoff")
+        source = CorpusStore.resolvingLocation(source)
+        source.links = ["/\(NoteTreeProjection.subtreePath(of: target)).md"]
+        CorpusStore.save(source)
+
+        let moved = try XCTUnwrap(CorpusStore.move(target, under: container))
+        XCTAssertEqual(moved.rewrittenDocuments, 1, "the note pointing at it has to be rewritten")
+
+        // `AppModel(isUITesting:)` repoints the corpus at its own throwaway
+        // root, so this test's corpus has to be reinstated before loading.
+        let app = AppModel(isUITesting: true)
+        CorpusStore.rootOverride = root
+        app.history = CorpusStore.loadNotes()
+        let reloadedSource = try XCTUnwrap(app.history.first { $0.title == "Reunião de kickoff" })
+
+        XCTAssertEqual(reloadedSource.links, ["/inbox/pessoas/marina-souza.md"])
+        XCTAssertEqual(app.linkedNotes(of: reloadedSource).map(\.title), ["Marina Souza"])
+    }
+
     private func exists(_ relative: String) -> Bool {
         FileManager.default.fileExists(atPath: root.appendingPathComponent(relative).path)
     }

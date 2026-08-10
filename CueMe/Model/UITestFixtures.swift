@@ -136,14 +136,16 @@ enum UITestFixtures {
         }
     }
 
+    /// There is no project or person entity: the fixture is a note tree.
+    /// "Projeto Mobilidade" and "Marina" are ordinary notes, the sessions are
+    /// children of the project note, and the session points at the person with
+    /// a link.
     struct Memory {
         let records: [MemoryNote]
-        let projects: [KnowledgeProject]
-        let people: [KnowledgePerson]
     }
 
     static var memory: Memory {
-        let projectID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+        let mobilityNoteID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
         let sessionID = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
         let earlierID = UUID(uuidString: "20000000-0000-0000-0000-000000000002")!
         let evidenceID = UUID(uuidString: "30000000-0000-0000-0000-000000000001")!
@@ -179,7 +181,7 @@ enum UITestFixtures {
                     confidence: 0.97
                 )],
                 openQuestions: [.init(text: "Qual fornecedor terá melhor cobertura?", evidence: [evidence])]
-            ), projectID: projectID, personIDs: [personID]
+            ), links: ["/projeto-mobilidade/pessoas/marina.md"]
         )
         let earlier = MemoryNote(
             id: earlierID, startedAt: now.addingTimeInterval(-86_400),
@@ -187,13 +189,36 @@ enum UITestFixtures {
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Mapear custos",
             transcript: [], coachCards: [],
             minutes: MeetingMinutes(overview: "Custos iniciais da frota foram levantados."),
-            displayTitle: "Levantamento de custos", projectID: projectID
+            displayTitle: "Levantamento de custos"
         )
-        return Memory(
-            records: [current, earlier],
-            projects: [.init(id: projectID, name: "Projeto Mobilidade", summary: "Eletrificação da frota")],
-            people: [.init(id: personID, name: "Marina", role: "Compras")]
+        var project = MemoryNote(
+            id: mobilityNoteID, startedAt: now.addingTimeInterval(-172_800),
+            endedAt: now.addingTimeInterval(-172_800), mode: .recording, training: false,
+            conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Eletrificação da frota",
+            transcript: [], coachCards: [], origin: .written,
+            displayTitle: "Projeto Mobilidade", noteKind: .note, titleSource: .user
         )
+        project.relativeFolderPath = ""
+        project.archiveFolderName = "projeto-mobilidade"
+
+        var person = MemoryNote(
+            id: personID, startedAt: now.addingTimeInterval(-172_800),
+            endedAt: now.addingTimeInterval(-172_800), mode: .recording, training: false,
+            conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Compras",
+            transcript: [], coachCards: [], origin: .written,
+            displayTitle: "Marina", noteKind: .note, titleSource: .user
+        )
+        person.relativeFolderPath = "projeto-mobilidade/pessoas"
+        person.archiveFolderName = "marina"
+
+        var placedCurrent = current
+        placedCurrent.relativeFolderPath = "projeto-mobilidade"
+        placedCurrent.archiveFolderName = "estrategia-de-frota-eletrica"
+        var placedEarlier = earlier
+        placedEarlier.relativeFolderPath = "projeto-mobilidade"
+        placedEarlier.archiveFolderName = "levantamento-de-custos"
+
+        return Memory(records: [project, person, placedCurrent, placedEarlier])
     }
 
     static func answer(for records: [MemoryNote]) -> String {

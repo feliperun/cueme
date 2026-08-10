@@ -20,7 +20,7 @@ struct NoteListColumn: View {
         VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(app.libraryColor(for: app.libraryProjectFilterID))
+                    .fill(app.libraryColor(for: app.librarySubtreeNoteID))
                     .frame(width: 11, height: 11)
                 Text(headerTitle).font(.ui(15, .semibold)).foregroundStyle(Theme.ink)
                 Spacer()
@@ -84,8 +84,8 @@ struct NoteListColumn: View {
     }
 
     private var headerTitle: String {
-        if let id = app.libraryProjectFilterID {
-            return app.projects.first { $0.id == id }?.name ?? "Project"
+        if let id = app.librarySubtreeNoteID {
+            return app.history.first { $0.id == id }?.title ?? "Nota"
         }
         switch app.librarySection {
         case .all: return "All notes"

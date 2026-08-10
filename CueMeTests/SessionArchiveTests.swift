@@ -7,16 +7,16 @@ final class SessionArchiveTests: XCTestCase {
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CueMeArchiveTests-\(UUID().uuidString)", isDirectory: true)
-        SessionStore.rootOverride = root
+        CorpusStore.rootOverride = root
     }
 
     override func tearDownWithError() throws {
-        SessionStore.rootOverride = nil
+        CorpusStore.rootOverride = nil
         try? FileManager.default.removeItem(at: root)
         root = nil
     }
 
-    /// `SessionStore.save` delegates to `CorpusStore`: the note lands under the
+    /// `CorpusStore.save` delegates to `CorpusStore`: the note lands under the
     /// default "inbox" note as an OKF concept document, and nothing else. The
     /// `session.json` sidecar is gone — the Markdown is the only durable copy.
     func testSaveWritesTheNoteAsAnOKFDocumentUnderInbox() throws {
@@ -42,7 +42,7 @@ final class SessionArchiveTests: XCTestCase {
         // save below (which changes what's on disk) would compute a
         // different, colliding slug.
         let resolved = CorpusStore.resolvingLocation(record)
-        let noteURL = try XCTUnwrap(SessionStore.save(resolved))
+        let noteURL = try XCTUnwrap(CorpusStore.save(resolved))
 
         XCTAssertEqual(noteURL.deletingLastPathComponent().lastPathComponent, "inbox")
         let folder = CorpusStore.noteFolder(for: resolved)
@@ -60,7 +60,7 @@ final class SessionArchiveTests: XCTestCase {
 
         // loadAll() also surfaces the "inbox" note itself now — it is an
         // ordinary note new sessions are born under, not a hidden container.
-        XCTAssertTrue(SessionStore.loadAll().map(\.id).contains(record.id))
+        XCTAssertTrue(CorpusStore.loadNotes().map(\.id).contains(record.id))
     }
 
     func testFolderNameIsStableAndPortable() {

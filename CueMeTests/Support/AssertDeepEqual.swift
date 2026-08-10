@@ -5,7 +5,7 @@ import XCTest
 /// removing one breaks a test instead of silently escaping the comparison
 /// below. Bump it only together with `deepEqualFailures`.
 enum MemoryNoteFieldCount {
-    static let pinned = 39
+    static let pinned = 37
 }
 
 struct DeepEqualFailure {
@@ -56,8 +56,6 @@ func deepEqualFailures(_ lhs: MemoryNote, _ rhs: MemoryNote) -> [DeepEqualFailur
     compare("displayTitle", lhs.displayTitle, rhs.displayTitle)
     compare("review", lhs.review, rhs.review)
     compare("artifacts", lhs.artifacts, rhs.artifacts)
-    compare("projectID", lhs.projectID, rhs.projectID)
-    compare("personIDs", lhs.personIDs, rhs.personIDs)
     compare("links", lhs.links, rhs.links)
     compare("noteKind", lhs.noteKind, rhs.noteKind)
     compare("markdownBody", lhs.markdownBody, rhs.markdownBody)

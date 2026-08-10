@@ -123,7 +123,7 @@ extension AppModel {
             )])
             record.participantNames[.other] = "Gravação"
             replaceHistoryRecord(record)
-            SessionStore.save(record)
+            CorpusStore.save(record)
             audioImportStatus = .init(
                 phase: .completed,
                 title: record.title,
@@ -162,7 +162,7 @@ extension AppModel {
                 record.participantNames[.other] = "Gravação"
             }
             replaceHistoryRecord(record)
-            SessionStore.save(record)
+            CorpusStore.save(record)
 
             audioImportStatus = .init(
                 phase: .enriching,
@@ -189,7 +189,7 @@ extension AppModel {
             recordDiagnostic(kind: .error, name: "audio_import_processing_failed")
             record.integrity.errors += 1
             replaceHistoryRecord(record)
-            SessionStore.save(record)
+            CorpusStore.save(record)
             audioImportStatus = .init(
                 phase: .failed,
                 title: record.title,

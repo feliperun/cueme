@@ -114,19 +114,36 @@ struct NoteMasthead: View {
     // MARK: Participants
 
     private var participants: [NoteMastheadParticipant] {
-        NoteMastheadModel.participants(for: record, people: app.people)
+        NoteMastheadModel.participants(for: record, linked: app.linkedNotes(of: record))
+    }
+
+    /// A linked chip is a door: clicking it opens the note it points at.
+    @ViewBuilder
+    private func face(_ person: NoteMastheadParticipant) -> some View {
+        if let noteID = person.noteID, let target = app.history.first(where: { $0.id == noteID }) {
+            Button { app.selectNoteTreeRecord(target) } label: { avatar(person) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Abrir \(person.name)")
+                .accessibilityIdentifier("note.link.\(noteID.uuidString)")
+        } else {
+            avatar(person)
+        }
+    }
+
+    private func avatar(_ person: NoteMastheadParticipant) -> some View {
+        Text(person.initials)
+            .font(.ui(10, .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 26, height: 26)
+            .background(tint(for: person.role), in: Circle())
+            .overlay(Circle().strokeBorder(Theme.paper, lineWidth: 2))
     }
 
     private var participantsRow: some View {
         let faces = participants
         return HStack(spacing: 0) {
             ForEach(Array(faces.enumerated()), id: \.element.id) { index, person in
-                Text(person.initials)
-                    .font(.ui(10, .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(tint(for: person.role), in: Circle())
-                    .overlay(Circle().strokeBorder(Theme.paper, lineWidth: 2))
+                face(person)
                     .zIndex(Double(faces.count - index))
                     .padding(.leading, index == 0 ? 0 : -8)
                     .help(person.name)

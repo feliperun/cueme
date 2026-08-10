@@ -33,7 +33,7 @@ struct NoteWorkspaceHeaderBar: View {
     // MARK: Breadcrumb
 
     private var breadcrumb: some View {
-        Text("\(app.project(for: record)?.name ?? "Sem projeto") /")
+        Text("\(app.parentNote(of: record)?.title ?? "Corpus") /")
             .font(.ui(12))
             .foregroundStyle(Theme.faint)
             .lineLimit(1)
