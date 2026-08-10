@@ -92,3 +92,4 @@ proposed → active → superseded
 | [0043](0043-greenfield-compatibility-policy.md) | Greenfield compatibility policy for the note corpus | active |
 | [0044](0044-yaml-frontmatter-via-yams.md) | YAML frontmatter via Yams | active |
 | [0045](0045-session-diagnostics-are-dev-telemetry.md) | Session diagnostics are dev telemetry | active |
+| [0050](0050-fan-out-ceiling-retired-for-a-no-regression-gate.md) | Fan-out ceiling retired in favour of a no-regression gate | active |
