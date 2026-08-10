@@ -168,6 +168,81 @@ enum CorpusStore {
         }
     }
 
+    // MARK: - Reserved files
+
+    /// Regenerates every `index.md` the tree needs, and returns the relative
+    /// paths actually written.
+    ///
+    /// Called once per batch, never per save, and a level whose rendered bytes
+    /// are unchanged is skipped — otherwise every load would show up as a diff.
+    @discardableResult
+    static func writeIndexes(for notes: [MemoryNote]) -> [String] {
+        var directories = Set(notes.map { $0.relativeFolderPath ?? "" })
+        directories.insert("")
+        var written: [String] = []
+
+        for directory in directories.sorted() {
+            let entries = IndexDocument.entries(in: notes, directory: directory)
+            guard !entries.isEmpty else { continue }
+            let heading = directory.isEmpty
+                ? IndexDocument.rootHeading
+                : notes.first { NoteTreeProjection.subtreePath(of: $0) == directory }?.title
+                    ?? (directory as NSString).lastPathComponent
+            let rendered = IndexDocument.render(heading: heading, entries: entries, isRoot: directory.isEmpty)
+            let relative = directory.isEmpty
+                ? OKFBundle.indexFileName
+                : "\(directory)/\(OKFBundle.indexFileName)"
+            let url = rootURL.appendingPathComponent(relative)
+            if (try? String(contentsOf: url, encoding: .utf8)) == rendered { continue }
+            do {
+                try FileManager.default.createDirectory(
+                    at: url.deletingLastPathComponent(), withIntermediateDirectories: true
+                )
+                try rendered.write(to: url, atomically: true, encoding: .utf8)
+                written.append(relative)
+            } catch {
+                log.error("index write failed for \(relative, privacy: .public)")
+            }
+        }
+        return written
+    }
+
+    /// Appends one structural event to the root `log.md`.
+    static func appendLog(
+        _ sentence: String,
+        operation: CorpusLogDocument.Operation,
+        on date: Date = Date(),
+        timeZone: TimeZone = .current
+    ) {
+        let url = rootURL.appendingPathComponent(OKFBundle.logFileName)
+        let existing = try? String(contentsOf: url, encoding: .utf8)
+        let updated = CorpusLogDocument.appending(
+            sentence, operation: operation, on: date, to: existing, timeZone: timeZone
+        )
+        do {
+            try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+            try updated.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            log.error("log append failed")
+        }
+    }
+
+    /// Writes the corpus `AGENTS.md`, and only if it is absent. Returns true
+    /// when it was created. The user's edits to it are theirs to keep.
+    @discardableResult
+    static func writeAgentsFileIfAbsent() -> Bool {
+        let url = rootURL.appendingPathComponent(OKFBundle.agentsFileName)
+        guard !FileManager.default.fileExists(atPath: url.path) else { return false }
+        do {
+            try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+            try CorpusAgentsDocument.content.write(to: url, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            log.error("AGENTS.md write failed")
+            return false
+        }
+    }
+
     // MARK: - Move and rename
 
     /// Result of a structural change, so the caller can report what happened

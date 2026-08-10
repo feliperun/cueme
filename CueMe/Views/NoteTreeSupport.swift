@@ -128,6 +128,14 @@ extension AppModel {
         history = outcome.history
         noteTreeWarning = outcome.warning
         draggingNoteID = nil
+        guard outcome.warning == nil, let moved = outcome.history.first(where: { $0.id == draggedID }) else { return }
+        let destination = targetID.flatMap { id in history.first { $0.id == id } }
+        recordStructuralChange(
+            .moved,
+            "\(CorpusLogDocument.link(moved.title, path: NoteTreeProjection.subtreePath(of: moved) + ".md")) movida para "
+                + (destination.map { CorpusLogDocument.link($0.title, path: NoteTreeProjection.subtreePath(of: $0) + ".md") }
+                    ?? "a raiz do corpus") + "."
+        )
     }
 
     func acceptsNoteDrop(onto targetID: UUID?) -> Bool {
