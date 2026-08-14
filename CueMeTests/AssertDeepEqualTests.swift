@@ -63,15 +63,23 @@ final class AssertDeepEqualTests: XCTestCase {
 
     // MARK: - AC3
 
-    func testEqualByIdIsNotDeepEqual() {
+    /// `==` used to compare only `id`, which made two different notes look
+    /// equal — and told SwiftUI an edited note was unchanged, so the screen
+    /// kept showing the old one. Equality is structural now; the helper stays
+    /// because it names the field that differs instead of just saying "no".
+    func testTwoNotesWithTheSameIdAndDifferentContentAreNotEqual() {
         var other = note()
         other.markdownBody = "totalmente diferente"
         other.labels = ["nada", "a", "ver"]
 
-        // This is the trap the helper exists to close: XCTAssertEqual passes,
-        // because MemoryNote's == compares only `id`.
-        XCTAssertEqual(note(), other)
+        XCTAssertEqual(other.id, note().id, "same note")
+        XCTAssertNotEqual(note(), other, "same id, different content — not equal")
 
-        XCTAssertFalse(deepEqualFailures(note(), other).isEmpty)
+        let failures = deepEqualFailures(note(), other)
+        XCTAssertFalse(failures.isEmpty)
+        XCTAssertTrue(
+            failures.contains { $0.field == "markdownBody" },
+            "the helper has to name the field, not just report inequality"
+        )
     }
 }

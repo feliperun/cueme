@@ -22,7 +22,10 @@ enum SessionOrigin: String, Codable, CaseIterable, Sendable, Identifiable {
 /// The canonical domain entity. Session-specific fields are optional enrichment
 /// around a user-owned Markdown note rather than the product's primary object.
 struct MemoryNote: Codable, Identifiable, Sendable, Hashable {
-    static func == (l: MemoryNote, r: MemoryNote) -> Bool { l.id == r.id }
+    // Equality is structural, not by id. SwiftUI compares a view's stored
+    // values to decide whether to re-run its body, so an id-only `==` told it
+    // that an edited note was unchanged and the screen kept showing the old
+    // one. Identity lives in `id`; equality has to mean "the same content".
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
     let id: UUID
