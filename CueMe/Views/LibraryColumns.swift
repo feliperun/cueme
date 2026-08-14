@@ -26,6 +26,14 @@ struct NoteListColumn: View {
                 Spacer()
                 densityButton("list.bullet", active: !compact) { compact = false }
                 densityButton("list.dash", active: compact) { compact = true }
+                // The corpus is files, so someone else may have changed them.
+                // Activation already reloads; this is the explicit way to ask.
+                Button { app.reloadWorkspaceFromDisk(force: true) } label: {
+                    Image(systemName: "arrow.clockwise").font(.system(size: 11)).foregroundStyle(Theme.ink2)
+                }
+                .buttonStyle(.plain)
+                .help("Reler o corpus do disco")
+                .accessibilityIdentifier("library.refresh")
                 Button { _ = app.createMemoryNote(kind: .note) } label: {
                     Image(systemName: "plus").font(.system(size: 12)).foregroundStyle(Theme.ink2)
                 }

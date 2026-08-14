@@ -48,8 +48,8 @@ index.md, log.md, AGENTS.md  reserved: a map, a history, and the schema
 Everything is a note. A project is a note with notes inside it; a person is a
 note. Drag a note onto another in the sidebar and the folder is created for you.
 Recordings and attachments live under that note's `raw/`. Edit those Markdown files
-with another application if you want; CueMe reloads them when it becomes active or
-when you click the refresh button in the library. SQLite is only an index and may
+with another application if you want; CueMe rereads them when it becomes active,
+or immediately when you click refresh in the library. SQLite is only an index and may
 be deleted and rebuilt.
 
 From home, choose **New Note**, **Journal**, or **Record**. The header of any Note

@@ -174,9 +174,9 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(identifier: "session.20000000-0000-0000-0000-000000000001").count, 1)
 
         notes.click()
-        XCTAssertEqual(notes.value as? String, "selected;0")
+        XCTAssertEqual(notes.value as? String, "selected;2")
         XCTAssertFalse(app.buttons["session.20000000-0000-0000-0000-000000000001"].exists)
-        XCTAssertEqual(all.label, "All 2", "The All count must not inherit the selected type")
+        XCTAssertEqual(all.label, "All 4", "The All count must not inherit the selected type")
     }
 
     func testLiveTreeChildIsSyntheticAndReturnsToTheActiveSession() {

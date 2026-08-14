@@ -14,12 +14,16 @@ extension AppModel {
         return snapshot
     }
 
-    func reloadWorkspaceFromDisk() {
+    /// `force` is the user asking explicitly, which skips the mtime shortcut —
+    /// clicking refresh and getting nothing because a clock disagreed would be
+    /// worse than the reread it avoids. It does not open the UI-test guard: a
+    /// deterministic fixture must never be replaced by an empty archive.
+    func reloadWorkspaceFromDisk(force: Bool = false) {
         guard !isSessionBusy else { return }
         guard reloadFromDiskEnabled else { return }
         // Activation fires this every time. Stat the tree first: when no `.md`
         // is newer than the last load, there is nothing to read.
-        guard CorpusStore.corpusChanged(since: lastCorpusLoad) else { return }
+        guard force || CorpusStore.corpusChanged(since: lastCorpusLoad) else { return }
         lastCorpusLoad = CorpusStore.latestModification()
         history = CorpusStore.loadNotes()
         CorpusStore.writeIndexes(for: history)

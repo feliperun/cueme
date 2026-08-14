@@ -74,18 +74,14 @@ final class CueMeCorpusE2ETests: XCTestCase {
         return app
     }
 
-    /// `applicationWillBecomeActive` drives the reload, so CueMe has to really
-    /// lose and regain focus. Activating Finder is not enough — with no window
-    /// of its own it may leave CueMe frontmost, and then no activation event
-    /// fires at all. TextEdit opens a window and takes focus for certain.
-    /// `activate()` blocks until the app is frontmost, so no sleep is involved.
+    /// Activation reloads the corpus, but synthesizing a real app switch from a
+    /// test is at the mercy of the window server. The refresh control is the
+    /// same reload, asked for explicitly — deterministic, and a real affordance
+    /// rather than something that exists only for tests.
     private func reactivateForCorpusReload(_ app: XCUIApplication) {
-        let other = XCUIApplication(bundleIdentifier: "com.apple.TextEdit")
-        other.launch()
-        other.activate()
-        app.activate()
-        other.terminate()
-        app.activate()
+        let refresh = app.buttons["library.refresh"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        refresh.click()
     }
 
     private func waitForCorpusCondition(

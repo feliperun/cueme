@@ -91,6 +91,22 @@ final class WorkspaceReloadTests: XCTestCase {
         XCTAssertTrue(app.history.isEmpty, "nothing on disk is newer, so nothing may be read")
     }
 
+    /// The refresh control asks explicitly, so it must not be defeated by the
+    /// mtime shortcut — but it still may not replace a UI-test fixture.
+    func testForcingARereadSkipsTheMtimeShortcutButNotTheGuard() throws {
+        try writeDocument(title: "Acme", body: "corpo")
+        let app = try launched()
+        app.history = []
+
+        app.reloadWorkspaceFromDisk(force: true)
+        XCTAssertEqual(app.history.map(\.title), ["Acme"], "an explicit refresh always rereads")
+
+        app.reloadFromDiskEnabled = false
+        app.history = []
+        app.reloadWorkspaceFromDisk(force: true)
+        XCTAssertTrue(app.history.isEmpty, "force is not a way around the fixture guard")
+    }
+
     func testTheReloadStaysOffWhenNotArmed() throws {
         try writeDocument(title: "Acme", body: "corpo")
         let app = try launched()
