@@ -38,12 +38,16 @@ Open **Configure session → Archive → Choose folder** to place the corpus any
 you control (including a synced folder). CueMe creates this portable layout:
 
 ```text
-_Inbox/<note>/note.md
-<project-folder>/project.md
-<project-folder>/<note>/note.md
+acme.md              a note
+acme/atas.md         a note inside it — nesting has no depth limit
+acme/atas/reuniao-1.md
+acme/atas/reuniao-1/raw/     the transcript, audio and attachments
+index.md, log.md, AGENTS.md  reserved: a map, a history, and the schema
 ```
 
-Recordings and attachments live beside each `note.md`. Edit those Markdown files
+Everything is a note. A project is a note with notes inside it; a person is a
+note. Drag a note onto another in the sidebar and the folder is created for you.
+Recordings and attachments live under that note's `raw/`. Edit those Markdown files
 with another application if you want; CueMe reloads them when it becomes active or
 when you click the refresh button in the library. SQLite is only an index and may
 be deleted and rebuilt.

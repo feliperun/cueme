@@ -40,12 +40,14 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 6. **State** (`Model/AppModel`) — the single `@Observable` source of truth the
    UI reads. `SessionCoordinator` pushes into it; it never reaches back into the
    coordinator except through the command methods (`start()`, `stop()`, `ask()`).
-7. **Persistence** (`MemoryNote`, `NoteDocument`, `ProjectWorkspaceStore`,
-   `SessionArchive`/`SessionStore`, `Audio/MeetingRecording`) — every written or
-   recorded experience is one portable Note directory. Canonical `note.md`
-   frontmatter/body and canonical `project.md` folder metadata are user-owned;
-   `session.json` preserves lossless transcript/Coach/minutes state and audio is
-   stored beside it. `MemoryNote` is the only name for the entity.
+7. **Persistence** (`MemoryNote`, `Model/OKF/*`, `CorpusStore`/`NoteTree`,
+   `SessionArchive`, `Audio/MeetingRecording`) — every written or recorded
+   experience is one note in an OKF v0.2 bundle: `<slug>.md`, plus a sibling
+   `<slug>/` only when it has children or captured material. The Markdown is the
+   **only** durable copy — there is no JSON sidecar and no mirror. `raw/` holds
+   capture (verbatim transcript, audio, attachments); the note holds what was
+   extracted. `MemoryNote` is the only name for the entity, and hierarchy is the
+   path.
    `SessionOrigin` records whether memory came from live capture, an audio file
    or a Voice Memos share; imported sources never persist their original absolute
    path. Public external handoffs converge on an atomic `ExternalAudioInbox`.
@@ -77,7 +79,7 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
 | Imported audio | `AudioImportService` + `PrerecordedAudioTranscriber` | Read-only source; normalized M4A; native file STT or Deepgram batch. |
 | External audio handoff | `CueMeShare` + `ImportMeetingAudioIntent` + `ExternalAudioInbox` | Audio-only Share Extension, Shortcuts, document-open and drop; no private Voice Memos scan. |
 | CV import | `PDFKit` in `BriefEditor` | Extracts text from a pasted/imported résumé. |
-| Canonical personal corpus | `FileManager` + Markdown/frontmatter in `NoteDocument`, `ProjectWorkspaceStore`, `SessionStore` | User-selectable root; Project folders and Note folders remain readable without CueMe. |
+| Canonical personal corpus | `FileManager` + Markdown/YAML frontmatter in `Model/OKF/*` and `CorpusStore` | User-selectable root; an OKF v0.2 bundle that stays readable, editable and navigable without CueMe. |
 | Visual writing projection | `MarkdownBlockDocument` + native `MarkdownBlockEditor`/`NSTextView` | Notion-like blocks and inline formatting are transient; every mutation serializes to the canonical Markdown body. |
 | Derived knowledge index | SQLite3 + FTS5 + sqlite-vec in `SemanticMemoryIndex` | Local, rebuildable exact and semantic projection; never the source of truth. |
 | App configuration | `JSONEncoder`/`Decoder` in `BriefStore`/`MeetingContextStore` | Briefs, reusable contexts, people and glossary cache in Application Support. |
@@ -175,9 +177,11 @@ Data flows one direction, top to bottom; each layer only knows the one below it.
   absolute stored path.** `MemoryNote.archiveFolderName` combines timestamp
   and short UUID; `MeetingRecording` resolves it against the current archive root
   and falls back to the legacy UUID directory.
-- **Markdown is not a mirror.** Any saved mutation goes through `SessionStore.save`,
-  which rewrites canonical `note.md`, structured `session.json`, and the legacy
-  `session.md` compatibility export. Reads merge `note.md` over JSON.
+- **Markdown is not a mirror — it is the record.** Any saved mutation goes
+  through `CorpusStore.save`, which rewrites `<slug>.md` and, unless it is a live
+  snapshot, `raw/transcript.md`. Nothing emitted is write-only: everything the
+  writer produces the reader parses back, including keys this build does not know
+  and body text it did not author.
 - **Blocks are a view, not a document format.** `MarkdownBlockDocument` may be
   rebuilt at any time from the Markdown body; no block JSON or editor database is
   allowed to become a second source of truth.
