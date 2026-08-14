@@ -96,6 +96,22 @@ struct MarkdownBlockEditor: View {
         .frame(width: 36)
     }
 
+    /// Block ids are minted on every parse, so the E2E finds a checklist item
+    /// by the text it shows and reads its state from the accessibility value.
+    private func checklistToggle(_ block: MarkdownBlock) -> some View {
+        let checked = block.kind == .checklistChecked
+        return Button { document.toggleChecklist(block.id) } label: {
+            Image(systemName: checked ? "checkmark.square.fill" : "square")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(checked ? Theme.violet : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 8)
+        .accessibilityIdentifier("note.block.check.\(block.id.uuidString)")
+        .accessibilityLabel(Text(verbatim: block.content))
+        .accessibilityValue(checked ? "checked" : "unchecked")
+    }
+
     @ViewBuilder
     private func blockDecoration(_ block: MarkdownBlock, index: Int) -> some View {
         Group {
@@ -108,14 +124,7 @@ struct MarkdownBlockEditor: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
             case .checklistUnchecked, .checklistChecked:
-                Button { document.toggleChecklist(block.id) } label: {
-                    Image(systemName: block.kind == .checklistChecked ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(block.kind == .checklistChecked ? Theme.violet : Color.secondary)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 8)
-                .accessibilityIdentifier("note.block.check.\(block.id.uuidString)")
+                checklistToggle(block)
             case .quote:
                 RoundedRectangle(cornerRadius: 2).fill(Theme.violet).frame(width: 3).padding(.vertical, 5)
             default:

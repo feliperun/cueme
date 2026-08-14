@@ -164,6 +164,9 @@ final class AppModel {
     /// Newest `.md` mtime at the last corpus load, so an activation that
     /// changed nothing reads nothing.
     var lastCorpusLoad: Date?
+    /// Resolved once at launch rather than read from the environment on every
+    /// activation — the answer cannot change while the process lives.
+    var reloadFromDiskEnabled = UITestFixtures.reloadFromDiskIsEnabled()
     var postProcessingError: String?
     var globalMemoryAnswer: String?
     var globalMemoryAnswering = false
@@ -191,9 +194,10 @@ final class AppModel {
     init(isUITesting: Bool? = nil) {
         let uiTesting = isUITesting
             ?? (ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1")
-        let uiTestRoot = uiTesting ? UITestFixtures.uiTestRoot : nil
+        let externalCorpus = uiTesting ? UITestFixtures.externalCorpusRoot() : nil
+        let uiTestRoot = uiTesting ? (externalCorpus ?? UITestFixtures.uiTestRoot) : nil
         if let uiTestRoot {
-            UITestFixtures.configureIsolatedStorage(at: uiTestRoot)
+            UITestFixtures.configureIsolatedStorage(at: uiTestRoot, clearing: externalCorpus == nil)
         }
         self.diagnosticsLog = DiagnosticsLog()
         self.isUITesting = uiTesting
@@ -283,14 +287,16 @@ final class AppModel {
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
         updateReporter.onChange = { [weak self] status in self?.updateStatus = status }
-        self.history = uiTesting ? UITestFixtures.memory.records : CorpusStore.loadNotes()
+        self.history = (uiTesting && externalCorpus == nil)
+            ? UITestFixtures.memory.records
+            : CorpusStore.loadNotes()
         self.knowledgeIndex.rebuild(history)
         // The reserved files are refreshed once per load, not per save: an
         // index whose bytes are unchanged is skipped, so a quiet start is a
         // quiet diff.
         CorpusStore.writeAgentsFileIfAbsent()
         CorpusStore.writeIndexes(for: history)
-        self.lastCorpusLoad = uiTesting ? nil : CorpusStore.latestModification()
+        self.lastCorpusLoad = (uiTesting && externalCorpus == nil) ? nil : CorpusStore.latestModification()
         if uiTesting {
             self.profiles = [UITestFixtures.profile]
             self.contexts = []

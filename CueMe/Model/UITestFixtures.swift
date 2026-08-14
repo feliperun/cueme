@@ -47,8 +47,10 @@ enum UITestFixtures {
             )
     }
 
-    static func configureIsolatedStorage(at root: URL) {
-        try? FileManager.default.removeItem(at: root)
+    /// `clearing` is false only when the runner supplied its own corpus: the
+    /// whole point of that mode is that the files were put there before launch.
+    static func configureIsolatedStorage(at root: URL, clearing: Bool = true) {
+        if clearing { try? FileManager.default.removeItem(at: root) }
         CorpusStore.rootOverride = root
         ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
         DiagnosticsLog.rootOverride = root.appendingPathComponent("Logs", isDirectory: true)
@@ -57,6 +59,23 @@ enum UITestFixtures {
     /// A sibling of the corpus root, not a descendant — the semantic index is
     /// a derived cache, not part of the user's Markdown corpus, and living
     /// inside `root` would make `CorpusStore.loadNotes()` walk right over it.
+    /// A UI test can hand the app a real corpus on disk instead of the
+    /// deterministic in-memory fixture. That is the only way to prove the
+    /// premise of the whole refactor: an edit made outside CueMe reaches the UI.
+    static func externalCorpusRoot(_ environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
+        guard let path = environment["CUEME_UI_CORPUS_ROOT"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    /// App activation can race with `.task { delegate.connect(app) }` during UI
+    /// tests, and reloading would replace the deterministic fixture with the
+    /// intentionally empty temporary archive. So the reload stays off — unless
+    /// the runner supplied a real corpus, which is exactly what it wants read.
+    static func reloadFromDiskIsEnabled(_ environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        guard environment["CUEME_UI_TESTING"] == "1" else { return true }
+        return externalCorpusRoot(environment) != nil
+    }
+
     static func semanticIndexURL(at root: URL) -> URL {
         root.deletingLastPathComponent()
             .appendingPathComponent("\(root.lastPathComponent)-Derived", isDirectory: true)

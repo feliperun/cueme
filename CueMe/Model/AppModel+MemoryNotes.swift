@@ -16,12 +16,7 @@ extension AppModel {
 
     func reloadWorkspaceFromDisk() {
         guard !isSessionBusy else { return }
-        // App activation can race with `.task { delegate.connect(app) }` during
-        // UI tests. Never replace the deterministic in-memory corpus with the
-        // intentionally empty temporary archive used by the test process.
-        if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
-            return
-        }
+        guard reloadFromDiskEnabled else { return }
         // Activation fires this every time. Stat the tree first: when no `.md`
         // is newer than the last load, there is nothing to read.
         guard CorpusStore.corpusChanged(since: lastCorpusLoad) else { return }
