@@ -10,7 +10,26 @@ import OSLog
 /// it. `loadNotes()` already reads only the Markdown, so this is ordering a
 /// two-sided change inside one PR, not a compatibility layer.
 enum CorpusStore {
-    nonisolated(unsafe) static var rootOverride: URL?
+    /// A different root is a different corpus, so the legacy verdict from the
+    /// previous one does not carry over.
+    nonisolated(unsafe) static var rootOverride: URL? {
+        didSet { isReadOnly = false }
+    }
+
+    /// Set when the chosen archive still holds a pre-OKF layout. Every write is
+    /// refused while it is on: a save would drop everything that still lives
+    /// only in `session.json`.
+    nonisolated(unsafe) private(set) static var isReadOnly = false
+
+    /// Re-answers "has this archive been migrated?" for the current root, and
+    /// returns the verdict. Called when the app opens a corpus, not per save —
+    /// it walks the tree.
+    @discardableResult
+    static func refreshLegacyGuard() -> Bool {
+        isReadOnly = holdsLegacyArchive()
+        return isReadOnly
+    }
+
     private static let configuredRootKey = "sessionArchiveRootPath"
     private static let log = Logger(subsystem: "CueMe", category: "CorpusStore")
 
@@ -24,6 +43,7 @@ enum CorpusStore {
     }
 
     static func setRoot(_ url: URL) throws {
+        isReadOnly = false
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         UserDefaults.standard.set(url.standardizedFileURL.path, forKey: configuredRootKey)
     }
@@ -127,7 +147,11 @@ enum CorpusStore {
     /// save at session end renders the whole thing.
     @discardableResult
     static func save(_ note: MemoryNote, includingTranscript: Bool = true) -> URL? {
-        writeNoteDocument(resolvingLocation(note), includingTranscript: includingTranscript)
+        guard !isReadOnly else {
+            log.error("refused to write: the archive has not been migrated yet")
+            return nil
+        }
+        return writeNoteDocument(resolvingLocation(note), includingTranscript: includingTranscript)
     }
 
     /// Walks the tree from the root, reading only `.md` files and never
@@ -234,6 +258,30 @@ enum CorpusStore {
             log.error("transcript append failed")
             return []
         }
+    }
+
+    // MARK: - Legacy archive guard
+
+    /// True when the root still holds a pre-OKF archive: a `session.json`, or a
+    /// `note.md` inside a note folder.
+    ///
+    /// This is not a compatibility path — ADR 0043 forbids those, and ADR 0049
+    /// makes the migration a one-shot external script. It is a stop: an
+    /// unmigrated archive still keeps transcripts, coach cards, minutes and
+    /// evidence in `session.json`, which this build no longer reads. Writing to
+    /// it would drop all of that on the first save, and auto-update means the
+    /// user never chose the moment. So the app reads nothing and writes
+    /// nothing until the migration has run.
+    static func holdsLegacyArchive(at root: URL? = nil) -> Bool {
+        let base = root ?? rootURL
+        guard let walker = FileManager.default.enumerator(
+            at: base, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ) else { return false }
+        for case let url as URL in walker {
+            if url.lastPathComponent == "session.json" { return true }
+            if url.lastPathComponent == "note.md" { return true }
+        }
+        return false
     }
 
     // MARK: - Change detection

@@ -57,6 +57,16 @@ struct NoteTreeColumn: View {
                     }
                     .accessibilityIdentifier(NoteTreeIdentifier.rootDropZone)
             }
+            if app.corpusNeedsMigration {
+                Text("Este arquivo ainda está no formato antigo. Rode a migração antes de usar — nada será lido ou gravado até lá.")
+                    .font(.ui(11))
+                    .foregroundStyle(Theme.amberText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 8).padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.violetSoft, in: RoundedRectangle(cornerRadius: 6))
+                    .accessibilityIdentifier("corpus.needs-migration")
+            }
             if let warning = app.noteTreeWarning {
                 Text(warning)
                     .font(.ui(11))

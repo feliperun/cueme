@@ -97,3 +97,4 @@ proposed → active → superseded
 | [0048](0048-navigable-corpus-and-target-operations.md) | A navigable corpus: reserved files and target operations | active |
 | [0049](0049-one-shot-external-migration.md) | One-shot external migration to the OKF v0.2 corpus | active |
 | [0050](0050-fan-out-ceiling-retired-for-a-no-regression-gate.md) | Fan-out ceiling retired in favour of a no-regression gate | active |
+| [0051](0051-refuse-to-touch-an-unmigrated-archive.md) | Refuse to touch an unmigrated archive | active |

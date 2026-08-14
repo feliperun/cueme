@@ -168,6 +168,9 @@ final class AppModel {
     /// refresh control so a test can tell "the reload never ran" from "it ran
     /// and read the same thing".
     var corpusLoadCount = 0
+    /// The chosen archive still holds a pre-OKF layout. Everything is read-only
+    /// until `scripts/migrate-okf.py` has run — see ADR 0049.
+    var corpusNeedsMigration = false
     /// Resolved once at launch rather than read from the environment on every
     /// activation — the answer cannot change while the process lives.
     var reloadFromDiskEnabled = UITestFixtures.reloadFromDiskIsEnabled()
@@ -298,8 +301,17 @@ final class AppModel {
         // The reserved files are refreshed once per load, not per save: an
         // index whose bytes are unchanged is skipped, so a quiet start is a
         // quiet diff.
-        CorpusStore.writeAgentsFileIfAbsent()
-        CorpusStore.writeIndexes(for: history)
+        // An unmigrated archive keeps transcripts and minutes in session.json,
+        // which this build does not read. Touch nothing until it is migrated.
+        self.corpusNeedsMigration = (uiTesting && externalCorpus == nil)
+            ? false
+            : CorpusStore.refreshLegacyGuard()
+        if corpusNeedsMigration {
+            self.history = []
+        } else {
+            CorpusStore.writeAgentsFileIfAbsent()
+            CorpusStore.writeIndexes(for: history)
+        }
         self.lastCorpusLoad = (uiTesting && externalCorpus == nil) ? nil : CorpusStore.latestModification()
         if uiTesting {
             self.profiles = [UITestFixtures.profile]

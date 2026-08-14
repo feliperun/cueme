@@ -214,6 +214,11 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
   helpers first and re-measure; splitting is the answer only when the file is
   genuinely large ([ADR 0050](docs/adr/0050-fan-out-ceiling-retired-for-a-no-regression-gate.md)).
   Measure with `git add -N .` first — `git ls-files` does not see untracked files.
+- **An unmigrated archive is read-only, by design.** `CorpusStore` refuses every
+  write when it finds a `session.json` or a nested `note.md`, because this build
+  cannot see what still lives in the sidecar and a save would drop it. The
+  verdict is per root and resets when the root changes
+  ([ADR 0051](docs/adr/0051-refuse-to-touch-an-unmigrated-archive.md)).
 - **Do not write only to SQLite.** Every new durable note/project field needs a
   Markdown/frontmatter representation and a round-trip test proving filesystem
   edits load back. Search/index tests must also prove the index can be rebuilt.
