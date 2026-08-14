@@ -1,5 +1,50 @@
 # Changelog
 
+## [2.0.0](https://github.com/feliperun/cueme/compare/v1.4.1...v2.0.0) (2026-08-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* store the corpus as an OKF v0.2 bundle with one entity
+* store the corpus as an OKF v0.2 bundle with one entity ([#46](https://github.com/feliperun/cueme/issues/46))
+* knowledge-entities.json is no longer read or written.
+* notes are no longer readable without migrating the archive to the OKF corpus first — see scripts/migrate-okf.py. The JSON export is removed.
+* `SessionRecord` no longer exists; `MemoryNote` is the only name for the durable base entity. Archives under ~/Library/Application Support/CueMe/sessions are no longer read.
+
+### Features
+
+* collapse projects and people into notes ([3fc64e1](https://github.com/feliperun/cueme/commit/3fc64e1f0bc9ec8209be275d8f8d3b986a3e6adc))
+* delete session.json and the JSON export ([a7f3c88](https://github.com/feliperun/cueme/commit/a7f3c885e2ed59ba675daad1a7f3b7b25fd198e4))
+* **library:** add an explicit corpus refresh ([afa0e01](https://github.com/feliperun/cueme/commit/afa0e01035342ead13c1b2f1d14d7955a6565cfd))
+* **library:** nest notes by drag and drop ([1ccd7df](https://github.com/feliperun/cueme/commit/1ccd7dfef8ef08bd376b1b6eaa6dc5097d7b89ec))
+* **okf:** add corpus layout and slug rules ([4cf17dd](https://github.com/feliperun/cueme/commit/4cf17dd6e147e18aa0805a2c29795d91afaee708))
+* **okf:** add inline item attribute codec ([62cf1c8](https://github.com/feliperun/cueme/commit/62cf1c884d554cdd0dd9c0e4d545d96bbb7d0976))
+* **okf:** add section marker splitter and escaping ([f613e47](https://github.com/feliperun/cueme/commit/f613e472be90e2bf6c0c70981dfa82785e23f758))
+* **okf:** add YAML frontmatter codec ([a09b4fa](https://github.com/feliperun/cueme/commit/a09b4faf13880fb45efb8eae1dcac1116821ff25))
+* **okf:** emit per-level indexes, append-only log and corpus AGENTS.md ([2ed1c90](https://github.com/feliperun/cueme/commit/2ed1c909d25f234ec99b0a89a2de0a6a9ee2abc6))
+* **okf:** load and save the note tree ([4e54819](https://github.com/feliperun/cueme/commit/4e54819de6ecb78f0f7bd9653f2efe1c764c5a5b))
+* **okf:** move and rename notes, rewriting inbound links ([ab49e75](https://github.com/feliperun/cueme/commit/ab49e7567e679a734d0fe1084da662e753c1f1e4))
+* **okf:** read note markdown as the durable source ([8cefeee](https://github.com/feliperun/cueme/commit/8cefeee55560fbd98ab1790cfd87e40e3691e492))
+* **okf:** write and read raw/transcript.md ([b7e7252](https://github.com/feliperun/cueme/commit/b7e72523a208d4a6c2fd5f910158bb81ef485910))
+* **okf:** write note markdown as an OKF concept doc ([f4934ee](https://github.com/feliperun/cueme/commit/f4934ee76175293a59d0ec2322aa0fd51bc16120))
+* rename SessionRecord to MemoryNote and adopt greenfield policy ([b7d3fd8](https://github.com/feliperun/cueme/commit/b7d3fd8dcef37f3a7f50add10c932d6efd090f08))
+* **scripts:** add the one-shot OKF migration ([0ba359a](https://github.com/feliperun/cueme/commit/0ba359a2888ae24489d38a5ee2f7d1429f72418a))
+* store the corpus as an OKF v0.2 bundle with one entity ([12d1d38](https://github.com/feliperun/cueme/commit/12d1d3894b92d275126c294bc28a8e63bdcbd430))
+* store the corpus as an OKF v0.2 bundle with one entity ([#46](https://github.com/feliperun/cueme/issues/46)) ([12d1d38](https://github.com/feliperun/cueme/commit/12d1d3894b92d275126c294bc28a8e63bdcbd430))
+
+
+### Bug Fixes
+
+* **e2e:** realign the memory scenarios with the one-entity model ([9297824](https://github.com/feliperun/cueme/commit/92978248abecd2473dfd30be1bd23179f8a27163))
+* **model:** make MemoryNote equality structural ([b4e661b](https://github.com/feliperun/cueme/commit/b4e661b852e31bf54d5187aa7393031afe37e92a))
+* **model:** refuse to read or write an unmigrated archive ([e138922](https://github.com/feliperun/cueme/commit/e138922aafc3d7e5bffc83f256c839e6100f9930))
+* **tests:** give each runner process its own UI-test corpus root ([434f6d7](https://github.com/feliperun/cueme/commit/434f6d7aa11d03b8e7523dad402b51f8c5c592ad))
+
+
+### Performance Improvements
+
+* **okf:** append transcript turns during live sessions ([8f0c802](https://github.com/feliperun/cueme/commit/8f0c80277a7bfa896c0027913c4e874ed7d1c51a))
+
 ## [1.4.1](https://github.com/feliperun/cueme/compare/v1.4.0...v1.4.1) (2026-08-07)
 
 
