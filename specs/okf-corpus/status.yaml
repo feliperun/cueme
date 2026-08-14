@@ -287,7 +287,7 @@ tasks:
 
   - id: T021
     title: E2E de edição externa e aninhamento
-    status: done
+    status: blocked
     depends_on: [T017, T018]
     branch: felipe/okf-T021-e2e
     agent: orchestrator
@@ -296,9 +296,10 @@ tasks:
     review: { round: 0, verdict: approved_with_caveat, findings: [] }
     notes: >-
       AC3 provado com o runner de UI local. AC1/AC2 provados em
-      WorkspaceReloadTests (unitario); o cenario de UI correspondente nao pode
-      ser verificado localmente porque o runner travou em System authentication.
-      ui-e2e no CI e o gate.
+      WorkspaceReloadTests (unitario). ABERTO: ui-e2e vermelho no PR #46 com dois
+      cenarios (testExternallyEditedNoteMarkdownWinsInTheUI e
+      testCreatesRenamesLabelsAndEditsAMarkdownNoteWithVisualBlocks). Sao falhas
+      de camada de view; o runner local esta bloqueado por System authentication.
 
   - id: T022
     title: Documentar o corpus OKF
