@@ -5,8 +5,7 @@ import UniformTypeIdentifiers
 ///
 /// These used to live in a fixed chrome bar above the document. They belong to
 /// the note itself, so they now sit under the masthead and scroll with it —
-/// keeping the accessibility contracts (`note.labels`, `session.project`)
-/// unchanged.
+/// keeping the accessibility contracts (`note.labels`, `note.links`) stable.
 struct NoteMetadataChips: View {
     @Environment(AppModel.self) private var app
     let record: MemoryNote
@@ -147,6 +146,7 @@ struct NoteMetadataChips: View {
                         Text("\(entry.title) · \(entry.detail)").font(.ui(11)).lineLimit(1)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("timeline.\(entry.id)")
                 }
             }
         }

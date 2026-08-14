@@ -97,14 +97,14 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertEqual(decision.value as? String, "Contrato solar aprovado")
     }
 
-    func testProjectPopoverShowsLongitudinalTimeline() {
+    func testLinksPopoverShowsLongitudinalTimeline() {
         continueAfterFailure = false
         let app = launchApp()
         defer { app.terminate() }
         let session = app.buttons["session.20000000-0000-0000-0000-000000000001"]
         XCTAssertTrue(session.waitForExistence(timeout: 5))
         session.click()
-        let container = app.buttons["session.project"]
+        let container = app.buttons["note.links"]
         XCTAssertTrue(container.waitForExistence(timeout: 5))
         container.click()
 
@@ -161,13 +161,15 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let meetings = app.buttons["note-list.tab.meetings"]
         let notes = app.buttons["note-list.tab.notes"]
         XCTAssertTrue(all.waitForExistence(timeout: 5))
-        XCTAssertEqual(all.label, "All 2")
-        XCTAssertEqual(all.value as? String, "selected;2")
+        // A container is an ordinary note, so "Projeto Mobilidade" and "Marina"
+        // are counted and listed like any other — there is no entity to hide.
+        XCTAssertEqual(all.label, "All 4")
+        XCTAssertEqual(all.value as? String, "selected;4")
         XCTAssertEqual(meetings.value as? String, "unselected;2")
-        XCTAssertEqual(notes.value as? String, "unselected;0")
+        XCTAssertEqual(notes.value as? String, "unselected;2")
 
         meetings.click()
-        XCTAssertEqual(all.value as? String, "unselected;2")
+        XCTAssertEqual(all.value as? String, "unselected;4")
         XCTAssertEqual(meetings.value as? String, "selected;2")
         XCTAssertEqual(app.buttons.matching(identifier: "session.20000000-0000-0000-0000-000000000001").count, 1)
 
@@ -646,7 +648,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         // Metadata affordances survived the move out of the old chrome bar.
         XCTAssertTrue(app.buttons["note.labels"].exists)
-        XCTAssertTrue(app.buttons["session.project"].exists)
+        XCTAssertTrue(app.buttons["note.links"].exists)
         XCTAssertTrue(app.buttons["note.attach"].exists)
 
         // A brand-new note takes the very first keystroke, no extra click.
