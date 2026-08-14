@@ -44,6 +44,15 @@ jobs:
           CODE_SIGN_IDENTITY=-
           CODE_SIGNING_REQUIRED=YES
 
+  okf-migration-self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Run migrate-okf.py self-test
+        run: uv run scripts/tests/test_migrate_okf.py
+
   sentrux:
     runs-on: ubuntu-latest
     steps:

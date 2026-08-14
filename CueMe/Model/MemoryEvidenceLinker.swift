@@ -1,7 +1,7 @@
 import Foundation
 
 enum MemoryEvidenceLinker {
-    static func evidence(for text: String, in record: SessionRecord?) -> [MemoryEvidence] {
+    static func evidence(for text: String, in record: MemoryNote?) -> [MemoryEvidence] {
         guard let record else { return [] }
         let wanted = tokens(text)
         guard wanted.count >= 2 else { return [] }

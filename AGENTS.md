@@ -6,6 +6,11 @@
 
 Critical guardrails for this repository — read before writing code or opening a PR.
 
+Write the minimum code that runs. No fluff, no gold-plating.
+
+- Do not preserve backward compatibility. Remove obsolete paths instead of adding
+  compatibility layers, fallbacks, or migrations.
+
 ---
 
 ## 1. Privacy & secrets (hard rules)
@@ -35,10 +40,12 @@ Critical guardrails for this repository — read before writing code or opening 
 
 ```bash
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
-xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' test
+xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -skip-testing:CueMeUITests test
 sentrux check .
 sentrux gate .
 ```
+
+The UI suite is **not** part of the local loop — run it on demand (see below).
 
 ---
 
@@ -68,12 +75,21 @@ but do not replace an E2E regression test. Key workflows include capture,
 recording, STT, playback, memory/search/embeddings, persistence, evidence,
 projects/people, Coach/AI generation, import/export, privacy and failover.
 
-Before declaring work complete, the agent must run both suites explicitly:
+**Writing the E2E scenario stays mandatory. Running it locally does not.** The UI
+suite runs **on demand** and is enforced by the `ui-e2e` CI job, which is a
+required check. Locally, run unit tests on every loop and the UI suite only when
+you are working on the flow it covers, or when asked:
 
 ```bash
+# every local loop
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -skip-testing:CueMeUITests test
+
+# on demand only
 xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' -only-testing:CueMeUITests test
 ```
+
+When you skip the local UI run, say so when reporting the work — CI is then the
+first place the scenario executes.
 
 E2E fixtures must be synthetic, deterministic and isolated from the user's
 archive, Keychain, network providers and production SQLite database. Use stable
@@ -84,13 +100,15 @@ the PR. See [ADR 0029](docs/adr/0029-key-feature-e2e-regression-gate.md).
 ### Check suite (runs on every push / PR)
 
 ```bash
-xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO           # compile
-xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' test                                   # XCTest (signed test host)
+xcodebuild ... build CODE_SIGNING_ALLOWED=NO                    # compile
+xcodebuild ... -skip-testing:CueMeUITests test                  # unit + integration
+xcodebuild ... -only-testing:CueMeUITests test                  # UI E2E (separate CI job)
 sentrux check .           # architectural rules (.sentrux/rules.toml)
 sentrux gate .            # no structural regression vs baseline
 ```
 
-CI mirrors this — see `.github/workflows/quality.yml`.
+CI runs all of it, with unit and UI as separate jobs — see
+`.github/workflows/quality.yml`. Locally, only the UI line is optional.
 
 ### Code conventions
 
@@ -98,8 +116,8 @@ CI mirrors this — see `.github/workflows/quality.yml`.
 - **Surgical changes.** Match existing style; don't refactor unrelated code.
 - **Validate at boundaries.** Don't bypass schema validation with `any`.
 - **`MemoryNote` is the durable base entity.** A recording/session is an enriched
-  Note, not a parallel persistence hierarchy. `SessionRecord` is a compatibility
-  alias only; use the new vocabulary in product code and docs.
+  Note, not a parallel persistence hierarchy. It is the only name for it — the
+  `SessionRecord` alias was removed ([ADR 0043](docs/adr/0043-greenfield-compatibility-policy.md)).
 - **Files are authoritative.** `note.md`, `project.md`, relative Project/Note
   folders, audio and attachments are the user-owned corpus. SQLite/FTS5/sqlite-vec
   and JSON catalogs are derived indexes or structured sidecars. Never make a
@@ -165,9 +183,51 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
 - **No absolute file paths in exported session JSON.** Audio recordings are
   located by session id at read time (`MeetingRecording.directory(for:)`), never
   stored as a literal path — keeps exports portable across machines/reinstalls.
+- **The Markdown is the only durable copy.** There is no JSON sidecar any more
+  ([ADR 0046](docs/adr/0046-note-corpus-is-an-okf-bundle.md)). A new durable
+  field is not done when a test proves it was *written* — it is done when a test
+  proves it survives a full round trip, including a hand edit of the file.
+- **`MemoryNote` is `Equatable` by id alone.** `XCTAssertEqual` on two notes
+  compares nothing else, so a round-trip test written the obvious way passes
+  while losing every field. Use `assertDeepEqual`, which walks the fields and
+  fails on a pinned `Mirror` count when the model grows.
+- **A note is two filesystem objects**, `<slug>.md` and the conditional
+  `<slug>/`. Move and rename have to carry both, folder first, with the folder
+  put back if the document step fails — otherwise a subtree is stranded away from
+  the document that names it. Use `CorpusStore.move`/`rename`; do not reimplement.
+- **Saving a note whose transcript is `.notLoaded` must never touch
+  `raw/transcript.md`.** `loadNotes()` deliberately does not read `raw/`, so a
+  lazily-loaded note saved the naive way would erase a transcript that was merely
+  never read. `TranscriptState` makes that unrepresentable — keep it that way.
+- **Yams stays inside `CueMe/Model/OKF/`.** `Node`/`Emitter` are not `Sendable`
+  under Swift 6 strict concurrency, so they are confined to synchronous,
+  non-escaping calls and preserved YAML crosses boundaries as `String`
+  ([ADR 0044](docs/adr/0044-yaml-frontmatter-via-yams.md)).
+- **`<unknown>:0: error: circular reference` is usually stale DerivedData**, not
+  your diff. It survives a normal rebuild and points at no file. Fix:
+  `rm -rf ~/Library/Developer/Xcode/DerivedData/CueMe-*/Build/Intermediates.noindex/CueMe.build`.
+  Do this before bisecting a type error that makes no sense.
+- **Sentrux counts *outgoing* calls, resolved by name.** A test helper called
+  `write`, `store`, `note` or `day` creates phantom edges to every same-named
+  call site in the repo and can inflate the god-file count of files you did not
+  touch. When `gate` regresses right after adding tests, rename the generic
+  helpers first and re-measure; splitting is the answer only when the file is
+  genuinely large ([ADR 0050](docs/adr/0050-fan-out-ceiling-retired-for-a-no-regression-gate.md)).
+  Measure with `git add -N .` first — `git ls-files` does not see untracked files.
+- **An unmigrated archive is read-only, by design.** `CorpusStore` refuses every
+  write when it finds a `session.json` or a nested `note.md`, because this build
+  cannot see what still lives in the sidecar and a save would drop it. The
+  verdict is per root and resets when the root changes
+  ([ADR 0051](docs/adr/0051-refuse-to-touch-an-unmigrated-archive.md)).
 - **Do not write only to SQLite.** Every new durable note/project field needs a
   Markdown/frontmatter representation and a round-trip test proving filesystem
   edits load back. Search/index tests must also prove the index can be rebuilt.
+- **The UI runner can fail to start on a dev machine**, with
+  `The test runner failed to initialize for UI testing. (Underlying Error: Timed
+  out while enabling automation mode.)`. It is an environment failure, not a test
+  failure — the same command fails on a clean checkout. Verify against a clean
+  tree before blaming your diff, and let the `ui-e2e` CI job be the gate. This is
+  why the local loop skips `CueMeUITests`.
 
 ---
 
@@ -176,7 +236,7 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
 - [ ] `xcodebuild -project CueMe.xcodeproj -scheme CueMe -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` passes locally.
 - [ ] `sentrux check .` passes; `sentrux gate .` shows no degradation on touched files.
 - [ ] CI is green on the PR.
-- [ ] Key user-visible behavior has a deterministic `CueMeUITests` regression and the UI E2E check is green.
+- [ ] Key user-visible behavior has a deterministic `CueMeUITests` regression, and the `ui-e2e` CI job is green (running it locally is optional).
 - [ ] No secrets, tokens, or internal URLs in the diff.
 - [ ] If a structural decision was made: ADR exists and `docs/adr/README.md` index is updated.
 - [ ] Conventional Commit title.
@@ -193,8 +253,8 @@ CueMe/                    App target (see docs/ARCHITECTURE.md for the full brea
   STT/                    On-device speech + translation
   Bus/                    TranscriptBus actor (fan-out + rolling window)
   Brain/                  Claude CLI client/session, prompts, coach/summary lanes
-  Model/                  AppModel, MemoryNote, NoteDocument, ProjectWorkspaceStore,
-                          SessionCoordinator, SessionBrief, semantic index, Types
+  Model/                  AppModel, MemoryNote, OKF/ (bundle format), CorpusStore,
+                          NoteTree, SessionCoordinator, SessionBrief, semantic index, Types
   Views/                  SwiftUI (Second Brain home/sidebar, Markdown editor,
                           live workspace, session review, brief editor, About)
   Assets.xcassets/        App icon, accent color

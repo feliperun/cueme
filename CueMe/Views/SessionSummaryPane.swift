@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SessionSummaryPane: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
 
     var body: some View {
         ScrollView {

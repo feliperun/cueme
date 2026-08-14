@@ -851,7 +851,7 @@ final class SessionCoordinator {
         }
         app.updateConversationStyle()
         app.recordDiagnostic(kind: .transcription, name: "stt_final", speaker: event.speaker)
-        if app.diagnostics.count("stt_final").isMultiple(of: 25) {
+        if app.diagnosticsLog.count("stt_final").isMultiple(of: 25) {
             app.persistLiveSnapshot()
         }
         watchdog.observeTranscript(event.speaker)
@@ -1196,7 +1196,6 @@ final class SessionCoordinator {
         do {
             if let minutes = try await summaryJob.value {
                 app.minutes = minutes
-                app.summaryBullets = minutes.topics.map { "\($0.title): \($0.summary)" }
                 app.summaryBackendError = nil
                 app.recalculateRuntimeHealth()
                 summaryPolicy.markSummarized(turnCount: batch.cursor)

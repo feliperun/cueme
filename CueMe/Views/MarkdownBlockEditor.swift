@@ -1,10 +1,17 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// The blocks of a note body, laid out for the reading column its host provides.
+///
+/// It renders no scroll view and no page geometry: the surrounding document
+/// surface owns the band, so the masthead and the empty-note affordances scroll
+/// with the blocks as one page. Drag/insert handles sit in the host's gutter so
+/// they never narrow the text.
 struct MarkdownBlockEditor: View {
     @Binding var document: MarkdownBlockDocument
     @Binding var focusedBlockID: UUID?
     let formatRequest: MarkdownBlockFormatRequest?
+    let insertBlockRequest: Int
 
     @State private var focusRequest: MarkdownBlockFocusRequest?
     @State private var menuContext: BlockMenuContext?
@@ -13,36 +20,33 @@ struct MarkdownBlockEditor: View {
     @State private var heights: [UUID: CGFloat] = [:]
 
     var body: some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: 0) {
             LazyVStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(document.blocks.enumerated()), id: \.element.id) { index, block in
                     blockRow(block, index: index)
                 }
-                Color.clear
-                    .frame(height: 100)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if let last = document.blocks.last {
-                            requestFocus(last.id, placement: .end)
-                        }
-                    }
             }
-            .frame(maxWidth: 820, alignment: .leading)
-            .padding(.horizontal, 54)
-            .padding(.vertical, 42)
+            Color.clear
+                .frame(height: 72)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if let last = document.blocks.last {
+                        requestFocus(last.id, placement: .end)
+                    }
+                }
         }
-        .background(Theme.canvas)
-        .accessibilityIdentifier("note.editor.blocks")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: insertBlockRequest) { _, _ in openInsertMenuOnLastBlock() }
     }
 
     private func blockRow(_ block: MarkdownBlock, index: Int) -> some View {
         HStack(alignment: .top, spacing: 3) {
-            blockHandles(block)
             blockDecoration(block, index: index)
             blockSurface(block, index: index)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .overlay(alignment: .topLeading) { blockHandles(block).offset(x: -40) }
         .onHover { hovering in hoveredBlockID = hovering ? block.id : nil }
         .onDrop(
             of: [UTType.text],
@@ -92,6 +96,22 @@ struct MarkdownBlockEditor: View {
         .frame(width: 36)
     }
 
+    /// Block ids are minted on every parse, so the E2E finds a checklist item
+    /// by the text it shows and reads its state from the accessibility value.
+    private func checklistToggle(_ block: MarkdownBlock) -> some View {
+        let checked = block.kind == .checklistChecked
+        return Button { document.toggleChecklist(block.id) } label: {
+            Image(systemName: checked ? "checkmark.square.fill" : "square")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(checked ? Theme.violet : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 8)
+        .accessibilityIdentifier("note.block.check.\(block.id.uuidString)")
+        .accessibilityLabel(Text(verbatim: block.content))
+        .accessibilityValue(checked ? "checked" : "unchecked")
+    }
+
     @ViewBuilder
     private func blockDecoration(_ block: MarkdownBlock, index: Int) -> some View {
         Group {
@@ -104,28 +124,30 @@ struct MarkdownBlockEditor: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
             case .checklistUnchecked, .checklistChecked:
-                Button { document.toggleChecklist(block.id) } label: {
-                    Image(systemName: block.kind == .checklistChecked ? "checkmark.square.fill" : "square")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(block.kind == .checklistChecked ? Theme.violet : Color.secondary)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 8)
-                .accessibilityIdentifier("note.block.check.\(block.id.uuidString)")
+                checklistToggle(block)
             case .quote:
                 RoundedRectangle(cornerRadius: 2).fill(Theme.violet).frame(width: 3).padding(.vertical, 5)
             default:
-                Color.clear.frame(width: 1, height: 1)
+                Color.clear.frame(width: 0, height: 1)
             }
         }
-        .frame(width: 22, alignment: .center)
+        // Prose keeps the full reading column; only list/quote markers claim a
+        // marker column of their own.
+        .frame(width: decorationWidth(block.kind), alignment: .center)
+    }
+
+    private func decorationWidth(_ kind: MarkdownBlockKind) -> CGFloat {
+        switch kind {
+        case .bullet, .numbered, .checklistUnchecked, .checklistChecked, .quote: 22
+        default: 0
+        }
     }
 
     @ViewBuilder
     private func blockSurface(_ block: MarkdownBlock, index: Int) -> some View {
         if block.kind == .divider {
             Rectangle()
-                .fill(Theme.divider)
+                .fill(Theme.line)
                 .frame(height: 1)
                 .padding(.vertical, 13)
                 .onTapGesture { menuContext = .init(blockID: block.id, query: "", mode: .transform) }
@@ -162,8 +184,8 @@ struct MarkdownBlockEditor: View {
             .padding(.vertical, block.kind == .code ? 7 : 0)
             .background {
                 if block.kind == .code {
-                    RoundedRectangle(cornerRadius: 10).fill(Theme.panelRaised)
-                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.divider))
+                    RoundedRectangle(cornerRadius: 10).fill(Theme.canvas)
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.line))
                 }
             }
             .opacity(block.kind == .checklistChecked ? 0.58 : 1)
@@ -233,6 +255,18 @@ struct MarkdownBlockEditor: View {
         let copy = MarkdownBlock(kind: block.kind, content: block.content, language: block.language)
         document.insert(copy, after: block.id)
         requestFocus(copy.id, placement: .end)
+    }
+
+    /// Same menu typing `/` opens, requested from outside the editor (the blank
+    /// note's "Insert block" card). An empty trailing block is transformed in
+    /// place; a written one gets the new block after it.
+    private func openInsertMenuOnLastBlock() {
+        guard let last = document.blocks.last else { return }
+        menuContext = .init(
+            blockID: last.id,
+            query: "",
+            mode: last.content.isEmpty ? .transform : .insertAfter
+        )
     }
 
     private func updateSlashMenu(for id: UUID, query: String?) {

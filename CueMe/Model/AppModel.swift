@@ -11,11 +11,10 @@ import Sparkle
 final class AppModel {
     let isUITesting: Bool
     var transcript: [TranscriptLine] = []
-    var summaryBullets: [String] = []
     var minutes: MeetingMinutes = .empty
     var meetingReview: MeetingReview = .empty
     var coachCards: [CoachCard] = []
-    var diagnostics = SessionDiagnostics()
+    let diagnosticsLog: DiagnosticsLog
     var runtimeHealth: RuntimeHealth = .healthy
     @ObservationIgnored private var stickyRuntimeHealth: RuntimeHealth?
     var coachFeedback: [UUID: CoachFeedback] = [:]
@@ -129,13 +128,13 @@ final class AppModel {
     // Histórico de sessões e índice local pré-normalizado para busca instantânea.
     @ObservationIgnored private var knowledgeIndex = SessionKnowledgeIndex()
     @ObservationIgnored private let semanticMemoryIndex: SemanticMemoryIndex
-    var history: [SessionRecord] = [] {
+    var history: [MemoryNote] = [] {
         didSet { knowledgeIndex.rebuild(history) }
     }
-    var projects: [KnowledgeProject] = []
-    var people: [KnowledgePerson] = []
-    var activeProjectID: UUID?
-    var libraryProjectFilterID: UUID?
+    /// The tree node new notes and sessions are born under.
+    var activeParentNoteID: UUID?
+    /// Scopes the note list to a tree node and everything under it.
+    var librarySubtreeNoteID: UUID?
     var libraryLabelFilter: String?
     /// Which built-in tree section drives the note list when no project is selected.
     var librarySection: LibrarySection = .all
@@ -157,6 +156,24 @@ final class AppModel {
     var noteDraft = ""
     var postSessionPrompt = ""
     var postProcessingSessionID: UUID?
+    /// The note currently being dragged in the sidebar tree, so a hovered row
+    /// can tell a valid destination from an invalid one before the drop.
+    var draggingNoteID: UUID?
+    /// Shown when a drop was refused or failed on disk.
+    var noteTreeWarning: String?
+    /// Newest `.md` mtime at the last corpus load, so an activation that
+    /// changed nothing reads nothing.
+    var lastCorpusLoad: Date?
+    /// How many times the corpus has actually been reread. Surfaced on the
+    /// refresh control so a test can tell "the reload never ran" from "it ran
+    /// and read the same thing".
+    var corpusLoadCount = 0
+    /// The chosen archive still holds a pre-OKF layout. Everything is read-only
+    /// until `scripts/migrate-okf.py` has run — see ADR 0049.
+    var corpusNeedsMigration = false
+    /// Resolved once at launch rather than read from the environment on every
+    /// activation — the answer cannot change while the process lives.
+    var reloadFromDiskEnabled = UITestFixtures.reloadFromDiskIsEnabled()
     var postProcessingError: String?
     var globalMemoryAnswer: String?
     var globalMemoryAnswering = false
@@ -184,13 +201,12 @@ final class AppModel {
     init(isUITesting: Bool? = nil) {
         let uiTesting = isUITesting
             ?? (ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1")
-        let uiTestRoot = uiTesting
-            ? FileManager.default.temporaryDirectory
-                .appendingPathComponent("CueMeUITests-archive", isDirectory: true)
-            : nil
+        let externalCorpus = uiTesting ? UITestFixtures.externalCorpusRoot() : nil
+        let uiTestRoot = uiTesting ? (externalCorpus ?? UITestFixtures.uiTestRoot) : nil
         if let uiTestRoot {
-            UITestFixtures.configureIsolatedStorage(at: uiTestRoot)
+            UITestFixtures.configureIsolatedStorage(at: uiTestRoot, clearing: externalCorpus == nil)
         }
+        self.diagnosticsLog = DiagnosticsLog()
         self.isUITesting = uiTesting
         self.semanticMemoryIndex = uiTestRoot.map {
             SemanticMemoryIndex(
@@ -278,24 +294,25 @@ final class AppModel {
             Task { @MainActor in self?.setTranslation(lineID: id, translation: text) }
         }
         updateReporter.onChange = { [weak self] status in self?.updateStatus = status }
-        if uiTesting {
-            let fixture = UITestFixtures.memory
-            self.history = fixture.records
-            self.projects = fixture.projects
-            self.people = fixture.people
-            self.knowledgeIndex.rebuild(history)
+        self.history = (uiTesting && externalCorpus == nil)
+            ? UITestFixtures.memory.records
+            : CorpusStore.loadNotes()
+        self.knowledgeIndex.rebuild(history)
+        // The reserved files are refreshed once per load, not per save: an
+        // index whose bytes are unchanged is skipped, so a quiet start is a
+        // quiet diff.
+        // An unmigrated archive keeps transcripts and minutes in session.json,
+        // which this build does not read. Touch nothing until it is migrated.
+        self.corpusNeedsMigration = (uiTesting && externalCorpus == nil)
+            ? false
+            : CorpusStore.refreshLegacyGuard()
+        if corpusNeedsMigration {
+            self.history = []
         } else {
-            let entities = KnowledgeEntityStore.load()
-            let fileProjects = ProjectWorkspaceStore.loadAll(merging: entities.projects)
-            self.projects = fileProjects
-            self.people = entities.people
-            let loadedHistory = SessionStore.loadAll()
-            self.history = isTesting
-                ? loadedHistory
-                : SessionStore.migrateToWorkspace(loadedHistory, projects: fileProjects)
-            self.knowledgeIndex.rebuild(history)
-            if !isTesting { try? KnowledgeEntityStore.save(projects: fileProjects, people: entities.people) }
+            CorpusStore.writeAgentsFileIfAbsent()
+            CorpusStore.writeIndexes(for: history)
         }
+        self.lastCorpusLoad = (uiTesting && externalCorpus == nil) ? nil : CorpusStore.latestModification()
         if uiTesting {
             self.profiles = [UITestFixtures.profile]
             self.contexts = []
@@ -388,7 +405,7 @@ final class AppModel {
         query: String,
         date: HistoryDateFilter,
         type: HistoryTypeFilter,
-        records: [SessionRecord]
+        records: [MemoryNote]
     ) -> [SessionSearchResult] {
         semanticMemoryIndex.search(query: query, date: date, type: type, records: records)
     }
@@ -438,7 +455,6 @@ final class AppModel {
         activeCoachCardID = nil
         dismissedCoachCardIDs = []
         pinnedCoachCardIDs = []
-        summaryBullets = []
         minutes = .empty
         meetingReview = .empty
         conversationStyle = .fallback(for: brief.mode)
@@ -455,7 +471,7 @@ final class AppModel {
         coachBackendError = nil
         coachCooldownUntil = nil
         summaryBackendError = nil
-        diagnostics = .init()
+        diagnosticsLog.resetSession()
         coachFeedback = [:]
         sessionNotes = []
         sessionTakeaways = []
@@ -469,7 +485,7 @@ final class AppModel {
         sessionStartedAt = Date()
         currentSessionID = UUID()
         if let currentSessionID, let sessionStartedAt {
-            _ = SessionStore.prepareSession(id: currentSessionID, startedAt: sessionStartedAt)
+            _ = CorpusStore.prepareNote(id: currentSessionID, startedAt: sessionStartedAt, under: CorpusStore.defaultInboxNote())
         }
         let coord = SessionCoordinator(app: self)
         self.coordinator = coord
@@ -479,7 +495,7 @@ final class AppModel {
     func stop() {
         if isUITesting, sessionStartedAt != nil {
             sessionState = .stopping
-            saveSessionRecord(stopResult: .init(audioDuration: 75, recordingStartedAt: sessionStartedAt))
+            saveMemoryNote(stopResult: .init(audioDuration: 75, recordingStartedAt: sessionStartedAt))
             activeCoachCardID = nil
             sessionState = .idle
             return
@@ -493,7 +509,7 @@ final class AppModel {
         sessionState = .stopping
         Task { @MainActor in
             let result = await coord?.stop() ?? .empty
-            self.saveSessionRecord(stopResult: result)
+            self.saveMemoryNote(stopResult: result)
             self.coordinator = nil
             self.activeCoachCardID = nil
             self.sessionState = .idle
@@ -542,7 +558,7 @@ final class AppModel {
         systemLevel = 0.55
         coachBackendReady = true
         selectedSessionID = nil
-        if let currentSessionID { _ = SessionStore.prepareSession(id: currentSessionID, startedAt: now) }
+        if let currentSessionID { _ = CorpusStore.prepareNote(id: currentSessionID, startedAt: now, under: CorpusStore.defaultInboxNote()) }
     }
 
     /// Encerra a sessão atual (salva no histórico) e começa uma nova, limpa.
@@ -556,7 +572,7 @@ final class AppModel {
         sessionState = .stopping
         Task { @MainActor in
             let result = await coord?.stop() ?? .empty
-            self.saveSessionRecord(stopResult: result)
+            self.saveMemoryNote(stopResult: result)
             self.coordinator = nil
             self.sessionState = .idle
             self.start()
@@ -564,10 +580,10 @@ final class AppModel {
     }
 
     /// Saves the complete session snapshot in both JSON and Markdown.
-    private func saveSessionRecord(stopResult: SessionStopResult) {
+    private func saveMemoryNote(stopResult: SessionStopResult) {
         defer { sessionStartedAt = nil; currentSessionID = nil }
         guard let startedAt = sessionStartedAt else { return }
-        var record = SessionRecord(
+        var record = MemoryNote(
             id: currentSessionID ?? UUID(),
             startedAt: startedAt,
             recordingStartedAt: stopResult.recordingStartedAt,
@@ -578,7 +594,6 @@ final class AppModel {
             goal: brief.goal,
             transcript: transcript,
             coachCards: coachCards.filter(\.hasContent).map { var c = $0; c.isStreaming = false; return c },
-            summaryBullets: summaryBullets,
             minutes: minutes,
             participantNames: participantNames,
             coachModel: coachModel,
@@ -586,23 +601,19 @@ final class AppModel {
             vocabulary: sessionVocabulary(),
             hasAudio: stopResult.audioDuration != nil,
             audioDuration: stopResult.audioDuration ?? 0,
-            diagnostics: diagnostics,
+            integrity: diagnosticsLog.integrity,
             coachFeedback: coachFeedback,
             notes: sessionNotes,
             takeaways: sessionTakeaways,
             review: meetingReview,
             artifacts: sessionArtifacts,
-            projectID: activeProjectID
         )
         if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
             record.applyGeneratedTitle("Plano de mitigação da entrega")
         }
+        record = CorpusStore.resolvingLocation(record)
         liveSnapshotWriter.flush()
-        SessionStore.save(record)
-        if let project = projects.first(where: { $0.id == activeProjectID }),
-           let relocated = SessionStore.relocate(record, to: project) {
-            record = relocated
-        }
+        CorpusStore.save(record)
         replaceHistoryRecord(record)
         selectedSessionID = record.id
         if backendAvailable, !record.transcript.isEmpty {
@@ -614,9 +625,10 @@ final class AppModel {
 
     func deleteHistory(_ id: UUID) {
         if let record = history.first(where: { $0.id == id }) {
-            SessionStore.delete(record)
+            CorpusStore.delete(record)
+            CorpusStore.appendLog("\(record.title) excluída.", operation: .deleted)
         } else {
-            SessionStore.delete(id)
+            CorpusStore.delete(id)
         }
         history.removeAll { $0.id == id }
         if selectedSessionID == id { selectedSessionID = nil }
@@ -901,7 +913,7 @@ final class AppModel {
         durationMs: Int64? = nil,
         detail: String? = nil
     ) {
-        diagnostics.record(.init(
+        diagnosticsLog.record(.init(
             kind: kind,
             name: name,
             speaker: speaker,

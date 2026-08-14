@@ -9,7 +9,7 @@ struct RootWorkspaceShell: View {
         VStack(spacing: 0) {
             WorkspaceTitlebar()
             HStack(spacing: 0) {
-                ProjectTreeColumn()
+                NoteTreeColumn()
                 Divider().opacity(0.45)
                 NoteListColumn()
                 Divider().opacity(0.45)

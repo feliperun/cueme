@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 struct HistoryView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var selected: SessionRecord?
+    @State private var selected: MemoryNote?
 
     var body: some View {
         NavigationStack {
@@ -29,7 +29,7 @@ struct HistoryView: View {
                                 .contextMenu {
                                     Button("Copiar JSON", systemImage: "doc.on.doc") {
                                         NSPasteboard.general.clearContents()
-                                        NSPasteboard.general.setString(rec.prettyJSON, forType: .string)
+                                        NSPasteboard.general.setString(NoteDocumentWriter.render(rec), forType: .string)
                                     }
                                     Button("Apagar", systemImage: "trash", role: .destructive) {
                                         app.deleteHistory(rec.id)
@@ -41,7 +41,7 @@ struct HistoryView: View {
                 }
             }
             .navigationTitle("Histórico")
-            .navigationDestination(for: SessionRecord.self) { HistorySessionDetailView(record: $0) }
+            .navigationDestination(for: MemoryNote.self) { HistorySessionDetailView(record: $0) }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Concluir") { dismiss() }
@@ -53,7 +53,7 @@ struct HistoryView: View {
 }
 
 private struct HistoryRow: View {
-    let record: SessionRecord
+    let record: MemoryNote
 
     var body: some View {
         HStack(spacing: 12) {

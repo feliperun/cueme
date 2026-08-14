@@ -15,7 +15,6 @@ final class RelevantMemoryContextTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             origin: .written,
             displayTitle: "Coragem em mudanças de carreira",
             noteKind: .journal,
@@ -26,7 +25,7 @@ final class RelevantMemoryContextTests: XCTestCase {
             id: ignoredID,
             startedAt: Date(), mode: .recording, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             origin: .written, displayTitle: "Receita", noteKind: .note,
             markdownBody: "Comprar pão."
         )

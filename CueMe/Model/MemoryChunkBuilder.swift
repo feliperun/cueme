@@ -2,7 +2,7 @@ import Foundation
 
 struct MemoryChunk: Sendable, Hashable {
     enum Kind: String, Sendable { case content, transcript, topic, decision, action, question, note, artifact }
-    let id: String; let sessionID: UUID; let projectID: UUID?; let kind: Kind
+    let id: String; let sessionID: UUID; let kind: Kind
     let startedAt: Date; let timestamp: TimeInterval?; let text: String
 }
 
@@ -14,12 +14,12 @@ enum MemoryChunkBuilder {
     /// that cost proportional to the whole archive — allocating a struct and a
     /// joined string per chunk — which stalled the live session. Hashing the same
     /// source fields keeps every in-memory edit detectable at a fraction of it.
-    static func contentSignature(_ record: SessionRecord) -> Int {
+    static func contentSignature(_ record: MemoryNote) -> Int {
         var hasher = Hasher()
         hasher.combine(record.id)
-        hasher.combine(record.projectID)
         hasher.combine(record.title)
         hasher.combine(record.labels)
+        hasher.combine(record.links)
         hasher.combine(record.markdownBody)
         for line in record.transcript where line.isFinal {
             hasher.combine(line.speaker)
@@ -41,7 +41,7 @@ enum MemoryChunkBuilder {
         return hasher.finalize()
     }
 
-    static func chunks(_ record: SessionRecord) -> [MemoryChunk] {
+    static func chunks(_ record: MemoryNote) -> [MemoryChunk] {
         var result: [MemoryChunk] = []
         let finals = record.transcript.filter(\.isFinal)
         for start in stride(from: 0, to: finals.count, by: 5) {
@@ -50,14 +50,12 @@ enum MemoryChunkBuilder {
             let body = lines.map {
                 "\(record.participantName(for: $0.speaker)): \($0.text)\($0.translation.map { " | \($0)" } ?? "")"
             }.joined(separator: "\n")
-            result.append(.init(id: "transcript:\(record.id):\(start)", sessionID: record.id,
-                projectID: record.projectID, kind: .transcript, startedAt: record.startedAt,
+            result.append(.init(id: "transcript:\(record.id):\(start)", sessionID: record.id, kind: .transcript, startedAt: record.startedAt,
                 timestamp: first.ts.timeIntervalSince(record.audioTimelineStart), text: body))
         }
         func append(_ id: String, _ kind: MemoryChunk.Kind, _ text: String, _ timestamp: TimeInterval? = nil) {
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            result.append(.init(id: id, sessionID: record.id, projectID: record.projectID,
-                kind: kind, startedAt: record.startedAt, timestamp: timestamp, text: text))
+            result.append(.init(id: id, sessionID: record.id, kind: kind, startedAt: record.startedAt, timestamp: timestamp, text: text))
         }
         append(
             "content:\(record.id)",

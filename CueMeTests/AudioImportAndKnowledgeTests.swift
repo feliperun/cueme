@@ -6,7 +6,7 @@ import XCTest
 
 final class AudioImportAndKnowledgeTests: XCTestCase {
     func testImportedSessionKeepsSourceAndExplicitTitle() throws {
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: Date(timeIntervalSince1970: 1_000),
             mode: .recording,
             training: false,
@@ -15,7 +15,6 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             origin: .audioFile,
             displayTitle: "Reunião de arquitetura"
         )
@@ -30,7 +29,7 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         payload.removeValue(forKey: "origin")
         payload.removeValue(forKey: "displayTitle")
         let legacy = try JSONSerialization.data(withJSONObject: payload)
-        let decoded = try JSONDecoder().decode(SessionRecord.self, from: legacy)
+        let decoded = try JSONDecoder().decode(MemoryNote.self, from: legacy)
         XCTAssertEqual(decoded.origin, .live)
     }
 
@@ -121,11 +120,11 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: archiveDirectory, withIntermediateDirectories: true)
         defer {
-            SessionStore.rootOverride = nil
+            CorpusStore.rootOverride = nil
             try? FileManager.default.removeItem(at: sourceDirectory)
             try? FileManager.default.removeItem(at: archiveDirectory)
         }
-        SessionStore.rootOverride = archiveDirectory
+        CorpusStore.rootOverride = archiveDirectory
         let sourceURL = sourceDirectory.appendingPathComponent("planning.m4a")
         var sourceFile: AVAudioFile? = try AVAudioFile(
             forWriting: sourceURL,
@@ -162,6 +161,60 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         XCTAssertTrue(record.coachCards.isEmpty)
     }
 
+    /// AC7 (specs/okf-corpus/tasks/T013-corpus-store.md): a note saved with
+    /// audio must place it under its sibling folder's `raw/` directory, not
+    /// directly inside the folder itself.
+    func testRecordingLandsInRaw() async throws {
+        let sourceDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeImportSource-\(UUID().uuidString)", isDirectory: true)
+        let archiveDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CueMeImportArchive-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: archiveDirectory, withIntermediateDirectories: true)
+        defer {
+            CorpusStore.rootOverride = nil
+            try? FileManager.default.removeItem(at: sourceDirectory)
+            try? FileManager.default.removeItem(at: archiveDirectory)
+        }
+        CorpusStore.rootOverride = archiveDirectory
+        let sourceURL = sourceDirectory.appendingPathComponent("raw-landing.m4a")
+        var sourceFile: AVAudioFile? = try AVAudioFile(
+            forWriting: sourceURL,
+            settings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 128_000
+            ]
+        )
+        let format = try XCTUnwrap(AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: 48_000,
+            channels: 1,
+            interleaved: false
+        ))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_800))
+        buffer.frameLength = 4_800
+        try sourceFile?.write(from: buffer)
+        sourceFile = nil
+
+        let record = try await AudioImportService.prepare(
+            sourceURL: sourceURL,
+            origin: .audioFile,
+            conversationLanguage: "pt-BR",
+            nativeLanguage: "pt-BR",
+            title: "Raw landing"
+        )
+
+        let audioURL = MeetingRecording.otherURL(for: record)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: audioURL.path))
+        XCTAssertEqual(audioURL.deletingLastPathComponent().lastPathComponent, "raw")
+        XCTAssertEqual(
+            audioURL.deletingLastPathComponent(),
+            CorpusStore.noteFolder(for: record).appendingPathComponent("raw", isDirectory: true)
+        )
+    }
+
     func testExternalAudioInboxAcceptsPortableAudioAndRejectsOtherFiles() {
         XCTAssertTrue(ExternalAudioInbox.isSupported(filename: "Voice Memo.m4a"))
         XCTAssertTrue(ExternalAudioInbox.isSupported(filename: "interview.WAV"))
@@ -173,10 +226,10 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
     func testUITestStorageIsolatesTheArchiveAndExternalAudioInboxTogether() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("CueMeUITestIsolation-\(UUID().uuidString)", isDirectory: true)
-        let previousArchive = SessionStore.rootOverride
+        let previousArchive = CorpusStore.rootOverride
         let previousInbox = ExternalAudioInbox.rootOverride
         defer {
-            SessionStore.rootOverride = previousArchive
+            CorpusStore.rootOverride = previousArchive
             ExternalAudioInbox.rootOverride = previousInbox
             try? FileManager.default.removeItem(at: root)
         }
@@ -184,7 +237,7 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         UITestFixtures.configureIsolatedStorage(at: root)
         let queued = try ExternalAudioInbox.enqueue(data: Data("audio".utf8), filename: "fixture.m4a")
 
-        XCTAssertEqual(SessionStore.rootOverride?.standardizedFileURL, root.standardizedFileURL)
+        XCTAssertEqual(CorpusStore.rootOverride?.standardizedFileURL, root.standardizedFileURL)
         XCTAssertEqual(
             ExternalAudioInbox.rootOverride?.standardizedFileURL,
             root.appendingPathComponent("IncomingAudio", isDirectory: true).standardizedFileURL
@@ -273,10 +326,10 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         let archive = base.appendingPathComponent("archive", isDirectory: true)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         defer {
-            SessionStore.rootOverride = nil
+            CorpusStore.rootOverride = nil
             try? FileManager.default.removeItem(at: base)
         }
-        SessionStore.rootOverride = archive
+        CorpusStore.rootOverride = archive
         let format = try XCTUnwrap(AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 44_100,
@@ -327,8 +380,8 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
         summary: String = "",
         note: String = "",
         takeaway: String = ""
-    ) -> SessionRecord {
-        SessionRecord(
+    ) -> MemoryNote {
+        MemoryNote(
             startedAt: startedAt,
             mode: .meeting,
             training: false,
@@ -337,7 +390,6 @@ final class AudioImportAndKnowledgeTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             minutes: MeetingMinutes(
                 overview: summary,
                 topics: topic.isEmpty ? [] : [.init(title: topic, summary: summary)]

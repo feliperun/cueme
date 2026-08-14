@@ -5,7 +5,7 @@ import SwiftUI
 /// as `.answer` artifacts. Violet = agent (mint stays exclusive to live coach).
 struct AskCueMeBar: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @Binding var tab: SessionWorkspaceTab
     @State private var expanded = false
     @FocusState private var composerFocused: Bool

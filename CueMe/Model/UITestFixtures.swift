@@ -36,14 +36,50 @@ enum UITestFixtures {
         glossaryModel: .sonnet
     )
 
-    static func configureIsolatedStorage(at root: URL) {
-        try? FileManager.default.removeItem(at: root)
-        SessionStore.rootOverride = root
+    /// Unique per process. XCTest runs test classes in parallel runner
+    /// processes, and `configureIsolatedStorage` starts by deleting the root —
+    /// with a fixed name, one process wipes another's semantic index mid-test.
+    static var uiTestRoot: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "CueMeUITests-archive-\(ProcessInfo.processInfo.processIdentifier)",
+                isDirectory: true
+            )
+    }
+
+    /// `clearing` is false only when the runner supplied its own corpus: the
+    /// whole point of that mode is that the files were put there before launch.
+    static func configureIsolatedStorage(at root: URL, clearing: Bool = true) {
+        if clearing { try? FileManager.default.removeItem(at: root) }
+        CorpusStore.rootOverride = root
         ExternalAudioInbox.rootOverride = root.appendingPathComponent("IncomingAudio", isDirectory: true)
+        DiagnosticsLog.rootOverride = root.appendingPathComponent("Logs", isDirectory: true)
+    }
+
+    /// A sibling of the corpus root, not a descendant — the semantic index is
+    /// a derived cache, not part of the user's Markdown corpus, and living
+    /// inside `root` would make `CorpusStore.loadNotes()` walk right over it.
+    /// A UI test can hand the app a real corpus on disk instead of the
+    /// deterministic in-memory fixture. That is the only way to prove the
+    /// premise of the whole refactor: an edit made outside CueMe reaches the UI.
+    static func externalCorpusRoot(_ environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
+        guard let path = environment["CUEME_UI_CORPUS_ROOT"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    /// App activation can race with `.task { delegate.connect(app) }` during UI
+    /// tests, and reloading would replace the deterministic fixture with the
+    /// intentionally empty temporary archive. So the reload stays off — unless
+    /// the runner supplied a real corpus, which is exactly what it wants read.
+    static func reloadFromDiskIsEnabled(_ environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        guard environment["CUEME_UI_TESTING"] == "1" else { return true }
+        return externalCorpusRoot(environment) != nil
     }
 
     static func semanticIndexURL(at root: URL) -> URL {
-        root.appendingPathComponent("Derived/Memory/memory.sqlite3")
+        root.deletingLastPathComponent()
+            .appendingPathComponent("\(root.lastPathComponent)-Derived", isDirectory: true)
+            .appendingPathComponent("Memory/memory.sqlite3")
     }
 
     static func audioImportStatus(named name: String) -> AudioImportStatus? {
@@ -119,14 +155,16 @@ enum UITestFixtures {
         }
     }
 
+    /// There is no project or person entity: the fixture is a note tree.
+    /// "Projeto Mobilidade" and "Marina" are ordinary notes, the sessions are
+    /// children of the project note, and the session points at the person with
+    /// a link.
     struct Memory {
-        let records: [SessionRecord]
-        let projects: [KnowledgeProject]
-        let people: [KnowledgePerson]
+        let records: [MemoryNote]
     }
 
     static var memory: Memory {
-        let projectID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+        let mobilityNoteID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
         let sessionID = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
         let earlierID = UUID(uuidString: "20000000-0000-0000-0000-000000000002")!
         let evidenceID = UUID(uuidString: "30000000-0000-0000-0000-000000000001")!
@@ -138,7 +176,7 @@ enum UITestFixtures {
             id: evidenceID, turnID: turnID, timestamp: 42,
             quote: "O veículo elétrico será adotado no próximo trimestre."
         )
-        let current = SessionRecord(
+        let current = MemoryNote(
             id: sessionID, startedAt: now, endedAt: now.addingTimeInterval(1_800),
             mode: .meeting, training: false, conversationLang: "pt-BR", nativeLang: "pt-BR",
             goal: "Definir a estratégia de mobilidade", transcript: [
@@ -147,39 +185,62 @@ enum UITestFixtures {
                     text: "O veículo elétrico será adotado no próximo trimestre.",
                     isFinal: true, ts: now.addingTimeInterval(42)
                 )
-            ], coachCards: [], summaryBullets: [],
+            ], coachCards: [],
             minutes: MeetingMinutes(
                 overview: "A equipe aprovou a migração da frota.",
                 topics: [.init(title: "Mobilidade", summary: "Troca gradual da frota por veículos elétricos.")]
             ), notes: [.init(timeOffset: 50, text: "Orçamento reservado para carregadores")],
             takeaways: [.init(
                 text: "Solicitar propostas aos fornecedores", evidence: [evidence],
-                confidence: 0.94, assignee: "Marina", createdInSessionID: sessionID
+                confidence: 0.94, assignee: "Marina"
             )], displayTitle: "Estratégia de frota elétrica",
             review: MeetingReview(
                 decisions: [.init(
                     id: decisionID, text: "Adotar veículos elétricos no próximo trimestre", evidence: [evidence],
-                    confidence: 0.97, createdInSessionID: sessionID
+                    confidence: 0.97
                 )],
                 openQuestions: [.init(text: "Qual fornecedor terá melhor cobertura?", evidence: [evidence])]
-            ), projectID: projectID, personIDs: [personID]
+            ), links: ["/projeto-mobilidade/pessoas/marina.md"]
         )
-        let earlier = SessionRecord(
+        let earlier = MemoryNote(
             id: earlierID, startedAt: now.addingTimeInterval(-86_400),
             endedAt: now.addingTimeInterval(-84_600), mode: .meeting, training: false,
             conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Mapear custos",
-            transcript: [], coachCards: [], summaryBullets: [],
+            transcript: [], coachCards: [],
             minutes: MeetingMinutes(overview: "Custos iniciais da frota foram levantados."),
-            displayTitle: "Levantamento de custos", projectID: projectID
+            displayTitle: "Levantamento de custos"
         )
-        return Memory(
-            records: [current, earlier],
-            projects: [.init(id: projectID, name: "Projeto Mobilidade", summary: "Eletrificação da frota")],
-            people: [.init(id: personID, name: "Marina", role: "Compras")]
+        var project = MemoryNote(
+            id: mobilityNoteID, startedAt: now.addingTimeInterval(-172_800),
+            endedAt: now.addingTimeInterval(-172_800), mode: .recording, training: false,
+            conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Eletrificação da frota",
+            transcript: [], coachCards: [], origin: .written,
+            displayTitle: "Projeto Mobilidade", noteKind: .note, titleSource: .user
         )
+        project.relativeFolderPath = ""
+        project.archiveFolderName = "projeto-mobilidade"
+
+        var person = MemoryNote(
+            id: personID, startedAt: now.addingTimeInterval(-172_800),
+            endedAt: now.addingTimeInterval(-172_800), mode: .recording, training: false,
+            conversationLang: "pt-BR", nativeLang: "pt-BR", goal: "Compras",
+            transcript: [], coachCards: [], origin: .written,
+            displayTitle: "Marina", noteKind: .note, titleSource: .user
+        )
+        person.relativeFolderPath = "projeto-mobilidade/pessoas"
+        person.archiveFolderName = "marina"
+
+        var placedCurrent = current
+        placedCurrent.relativeFolderPath = "projeto-mobilidade"
+        placedCurrent.archiveFolderName = "estrategia-de-frota-eletrica"
+        var placedEarlier = earlier
+        placedEarlier.relativeFolderPath = "projeto-mobilidade"
+        placedEarlier.archiveFolderName = "levantamento-de-custos"
+
+        return Memory(records: [project, person, placedCurrent, placedEarlier])
     }
 
-    static func answer(for records: [SessionRecord]) -> String {
+    static func answer(for records: [MemoryNote]) -> String {
         guard let record = records.first else { return "Nenhuma memória relevante encontrada." }
         return "A frota elétrica foi aprovada para o próximo trimestre [S1].\n\nFontes\n[S1] \(record.title)"
     }

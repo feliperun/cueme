@@ -14,16 +14,20 @@ extension AppModel {
         return snapshot
     }
 
-    func reloadWorkspaceFromDisk() {
+    /// `force` is the user asking explicitly, which skips the mtime shortcut —
+    /// clicking refresh and getting nothing because a clock disagreed would be
+    /// worse than the reread it avoids. It does not open the UI-test guard: a
+    /// deterministic fixture must never be replaced by an empty archive.
+    func reloadWorkspaceFromDisk(force: Bool = false) {
         guard !isSessionBusy else { return }
-        // App activation can race with `.task { delegate.connect(app) }` during
-        // UI tests. Never replace the deterministic in-memory corpus with the
-        // intentionally empty temporary archive used by the test process.
-        if ProcessInfo.processInfo.environment["CUEME_UI_TESTING"] == "1" {
-            return
-        }
-        projects = ProjectWorkspaceStore.loadAll()
-        history = SessionStore.loadAll()
+        guard reloadFromDiskEnabled else { return }
+        // Activation fires this every time. Stat the tree first: when no `.md`
+        // is newer than the last load, there is nothing to read.
+        guard force || CorpusStore.corpusChanged(since: lastCorpusLoad) else { return }
+        lastCorpusLoad = CorpusStore.latestModification()
+        history = CorpusStore.loadNotes()
+        corpusLoadCount += 1
+        CorpusStore.writeIndexes(for: history)
         if let selectedSessionID, !history.contains(where: { $0.id == selectedSessionID }) {
             self.selectedSessionID = nil
         }
@@ -51,26 +55,52 @@ extension AppModel {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             origin: .written,
             displayTitle: initialTitle,
-            projectID: activeProjectID,
             noteKind: kind,
             markdownBody: "",
             titleSource: .fallback
         )
-        SessionStore.save(note)
-        if let project = projects.first(where: { $0.id == activeProjectID }),
-           let moved = SessionStore.relocate(note, to: project) {
-            note = moved
+        // Born under the selected tree node, or under `inbox` when none is.
+        note = CorpusStore.resolvingLocation(note)
+        CorpusStore.save(note)
+        if let parent = activeParentNoteID.flatMap({ id in history.first { $0.id == id } }),
+           let moved = CorpusStore.move(note, under: parent) {
+            note = moved.note
         }
         replaceHistoryRecord(note)
         selectedSessionID = note.id
+        recordStructuralChange(
+            .created,
+            "\(CorpusLogDocument.link(note.title, path: NoteTreeProjection.subtreePath(of: note) + ".md")) criada."
+        )
         return note.id
     }
 
+    /// An explicit rename is a structural event: the document and its sibling
+    /// folder move to the new slug and every inbound link is rewritten. A title
+    /// generated during post-processing goes through `save` instead, which
+    /// leaves the file where it is.
     func renameMemoryNote(_ id: UUID, to title: String) {
-        mutateRecord(id) { $0.rename(to: title) }
+        guard let note = history.first(where: { $0.id == id }) else { return }
+        guard let outcome = CorpusStore.rename(note, to: title) else {
+            mutateRecord(id) { $0.rename(to: title) }
+            return
+        }
+        replaceHistoryRecord(outcome.note)
+        recordStructuralChange(
+            .renamed,
+            "\(CorpusLogDocument.link(outcome.note.title, path: outcome.toPath)) renomeada de "
+                + "`\(note.archiveFolderName)`; \(outcome.rewrittenDocuments) páginas com links atualizados."
+        )
+    }
+
+    /// Logs a durable structural event and refreshes the reserved files. Called
+    /// once per change, never per keystroke — `log.md` is a history of the
+    /// corpus, not a keystroke journal.
+    func recordStructuralChange(_ operation: CorpusLogDocument.Operation, _ sentence: String) {
+        CorpusStore.appendLog(sentence, operation: operation)
+        CorpusStore.writeIndexes(for: history)
     }
 
     func updateMarkdownBody(_ id: UUID, body: String) {
@@ -93,7 +123,7 @@ extension AppModel {
         guard let note = history.first(where: { $0.id == id }) else { return }
         let secured = source.startAccessingSecurityScopedResource()
         defer { if secured { source.stopAccessingSecurityScopedResource() } }
-        let attachments = SessionStore.archiveDirectory(for: note)
+        let attachments = CorpusStore.noteFolder(for: note)
             .appendingPathComponent("attachments", isDirectory: true)
         try FileManager.default.createDirectory(at: attachments, withIntermediateDirectories: true)
         let filename = uniqueFilename(source.lastPathComponent, in: attachments)

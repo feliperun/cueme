@@ -97,29 +97,29 @@ final class CueMeMemoryE2ETests: XCTestCase {
         XCTAssertEqual(decision.value as? String, "Contrato solar aprovado")
     }
 
-    func testProjectPopoverShowsLongitudinalTimeline() {
+    func testLinksPopoverShowsLongitudinalTimeline() {
         continueAfterFailure = false
         let app = launchApp()
         defer { app.terminate() }
         let session = app.buttons["session.20000000-0000-0000-0000-000000000001"]
         XCTAssertTrue(session.waitForExistence(timeout: 5))
         session.click()
-        let project = app.buttons["session.project"]
-        XCTAssertTrue(project.waitForExistence(timeout: 5))
-        project.click()
+        let container = app.buttons["note.links"]
+        XCTAssertTrue(container.waitForExistence(timeout: 5))
+        container.click()
 
         XCTAssertTrue(app.staticTexts["TIMELINE"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["timeline.meeting-20000000-0000-0000-0000-000000000001"].exists)
         XCTAssertTrue(app.buttons["timeline.meeting-20000000-0000-0000-0000-000000000002"].exists)
     }
 
-    func testProjectTreeChildrenIgnoreSearchAndSelectBothProjectAndNote() {
+    func testNoteTreeChildrenIgnoreSearchAndSelectBothContainerAndNote() {
         continueAfterFailure = false
         let app = launchApp()
         defer { app.terminate() }
-        let projectID = "10000000-0000-0000-0000-000000000001"
+        let containerID = "10000000-0000-0000-0000-000000000001"
         let recordID = "20000000-0000-0000-0000-000000000001"
-        let disclosure = app.buttons["tree.project.disclosure.\(projectID)"]
+        let disclosure = app.buttons["tree.note.disclosure.\(containerID)"]
         XCTAssertTrue(disclosure.waitForExistence(timeout: 5))
         XCTAssertEqual(disclosure.value as? String, "collapsed")
         disclosure.click()
@@ -144,7 +144,7 @@ final class CueMeMemoryE2ETests: XCTestCase {
 
         treeRecord.click()
         XCTAssertEqual(search.value as? String, "")
-        XCTAssertEqual(app.buttons["project.\(projectID)"].value as? String, "selected")
+        XCTAssertEqual(app.buttons["tree.container.\(containerID)"].value as? String, "selected")
         XCTAssertEqual(treeRecord.value as? String, "selected")
         XCTAssertTrue(app.buttons["session.\(recordID)"].waitForExistence(timeout: 3))
         XCTAssertEqual(disclosure.value as? String, "forced-expanded")
@@ -161,38 +161,40 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let meetings = app.buttons["note-list.tab.meetings"]
         let notes = app.buttons["note-list.tab.notes"]
         XCTAssertTrue(all.waitForExistence(timeout: 5))
-        XCTAssertEqual(all.label, "All 2")
-        XCTAssertEqual(all.value as? String, "selected;2")
+        // A container is an ordinary note, so "Projeto Mobilidade" and "Marina"
+        // are counted and listed like any other — there is no entity to hide.
+        XCTAssertEqual(all.label, "All 4")
+        XCTAssertEqual(all.value as? String, "selected;4")
         XCTAssertEqual(meetings.value as? String, "unselected;2")
-        XCTAssertEqual(notes.value as? String, "unselected;0")
+        XCTAssertEqual(notes.value as? String, "unselected;2")
 
         meetings.click()
-        XCTAssertEqual(all.value as? String, "unselected;2")
+        XCTAssertEqual(all.value as? String, "unselected;4")
         XCTAssertEqual(meetings.value as? String, "selected;2")
         XCTAssertEqual(app.buttons.matching(identifier: "session.20000000-0000-0000-0000-000000000001").count, 1)
 
         notes.click()
-        XCTAssertEqual(notes.value as? String, "selected;0")
+        XCTAssertEqual(notes.value as? String, "selected;2")
         XCTAssertFalse(app.buttons["session.20000000-0000-0000-0000-000000000001"].exists)
-        XCTAssertEqual(all.label, "All 2", "The All count must not inherit the selected type")
+        XCTAssertEqual(all.label, "All 4", "The All count must not inherit the selected type")
     }
 
     func testLiveTreeChildIsSyntheticAndReturnsToTheActiveSession() {
         continueAfterFailure = false
         let app = launchApp()
         defer { app.terminate() }
-        let projectID = "10000000-0000-0000-0000-000000000001"
+        let containerID = "10000000-0000-0000-0000-000000000001"
         let recordID = "20000000-0000-0000-0000-000000000001"
 
-        let project = app.buttons["project.\(projectID)"]
-        XCTAssertTrue(project.waitForExistence(timeout: 5))
-        project.click()
+        let container = app.buttons["tree.container.\(containerID)"]
+        XCTAssertTrue(container.waitForExistence(timeout: 5))
+        container.click()
         XCTAssertTrue(app.buttons["tree.note.\(recordID)"].waitForExistence(timeout: 3))
 
         app.buttons["session.primary"].click()
         let live = app.buttons["tree.live"]
         XCTAssertTrue(live.waitForExistence(timeout: 5))
-        XCTAssertEqual(live.value as? String, projectID)
+        XCTAssertEqual(live.value as? String, containerID)
         XCTAssertEqual(app.buttons.matching(identifier: "tree.live").count, 1)
         XCTAssertEqual(app.buttons.matching(identifier: "tree.note.\(recordID)").count, 1)
 
@@ -504,8 +506,18 @@ final class CueMeMemoryE2ETests: XCTestCase {
         // under some active keyboard layouts, even though the field has focus.
         label.typeText("jornada")
         app.buttons["note.label.add"].click()
-        XCTAssertTrue(app.buttons["note.label.jornada"].waitForExistence(timeout: 3))
+        // If the popover closed, the chip is missing for a different reason
+        // than the label not being applied — say which.
+        XCTAssertTrue(label.exists, "the labels popover closed when the label was added")
+        XCTAssertTrue(
+            app.buttons["note.label.jornada"].waitForExistence(timeout: 3),
+            "popover still open, so the chip itself did not render"
+        )
         app.typeKey(.escape, modifierFlags: [])
+
+        // The title belongs to the masthead, which is part of the document
+        // page — source mode replaces that page, so read it while it is there.
+        XCTAssertTrue(app.buttons["note.rename"].label.contains("Mapa da minha jornada"))
 
         let source = app.buttons["note.editor.source"]
         XCTAssertTrue(source.waitForExistence(timeout: 3))
@@ -515,7 +527,10 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let markdown = rawMarkdown.value as? String ?? ""
         XCTAssertTrue(markdown.contains("# Aprendizados"))
         XCTAssertTrue(markdown.contains("A memória ajuda na hora exata."))
-        XCTAssertTrue(app.buttons["note.rename"].label.contains("Mapa da minha jornada"))
+        XCTAssertFalse(
+            markdown.contains("x_cueme_id"),
+            "the source view shows the user's body, never the whole document"
+        )
     }
 
     func testVisualBlockEditorFormatsInlineTextAsMarkdown() {
@@ -625,5 +640,81 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let action = app.buttons["about.update.check"]
         XCTAssertTrue(action.waitForExistence(timeout: 3))
         XCTAssertEqual(readText(action), "Buscar atualizações")
+    }
+
+    // MARK: Note masthead and single-row header
+
+    func testNoteMastheadCarriesTheTitleMetadataAndDocumentActions() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let newNote = app.buttons["home.new-note"]
+        XCTAssertTrue(newNote.waitForExistence(timeout: 5))
+        newNote.click()
+
+        // The document scrolls as one page: masthead first, then the blocks.
+        let masthead = app.groups["note.masthead"]
+        XCTAssertTrue(masthead.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["note.rename"].exists)
+        XCTAssertTrue(app.staticTexts["note.breadcrumb"].exists)
+
+        // Metadata affordances survived the move out of the old chrome bar.
+        XCTAssertTrue(app.buttons["note.labels"].exists)
+        XCTAssertTrue(app.buttons["note.links"].exists)
+        XCTAssertTrue(app.buttons["note.attach"].exists)
+
+        // A brand-new note takes the very first keystroke, no extra click.
+        let editor = app.textViews["note.block.editor.0"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 3))
+        editor.click()
+        editor.typeText("Primeira linha")
+
+        let source = app.buttons["note.editor.source"]
+        XCTAssertTrue(source.exists)
+        source.click()
+        let raw = app.textViews["note.editor.raw"]
+        XCTAssertTrue(raw.waitForExistence(timeout: 3))
+        XCTAssertEqual(raw.value as? String, "Primeira linha")
+        source.click()
+        XCTAssertTrue(app.textViews["note.block.editor.0"].waitForExistence(timeout: 3))
+    }
+
+    func testBlankNoteOpensTheBlockMenuFromItsEmptyState() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let newNote = app.buttons["home.new-note"]
+        XCTAssertTrue(newNote.waitForExistence(timeout: 5))
+        newNote.click()
+
+        let insert = app.buttons["note.blank.insert-block"]
+        XCTAssertTrue(insert.waitForExistence(timeout: 5))
+        insert.click()
+        XCTAssertTrue(app.buttons["note.block.command.heading1"].waitForExistence(timeout: 3))
+    }
+
+    func testCapturedNoteKeepsTheMastheadOnItsReviewProjection() {
+        continueAfterFailure = false
+        let app = launchApp()
+        defer { app.terminate() }
+
+        let session = app.buttons["session.20000000-0000-0000-0000-000000000001"]
+        XCTAssertTrue(session.waitForExistence(timeout: 5))
+        session.click()
+
+        XCTAssertTrue(app.groups["note.masthead"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["note.rename"].label.contains("Estratégia de frota elétrica"))
+        // A captured note has a room, so it names it.
+        XCTAssertTrue(app.buttons["note.participants"].exists)
+        XCTAssertTrue(app.menuButtons["note.share"].exists)
+
+        // Leaving and returning to the document projection restores the masthead.
+        app.buttons["session.tab.transcript"].click()
+        let document = app.buttons["session.tab.review"]
+        XCTAssertTrue(document.waitForExistence(timeout: 3))
+        document.click()
+        XCTAssertTrue(app.groups["note.masthead"].waitForExistence(timeout: 3))
     }
 }

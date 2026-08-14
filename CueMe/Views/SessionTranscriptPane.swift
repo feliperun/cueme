@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SessionTranscriptPane: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
 
     var body: some View {

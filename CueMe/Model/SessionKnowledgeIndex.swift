@@ -44,7 +44,7 @@ enum HistoryTypeFilter: String, CaseIterable, Sendable, Identifiable {
         }
     }
 
-    func matches(_ record: SessionRecord) -> Bool {
+    func matches(_ record: MemoryNote) -> Bool {
         switch self {
         case .all: return true
         case .note: return record.libraryPresentationKind == .note
@@ -84,11 +84,11 @@ struct SessionKnowledgeIndex: Sendable {
 
     private var documents: [Document]
 
-    init(records: [SessionRecord] = []) {
+    init(records: [MemoryNote] = []) {
         documents = records.map(Self.document)
     }
 
-    mutating func rebuild(_ records: [SessionRecord]) {
+    mutating func rebuild(_ records: [MemoryNote]) {
         documents = records.map(Self.document)
     }
 
@@ -147,7 +147,7 @@ struct SessionKnowledgeIndex: Sendable {
         }
     }
 
-    private static func document(_ record: SessionRecord) -> Document {
+    private static func document(_ record: MemoryNote) -> Document {
         var fields = [Field(original: record.title, normalized: normalize(record.title), weight: 8)]
         func append(_ value: String, weight: Int) {
             let text = value.trimmingCharacters(in: .whitespacesAndNewlines)

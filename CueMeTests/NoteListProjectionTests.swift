@@ -5,18 +5,17 @@ import XCTest
 final class NoteListProjectionTests: XCTestCase {
     private nonisolated(unsafe) var previousArchive: URL?
     private nonisolated(unsafe) var previousInbox: URL?
-    private let uiTestArchive = FileManager.default.temporaryDirectory
-        .appendingPathComponent("CueMeUITests-archive", isDirectory: true)
+    private let uiTestArchive = UITestFixtures.uiTestRoot
 
     override func setUp() {
         super.setUp()
-        previousArchive = SessionStore.rootOverride
+        previousArchive = CorpusStore.rootOverride
         previousInbox = ExternalAudioInbox.rootOverride
     }
 
     override func tearDown() {
         try? FileManager.default.removeItem(at: uiTestArchive)
-        SessionStore.rootOverride = previousArchive
+        CorpusStore.rootOverride = previousArchive
         ExternalAudioInbox.rootOverride = previousInbox
         previousArchive = nil
         previousInbox = nil
@@ -75,16 +74,14 @@ final class NoteListProjectionTests: XCTestCase {
         ])
     }
 
-    func testAllCountIgnoresSelectedTypeWhileRespectingProjectLabelSearchAndDateScope() {
-        let projectID = UUID()
-        let otherProjectID = UUID()
+    func testAllCountIgnoresSelectedTypeWhileRespectingSectionLabelSearchAndDateScope() {
         let now = Date()
         let written = makeRecord(
             title: "Alpha written",
             startedAt: now.addingTimeInterval(-60),
             origin: .written,
             noteKind: .note,
-            projectID: projectID,
+            folder: "inbox",
             labels: ["focus"]
         )
         let meeting = makeRecord(
@@ -92,7 +89,7 @@ final class NoteListProjectionTests: XCTestCase {
             startedAt: now.addingTimeInterval(-120),
             origin: .live,
             noteKind: .meeting,
-            projectID: projectID,
+            folder: "inbox",
             labels: ["focus"]
         )
         let wrongSearch = makeRecord(
@@ -100,7 +97,7 @@ final class NoteListProjectionTests: XCTestCase {
             startedAt: now.addingTimeInterval(-180),
             origin: .live,
             noteKind: .meeting,
-            projectID: projectID,
+            folder: "inbox",
             labels: ["focus"]
         )
         let wrongLabel = makeRecord(
@@ -108,15 +105,15 @@ final class NoteListProjectionTests: XCTestCase {
             startedAt: now.addingTimeInterval(-240),
             origin: .written,
             noteKind: .note,
-            projectID: projectID,
+            folder: "inbox",
             labels: ["later"]
         )
-        let wrongProject = makeRecord(
-            title: "Alpha other project",
+        let outsideSection = makeRecord(
+            title: "Alpha somewhere else",
             startedAt: now.addingTimeInterval(-300),
             origin: .live,
             noteKind: .meeting,
-            projectID: otherProjectID,
+            folder: "acme",
             labels: ["focus"]
         )
         let tooOld = makeRecord(
@@ -124,12 +121,12 @@ final class NoteListProjectionTests: XCTestCase {
             startedAt: now.addingTimeInterval(-45 * 86_400),
             origin: .live,
             noteKind: .meeting,
-            projectID: projectID,
+            folder: "inbox",
             labels: ["focus"]
         )
         let app = AppModel(isUITesting: true)
-        app.history = [written, meeting, wrongSearch, wrongLabel, wrongProject, tooOld]
-        app.libraryProjectFilterID = projectID
+        app.history = [written, meeting, wrongSearch, wrongLabel, outsideSection, tooOld]
+        app.selectLibrarySection(.inbox)
         app.libraryLabelFilter = "focus"
         app.historySearch = ""
         app.historyDateFilter = .last30Days
@@ -146,38 +143,48 @@ final class NoteListProjectionTests: XCTestCase {
         XCTAssertEqual(projection.count(for: .all), 3)
         XCTAssertEqual(projection.visibleRecords.map(\.id), [written.id])
 
+        // Search ranks the whole corpus; the section still bounds what the
+        // column shows. `outsideSection` matches "Alpha" and must stay out.
         app.historySearch = "Alpha"
         let canonicalSearchIDs = app.historySearchResults(typeFilter: .all).map(\.recordID)
+        let sectionScopedIDs = canonicalSearchIDs.filter { id in
+            app.history.first { $0.id == id }?.relativeFolderPath == "inbox"
+        }
         projection = app.noteListProjection
-        XCTAssertEqual(projection.scopedRecords.map(\.id), canonicalSearchIDs)
-        XCTAssertEqual(projection.count(for: .all), canonicalSearchIDs.count)
+        XCTAssertTrue(canonicalSearchIDs.contains(outsideSection.id))
+        XCTAssertEqual(projection.scopedRecords.map(\.id), sectionScopedIDs)
+        XCTAssertEqual(projection.count(for: .all), sectionScopedIDs.count)
 
         app.historyTypeFilter = .meeting
         projection = app.noteListProjection
         XCTAssertEqual(
             projection.visibleRecords.map(\.id),
-            canonicalSearchIDs.filter { id in
+            sectionScopedIDs.filter { id in
                 app.history.first { $0.id == id }?.libraryPresentationKind == .meeting
             }
         )
     }
 
     func testBuiltInSectionsRemainPartOfScopeBeforeTypeFiltering() {
-        let inboxNote = makeRecord(title: "Inbox", origin: .written, noteKind: .note)
-        let projectMeeting = makeRecord(
-            title: "Project",
-            origin: .live,
-            noteKind: .meeting,
-            projectID: UUID()
-        )
-        let journal = makeRecord(title: "Journal", origin: .written, noteKind: .journal)
+        let inboxNote = makeRecord(title: "Inbox", origin: .written, noteKind: .note, folder: "inbox")
+        let elsewhere = makeRecord(title: "Acme", origin: .live, noteKind: .meeting, folder: "acme")
+        let journal = makeRecord(title: "Journal", origin: .written, noteKind: .journal, folder: "inbox")
+        // `inbox` is a note like any other, so a sibling whose slug merely
+        // starts with the same letters is a different place entirely.
+        let lookalike = makeRecord(title: "Inbox antigo", origin: .written, noteKind: .note, folder: "inbox-antigo")
+        let nested = makeRecord(title: "Nested", origin: .written, noteKind: .note, folder: "inbox/acme")
         let app = AppModel(isUITesting: true)
-        app.history = [inboxNote, projectMeeting, journal]
+        app.history = [inboxNote, elsewhere, journal, lookalike, nested]
 
         app.selectLibrarySection(.inbox)
         app.historyTypeFilter = .meeting
         var projection = app.noteListProjection
-        XCTAssertEqual(projection.count(for: .all), 2)
+        XCTAssertEqual(
+            Set(projection.scopedRecords.map(\.title)),
+            ["Inbox", "Journal", "Nested"],
+            "the inbox scope is the inbox note and its descendants, nothing else"
+        )
+        XCTAssertEqual(projection.count(for: .all), 3)
         XCTAssertTrue(projection.visibleRecords.isEmpty)
 
         app.selectLibrarySection(.journal)
@@ -190,18 +197,18 @@ final class NoteListProjectionTests: XCTestCase {
     }
 
     func testProjectionCarriesOneScopedResultSetCountsSelectionAndSnippets() {
-        let inboxNote = makeRecord(title: "Inbox note", origin: .written, noteKind: .note)
-        let inboxMeeting = makeRecord(title: "Inbox meeting", origin: .live, noteKind: .meeting)
-        let projectMeeting = makeRecord(
-            title: "Project meeting",
+        let inboxNote = makeRecord(title: "Inbox note", origin: .written, noteKind: .note, folder: "inbox")
+        let inboxMeeting = makeRecord(title: "Inbox meeting", origin: .live, noteKind: .meeting, folder: "inbox")
+        let nestedMeeting = makeRecord(
+            title: "Nested meeting",
             origin: .live,
             noteKind: .meeting,
-            projectID: UUID()
+            folder: "acme"
         )
         let projection = NoteListProjection(
-            history: [inboxNote, inboxMeeting, projectMeeting],
+            history: [inboxNote, inboxMeeting, nestedMeeting],
             searchResults: [
-                .init(recordID: projectMeeting.id, score: 3, snippet: "project"),
+                .init(recordID: nestedMeeting.id, score: 3, snippet: "nested"),
                 .init(recordID: inboxMeeting.id, score: 2, snippet: "meeting"),
                 .init(recordID: inboxNote.id, score: 1, snippet: "note"),
             ],
@@ -216,7 +223,7 @@ final class NoteListProjectionTests: XCTestCase {
         XCTAssertEqual(projection.count(for: .note), 1)
         XCTAssertEqual(projection.snippet(for: inboxMeeting.id), "meeting")
         XCTAssertEqual(projection.snippet(for: inboxNote.id), "note")
-        XCTAssertNil(projection.snippet(for: projectMeeting.id))
+        XCTAssertNil(projection.snippet(for: nestedMeeting.id))
     }
 
     private func makeRecord(
@@ -226,10 +233,10 @@ final class NoteListProjectionTests: XCTestCase {
         noteKind: MemoryNoteKind,
         hasAudio: Bool = false,
         attachments: [NoteAttachment] = [],
-        projectID: UUID? = nil,
+        folder: String? = nil,
         labels: [String] = []
-    ) -> SessionRecord {
-        SessionRecord(
+    ) -> MemoryNote {
+        var record = MemoryNote(
             startedAt: startedAt,
             endedAt: startedAt.addingTimeInterval(60),
             mode: .meeting,
@@ -239,14 +246,14 @@ final class NoteListProjectionTests: XCTestCase {
             goal: "",
             transcript: [],
             coachCards: [],
-            summaryBullets: [],
             hasAudio: hasAudio,
             origin: origin,
             displayTitle: title,
-            projectID: projectID,
             noteKind: noteKind,
             labels: labels,
             attachments: attachments
         )
+        record.relativeFolderPath = folder
+        return record
     }
 }

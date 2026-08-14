@@ -43,7 +43,7 @@ final class SemanticMemoryIndex: @unchecked Sendable {
 
     deinit { if let db { sqlite3_close(db) } }
 
-    func rebuild(_ records: [SessionRecord]) {
+    func rebuild(_ records: [MemoryNote]) {
         // The archive is editable after a meeting, so the fingerprint has to cover
         // indexed content — corrections, notes and regenerated artifacts must
         // invalidate the projection even when session metadata did not change.
@@ -64,7 +64,7 @@ final class SemanticMemoryIndex: @unchecked Sendable {
         }
     }
 
-    func search(query: String, date: HistoryDateFilter, type: HistoryTypeFilter, records: [SessionRecord]) -> [SessionSearchResult] {
+    func search(query: String, date: HistoryDateFilter, type: HistoryTypeFilter, records: [MemoryNote]) -> [SessionSearchResult] {
         let clean = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else {
             return SessionKnowledgeIndex(records: records).search(query: "", date: date, type: type)
@@ -171,13 +171,13 @@ final class SemanticMemoryIndex: @unchecked Sendable {
 
     private func insert(_ chunk: MemoryChunk, database: OpaquePointer) {
         var statement: OpaquePointer?
-        let sql = "INSERT INTO memory_chunks(id,session_id,project_id,kind,started_at,time_offset,text,embedding_model) VALUES(?,?,?,?,?,?,?,?)"
+        let sql = "INSERT INTO memory_chunks(id,session_id,kind,started_at,time_offset,text,embedding_model) VALUES(?,?,?,?,?,?,?)"
         guard sqlite3_prepare_v2(database, sql, -1, &statement, nil) == SQLITE_OK else { return }
         bind(chunk.id, to: statement, at: 1); bind(chunk.sessionID.uuidString, to: statement, at: 2)
-        bind(chunk.projectID?.uuidString, to: statement, at: 3); bind(chunk.kind.rawValue, to: statement, at: 4)
-        sqlite3_bind_double(statement, 5, chunk.startedAt.timeIntervalSince1970)
-        if let timestamp = chunk.timestamp { sqlite3_bind_double(statement, 6, timestamp) } else { sqlite3_bind_null(statement, 6) }
-        bind(chunk.text, to: statement, at: 7); bind(embedder.modelID, to: statement, at: 8)
+        bind(chunk.kind.rawValue, to: statement, at: 3)
+        sqlite3_bind_double(statement, 4, chunk.startedAt.timeIntervalSince1970)
+        if let timestamp = chunk.timestamp { sqlite3_bind_double(statement, 5, timestamp) } else { sqlite3_bind_null(statement, 5) }
+        bind(chunk.text, to: statement, at: 6); bind(embedder.modelID, to: statement, at: 7)
         guard sqlite3_step(statement) == SQLITE_DONE else { sqlite3_finalize(statement); return }
         sqlite3_finalize(statement)
         let rowID = sqlite3_last_insert_rowid(database)
@@ -197,9 +197,8 @@ final class SemanticMemoryIndex: @unchecked Sendable {
         lock.withLock {
             exec("PRAGMA journal_mode=WAL")
             exec("CREATE TABLE IF NOT EXISTS memory_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-            exec("CREATE TABLE IF NOT EXISTS memory_chunks(id TEXT UNIQUE NOT NULL, session_id TEXT NOT NULL, project_id TEXT, kind TEXT NOT NULL, started_at REAL NOT NULL, time_offset REAL, text TEXT NOT NULL, embedding_model TEXT NOT NULL)")
+            exec("CREATE TABLE IF NOT EXISTS memory_chunks(id TEXT UNIQUE NOT NULL, session_id TEXT NOT NULL, kind TEXT NOT NULL, started_at REAL NOT NULL, time_offset REAL, text TEXT NOT NULL, embedding_model TEXT NOT NULL)")
             exec("CREATE INDEX IF NOT EXISTS memory_chunks_session ON memory_chunks(session_id)")
-            exec("CREATE INDEX IF NOT EXISTS memory_chunks_project ON memory_chunks(project_id)")
             exec("CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(chunk_id UNINDEXED, text, tokenize='unicode61 remove_diacritics 2')")
             exec("CREATE VIRTUAL TABLE IF NOT EXISTS memory_vec USING vec0(embedding float[512] distance_metric=cosine)")
         }

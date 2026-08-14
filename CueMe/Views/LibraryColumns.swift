@@ -20,12 +20,21 @@ struct NoteListColumn: View {
         VStack(alignment: .leading, spacing: 11) {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(app.libraryColor(for: app.libraryProjectFilterID))
+                    .fill(app.libraryColor(for: app.librarySubtreeNoteID))
                     .frame(width: 11, height: 11)
                 Text(headerTitle).font(.ui(15, .semibold)).foregroundStyle(Theme.ink)
                 Spacer()
                 densityButton("list.bullet", active: !compact) { compact = false }
                 densityButton("list.dash", active: compact) { compact = true }
+                // The corpus is files, so someone else may have changed them.
+                // Activation already reloads; this is the explicit way to ask.
+                Button { app.reloadWorkspaceFromDisk(force: true) } label: {
+                    Image(systemName: "arrow.clockwise").font(.system(size: 11)).foregroundStyle(Theme.ink2)
+                }
+                .buttonStyle(.plain)
+                .help("Reler o corpus do disco")
+                .accessibilityIdentifier("library.refresh")
+                .accessibilityValue("\(app.corpusLoadCount)")
                 Button { _ = app.createMemoryNote(kind: .note) } label: {
                     Image(systemName: "plus").font(.system(size: 12)).foregroundStyle(Theme.ink2)
                 }
@@ -84,8 +93,8 @@ struct NoteListColumn: View {
     }
 
     private var headerTitle: String {
-        if let id = app.libraryProjectFilterID {
-            return app.projects.first { $0.id == id }?.name ?? "Project"
+        if let id = app.librarySubtreeNoteID {
+            return app.history.first { $0.id == id }?.title ?? "Nota"
         }
         switch app.librarySection {
         case .all: return "All notes"
@@ -99,7 +108,7 @@ struct NoteListColumn: View {
 
 private struct NoteRow: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let snippet: String?
     let compact: Bool
 
@@ -207,47 +216,6 @@ private struct LivePulse: ViewModifier {
 }
 
 // MARK: - Formatting
-
-enum LibraryFormat {
-    static func kindTag(_ r: SessionRecord) -> String {
-        switch r.libraryPresentationKind {
-        case .note: return "NOTE"
-        case .journal: return "JOURNAL"
-        case .meeting: return "MEETING"
-        }
-    }
-
-    static func rightMeta(_ r: SessionRecord) -> String {
-        var parts = [relative(r.startedAt)]
-        if r.containsRecording, r.audioDuration > 0 { parts.append(duration(r.audioDuration)) }
-        return parts.joined(separator: " · ")
-    }
-
-    static func preview(_ r: SessionRecord, snippet: String?) -> String? {
-        if let snippet, !snippet.isEmpty { return snippet }
-        let overview = r.minutes.overview.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !overview.isEmpty { return overview }
-        if let bullet = r.summaryBullets.first, !bullet.isEmpty { return bullet }
-        let body = r.markdownBody.trimmingCharacters(in: .whitespacesAndNewlines)
-        return body.isEmpty ? nil : String(body.prefix(120))
-    }
-
-    static func relative(_ date: Date) -> String {
-        let seconds = max(0, Date().timeIntervalSince(date))
-        if seconds < 60 { return "now" }
-        if seconds < 3600 { return "\(Int(seconds / 60))m" }
-        if seconds < 86_400 { return "\(Int(seconds / 3600))h" }
-        return "\(Int(seconds / 86_400))d"
-    }
-
-    static func duration(_ interval: TimeInterval) -> String {
-        let total = Int(interval)
-        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
-        return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
-    }
-}
-
-// MARK: - Import status toast
 
 struct ImportStatusRow: View {
     @Environment(AppModel.self) private var app

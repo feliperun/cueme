@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SessionArtifactsPane: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
 
     var body: some View {
         VStack(spacing: 0) {

@@ -111,19 +111,19 @@ extension AppModel {
         }
     }
 
-    private func processImportedRecord(_ initialRecord: SessionRecord) async {
+    private func processImportedRecord(_ initialRecord: MemoryNote) async {
         var record = initialRecord
         if ProcessInfo.processInfo.environment["CUEME_UI_TEST_VOICE_MEMO_IMPORT"] == "1",
            record.origin == .voiceMemo {
-            record.transcript = [.init(
+            record.transcript = .loaded([.init(
                 speaker: .other,
                 text: "Planejamento semanal compartilhado pelo Voice Memos.",
                 isFinal: true,
                 ts: record.audioTimelineStart
-            )]
+            )])
             record.participantNames[.other] = "Gravação"
             replaceHistoryRecord(record)
-            SessionStore.save(record)
+            CorpusStore.save(record)
             audioImportStatus = .init(
                 phase: .completed,
                 title: record.title,
@@ -157,15 +157,12 @@ extension AppModel {
                 startedAt: record.audioTimelineStart,
                 deepgramAPIKey: DeepgramCredential.apiKey
             )
-            record.transcript = lines
+            record.transcript = .loaded(lines)
             if sttSource == .native {
                 record.participantNames[.other] = "Gravação"
             }
-            for line in lines {
-                record.diagnostics.record(.init(kind: .transcription, name: "stt_final", speaker: line.speaker))
-            }
             replaceHistoryRecord(record)
-            SessionStore.save(record)
+            CorpusStore.save(record)
 
             audioImportStatus = .init(
                 phase: .enriching,
@@ -189,9 +186,10 @@ extension AppModel {
                 sessionID: record.id
             )
         } catch {
-            record.diagnostics.record(.init(kind: .error, name: "audio_import_processing_failed"))
+            recordDiagnostic(kind: .error, name: "audio_import_processing_failed")
+            record.integrity.errors += 1
             replaceHistoryRecord(record)
-            SessionStore.save(record)
+            CorpusStore.save(record)
             audioImportStatus = .init(
                 phase: .failed,
                 title: record.title,

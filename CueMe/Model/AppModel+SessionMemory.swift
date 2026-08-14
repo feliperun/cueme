@@ -3,12 +3,12 @@ import Foundation
 
 @MainActor
 extension AppModel {
-    var selectedSession: SessionRecord? {
+    var selectedSession: MemoryNote? {
         guard let selectedSessionID else { return nil }
         return history.first { $0.id == selectedSessionID }
     }
 
-    var archivePath: String { SessionStore.rootURL.path }
+    var archivePath: String { CorpusStore.rootURL.path }
 
     func showLiveSession() {
         selectedSessionID = nil
@@ -68,67 +68,55 @@ extension AppModel {
         if !name.isEmpty { vocabulary.addKeyterm(name) }
     }
 
-    func createProject(named rawName: String) -> UUID? {
+    /// Creates a container note — what used to be "a project". There is no
+    /// project entity: it is an ordinary note other notes sit under.
+    func createContainerNote(named rawName: String) -> UUID? {
         let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        if let existing = projects.first(where: { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
+        if let existing = rootNotes.first(where: { $0.title.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
             return existing.id
         }
-        let project = KnowledgeProject(name: name)
-        projects.append(project)
-        _ = ProjectWorkspaceStore.save(project)
-        try? KnowledgeEntityStore.save(projects: projects, people: people)
-        return project.id
+        let id = createMemoryNote(kind: .note)
+        if let created = history.first(where: { $0.id == id }),
+           let renamed = CorpusStore.rename(created, to: name) {
+            replaceHistoryRecord(renamed.note)
+        }
+        return id
     }
 
-    func assignProject(_ projectID: UUID?, to sessionID: UUID) {
-        guard let record = history.first(where: { $0.id == sessionID }) else { return }
-        let project = projectID.flatMap { id in projects.first { $0.id == id } }
-        if let moved = SessionStore.relocate(record, to: project) {
-            replaceHistoryRecord(moved)
+
+
+
+    /// The note this one sits under, if any — the tree is the only hierarchy.
+    func parentNote(of record: MemoryNote) -> MemoryNote? {
+        let parent = record.relativeFolderPath ?? ""
+        guard !parent.isEmpty else { return nil }
+        return history.first { NoteTreeProjection.subtreePath(of: $0) == parent }
+    }
+
+    /// Notes this one links to, resolved from `x_cueme_links` paths.
+    func linkedNotes(of record: MemoryNote) -> [MemoryNote] {
+        let wanted = Set(record.links)
+        return history.filter { candidate in
+            wanted.contains("/\(NoteTreeProjection.subtreePath(of: candidate)).md")
         }
     }
 
-    func project(for record: SessionRecord) -> KnowledgeProject? {
-        guard let projectID = record.projectID else { return nil }
-        return projects.first { $0.id == projectID }
-    }
-
-    func linkPerson(named rawName: String, to sessionID: UUID) {
-        let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { return }
-        let personID: UUID
-        if let existing = people.first(where: {
-            $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame
-                || $0.aliases.contains { $0.localizedCaseInsensitiveCompare(name) == .orderedSame }
-        }) {
-            personID = existing.id
-        } else {
-            let person = KnowledgePerson(name: name)
-            people.append(person)
-            personID = person.id
-            try? KnowledgeEntityStore.save(projects: projects, people: people)
-        }
-        mutateRecord(sessionID) { record in
-            if !record.personIDs.contains(personID) { record.personIDs.append(personID) }
-        }
-    }
-
-    func timeline(for projectID: UUID) -> [ProjectTimelineEntry] {
-        KnowledgeEntityStore.timeline(projectID: projectID, records: history)
+    func timeline(for noteID: UUID) -> [NoteTimelineEntry] {
+        KnowledgeTimeline.entries(for: noteSubtree(of: noteID))
     }
 
     // MARK: - Live memory drawer (⌘K over the call)
 
-    /// Past notes matching `query`, scoped to the active project when one is set.
+    /// Past notes matching `query`, scoped to the selected subtree when one is set.
     /// Goes through the same index as the sidebar — nothing is sent to a provider.
     func searchPastNotes(_ query: String) -> [SessionSearchResult] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
-        let projectID = activeProjectID ?? libraryProjectFilterID
+        let scopeID = activeParentNoteID ?? librarySubtreeNoteID
+        let inScope = scopeID.map { Set(noteSubtree(of: $0).map(\.id)) }
         let scoped = history.filter { record in
-            record.id != currentSessionID
-                && (projectID == nil || record.projectID == projectID)
+            record.id != currentSessionID && (inScope == nil || inScope?.contains(record.id) == true)
         }
         return Array(searchSemanticMemory(
             query: trimmed, date: .all, type: .all, records: scoped
@@ -140,10 +128,7 @@ extension AppModel {
     func insertLiveReference(to recordID: UUID) {
         guard let startedAt = sessionStartTime,
               let source = history.first(where: { $0.id == recordID }) else { return }
-        let snippet = source.minutes.overview.isEmpty
-            ? (source.summaryBullets.first ?? source.title)
-            : source.minutes.overview
-        let text = "↪ Ref · \(source.title): \(String(snippet.prefix(160)))"
+        let text = "↪ Ref · \(source.title): \(String(source.shortSummary.prefix(160)))"
         sessionNotes.append(.init(timeOffset: Date().timeIntervalSince(startedAt), text: text))
         persistLiveSnapshot()
     }
@@ -152,10 +137,7 @@ extension AppModel {
     /// Same explicit-invocation rule as "Use relevant memory in Coach".
     func sendMemoryToCoach(_ recordID: UUID) {
         guard let source = history.first(where: { $0.id == recordID }) else { return }
-        let snippet = source.minutes.overview.isEmpty
-            ? (source.summaryBullets.first ?? source.title)
-            : source.minutes.overview
-        manualInput = "Contexto de \"\(source.title)\": \(String(snippet.prefix(240)))"
+        manualInput = "Contexto de \"\(source.title)\": \(String(source.shortSummary.prefix(240)))"
         ask()
     }
 
@@ -163,13 +145,16 @@ extension AppModel {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         mutateRecord(sessionID) { record in
-            guard let index = record.transcript.firstIndex(where: { $0.id == lineID }) else { return }
-            let original = record.transcript[index].text
-            record.transcript[index].applyCorrection(text)
-            if record.isForeign { record.transcript[index].translation = nil }
-            if learn, original != record.transcript[index].text {
-                _ = record.vocabulary.learnCorrection(from: original, to: record.transcript[index].text)
-                _ = vocabulary.learnCorrection(from: original, to: record.transcript[index].text)
+            guard let original = record.transcript.first(where: { $0.id == lineID })?.text else { return }
+            let isForeign = record.isForeign
+            record.transcript.updateLine(id: lineID) { line in
+                line.applyCorrection(text)
+                if isForeign { line.translation = nil }
+            }
+            guard let corrected = record.transcript.first(where: { $0.id == lineID })?.text else { return }
+            if learn, original != corrected {
+                _ = record.vocabulary.learnCorrection(from: original, to: corrected)
+                _ = vocabulary.learnCorrection(from: original, to: corrected)
             }
         }
     }
@@ -283,8 +268,8 @@ extension AppModel {
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            try SessionStore.setRoot(url)
-            history = SessionStore.loadAll()
+            try CorpusStore.setRoot(url)
+            history = CorpusStore.loadNotes()
             selectedSessionID = nil
         } catch {
             postProcessingError = "Não foi possível usar essa pasta."
@@ -292,13 +277,13 @@ extension AppModel {
     }
 
     func revealArchive() {
-        try? FileManager.default.createDirectory(at: SessionStore.rootURL, withIntermediateDirectories: true)
-        NSWorkspace.shared.activateFileViewerSelecting([SessionStore.rootURL])
+        try? FileManager.default.createDirectory(at: CorpusStore.rootURL, withIntermediateDirectories: true)
+        NSWorkspace.shared.activateFileViewerSelecting([CorpusStore.rootURL])
     }
 
     func revealMemoryNote(_ id: UUID) {
         guard let note = history.first(where: { $0.id == id }) else { return }
-        let directory = SessionStore.archiveDirectory(for: note)
+        let directory = CorpusStore.noteFolder(for: note)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         NSWorkspace.shared.activateFileViewerSelecting([directory])
     }
@@ -409,7 +394,6 @@ extension AppModel {
                         }
                         extraction.takeaways = extraction.takeaways.map { enriched($0, record: updated) }
                         updated.minutes = extraction.minutes
-                        updated.summaryBullets = extraction.minutes.topics.map { "\($0.title): \($0.summary)" }
                         let existing = Set(updated.takeaways.map { $0.text.lowercased() })
                         updated.takeaways.append(contentsOf: extraction.takeaways.filter {
                             !existing.contains($0.text.lowercased())
@@ -419,7 +403,6 @@ extension AppModel {
                 case .summary:
                     if let minutes = MeetingMinutes.parse(modelOutput: output, preserving: updated.minutes) {
                         updated.minutes = minutes
-                        updated.summaryBullets = minutes.topics.map { "\($0.title): \($0.summary)" }
                     }
                 case .takeaways:
                     let generated = SessionReviewParser.parseTakeaways(output)
@@ -435,22 +418,22 @@ extension AppModel {
         postProcessingSessionID = nil
     }
 
-    func replaceHistoryRecord(_ record: SessionRecord) {
+    func replaceHistoryRecord(_ record: MemoryNote) {
         history.removeAll { $0.id == record.id }
         history.append(record)
         history.sort { $0.startedAt > $1.startedAt }
     }
 
-    func mutateRecord(_ id: UUID, mutation: (inout SessionRecord) -> Void) {
+    func mutateRecord(_ id: UUID, mutation: (inout MemoryNote) -> Void) {
         guard let index = history.firstIndex(where: { $0.id == id }) else { return }
         mutation(&history[index])
         history[index].modifiedAt = Date()
-        SessionStore.save(history[index])
+        CorpusStore.save(history[index])
     }
 
     func persistLiveSnapshot() {
         guard let startedAt = sessionStartTime, let id = currentSessionID else { return }
-        let record = SessionRecord(
+        let record = MemoryNote(
             id: id,
             startedAt: startedAt,
             endedAt: Date(),
@@ -461,7 +444,6 @@ extension AppModel {
             goal: brief.goal,
             transcript: transcript,
             coachCards: coachCards.filter(\.hasContent),
-            summaryBullets: summaryBullets,
             minutes: minutes,
             participantNames: participantNames,
             coachModel: coachModel,
@@ -469,13 +451,12 @@ extension AppModel {
             vocabulary: vocabulary,
             hasAudio: recordAudio,
             audioDuration: Date().timeIntervalSince(startedAt),
-            diagnostics: diagnostics,
+            integrity: diagnosticsLog.integrity,
             coachFeedback: coachFeedback,
             notes: sessionNotes,
             takeaways: sessionTakeaways,
             review: meetingReview,
             artifacts: sessionArtifacts,
-            projectID: activeProjectID
         )
         liveSnapshotWriter.submit(record)
     }
@@ -488,19 +469,17 @@ extension AppModel {
         }
     }
 
-    private func enriched(_ item: MeetingReviewItem, record: SessionRecord) -> MeetingReviewItem {
+    private func enriched(_ item: MeetingReviewItem, record: MemoryNote) -> MeetingReviewItem {
         var item = item
         item.evidence = MemoryEvidenceLinker.evidence(for: item.text, in: record)
         item.confidence = item.evidence.isEmpty ? 0.65 : 0.9
-        item.createdInSessionID = record.id
         return item
     }
 
-    private func enriched(_ item: SessionTakeaway, record: SessionRecord) -> SessionTakeaway {
+    private func enriched(_ item: SessionTakeaway, record: MemoryNote) -> SessionTakeaway {
         var item = item
         item.evidence = MemoryEvidenceLinker.evidence(for: item.text, in: record)
         item.confidence = item.evidence.isEmpty ? 0.65 : 0.9
-        item.createdInSessionID = record.id
         return item
     }
 }

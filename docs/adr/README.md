@@ -77,7 +77,7 @@ proposed → active → superseded
 | [0028](0028-evidence-first-longitudinal-semantic-memory.md) | Evidence-first longitudinal memory with hybrid SQLite search | active |
 | [0029](0029-key-feature-e2e-regression-gate.md) | Key-feature E2E regression gate | active |
 | [0030](0030-stable-release-identity-for-tcc.md) | Stable release identity for persistent macOS permissions | active |
-| [0031](0031-file-first-memory-note-corpus.md) | File-first Memory Note corpus | active |
+| [0031](0031-file-first-memory-note-corpus.md) | File-first Memory Note corpus | superseded by 0046 |
 | [0032](0032-second-brain-writing-workspace.md) | Second Brain writing workspace | active |
 | [0033](0033-explicit-personal-memory-for-live-coach.md) | Explicit personal memory for the live Coach | active |
 | [0034](0034-native-markdown-block-editor.md) | Native visual blocks with canonical Markdown | active |
@@ -89,3 +89,12 @@ proposed → active → superseded
 | [0040](0040-render-cheap-library-projections-and-live-snapshots.md) | Render-cheap library projections and off-main live snapshots | active |
 | [0041](0041-recoverable-stt-and-stall-aware-coach.md) | Recoverable STT and stall-aware Coach delivery | superseded by 0042 |
 | [0042](0042-bounded-teardown-and-committed-coach-streaming.md) | Bounded teardown, committed Coach streaming and backlog visibility | active |
+| [0043](0043-greenfield-compatibility-policy.md) | Greenfield compatibility policy for the note corpus | active |
+| [0044](0044-yaml-frontmatter-via-yams.md) | YAML frontmatter via Yams | active |
+| [0045](0045-session-diagnostics-are-dev-telemetry.md) | Session diagnostics are dev telemetry | active |
+| [0046](0046-note-corpus-is-an-okf-bundle.md) | The note corpus is an OKF v0.2 bundle | active |
+| [0047](0047-one-entity-hierarchy-by-path.md) | One entity, hierarchy by path | active |
+| [0048](0048-navigable-corpus-and-target-operations.md) | A navigable corpus: reserved files and target operations | active |
+| [0049](0049-one-shot-external-migration.md) | One-shot external migration to the OKF v0.2 corpus | active |
+| [0050](0050-fan-out-ceiling-retired-for-a-no-regression-gate.md) | Fan-out ceiling retired in favour of a no-regression gate | active |
+| [0051](0051-refuse-to-touch-an-unmigrated-archive.md) | Refuse to touch an unmigrated archive | active |

@@ -21,7 +21,7 @@ final class SessionPostProcessorTests: XCTestCase {
 
     func testContextIncludesNotesSummaryAndBothSpeakers() {
         let startedAt = Date(timeIntervalSince1970: 1_000)
-        let record = SessionRecord(
+        let record = MemoryNote(
             startedAt: startedAt,
             mode: .meeting,
             training: false,
@@ -33,14 +33,17 @@ final class SessionPostProcessorTests: XCTestCase {
                 .init(speaker: .other, text: "Eu reviso amanhã.", isFinal: true, ts: startedAt)
             ],
             coachCards: [],
-            summaryBullets: ["Plano será preparado."],
+            minutes: MeetingMinutes(
+                overview: "O time alinhou a entrega.",
+                topics: [.init(id: UUID(), title: "Entrega", summary: "Plano será preparado.", updatedAt: startedAt)]
+            ),
             notes: [.init(timeOffset: 4, text: "Validar prazo")]
         )
 
-        let context = SessionPostProcessor.context(for: record)
+        let context = SessionMemoryDigest.text(for: record)
 
         XCTAssertTrue(context.contains("Objetivo: Planejar entrega"))
-        XCTAssertTrue(context.contains("Resumo atual:\n- Plano será preparado."))
+        XCTAssertTrue(context.contains("Ata atual:\nO time alinhou a entrega.\n- Entrega: Plano será preparado."))
         XCTAssertTrue(context.contains("Nota 00:04: Validar prazo"))
         XCTAssertTrue(context.contains("[VOCÊ] Eu preparo o plano."))
         XCTAssertTrue(context.contains("[INTERLOCUTOR] Eu reviso amanhã."))

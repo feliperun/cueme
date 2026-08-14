@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SessionTakeawaysPane: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var takeawayText = ""
 
     var body: some View {

@@ -2,12 +2,16 @@ import SwiftUI
 
 struct SessionReviewPane: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
+                // The masthead belongs to the note, not to a tab: it stays put
+                // whichever projection is on screen. PR 4 folds the rest of this
+                // pane into the same document band.
+                NoteMasthead(record: record)
                 toolbar
                 CoachCuesBlock(record: record)
                 EditableOverview(record: record)
@@ -94,28 +98,30 @@ struct ReviewSection<Content: View>: View {
     }
 }
 
-/// Session health behind a collapsed row. Coach P50/P95 is dev jargon inside a
-/// note — expanded by default only when the session had recoveries or errors.
+/// Session health behind a collapsed row — expanded by default only when the
+/// session had recoveries or errors. Shows what `SessionIntegrityReport`
+/// actually keeps (AC3): audio coverage, transcribed turns, recoveries, errors.
 private struct SessionHealthDisclosure: View {
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var expanded: Bool
 
     private let integrity: SessionIntegrityReport
-    private let performance: SessionPerformanceReport
 
-    init(record: SessionRecord) {
+    init(record: MemoryNote) {
         self.record = record
         let integrity = SessionIntegrityReport(record: record)
-        let performance = SessionPerformanceReport(diagnostics: record.diagnostics)
         self.integrity = integrity
-        self.performance = performance
-        _expanded = State(initialValue: performance.recoveries > 0 || performance.errors > 0)
+        _expanded = State(initialValue: integrity.recoveries > 0 || integrity.errors > 0)
     }
 
     private var summary: String {
-        let recoveries = "\(performance.recoveries) recuperaç\(performance.recoveries == 1 ? "ão" : "ões")"
-        let errors = performance.errors == 0 ? "sem erros" : "\(performance.errors) erros"
+        let recoveries = "\(integrity.recoveries) recuperaç\(integrity.recoveries == 1 ? "ão" : "ões")"
+        let errors = integrity.errors == 0 ? "sem erros" : "\(integrity.errors) erros"
         return "\(recoveries), \(errors)"
+    }
+
+    private var coverage: String {
+        integrity.recordingExpected ? "\(integrity.audioCoveragePercent)%" : "—"
     }
 
     var body: some View {
@@ -140,10 +146,10 @@ private struct SessionHealthDisclosure: View {
             if expanded {
                 let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
                 LazyVGrid(columns: columns, spacing: 8) {
-                    metric("COACH P50", latency(performance.firstPhraseP50Ms), tint: Theme.ink)
-                    metric("P95", latency(performance.firstPhraseP95Ms), tint: Theme.ink)
-                    metric("RECOVERIES", "\(performance.recoveries)", tint: performance.recoveries > 0 ? Theme.amberText : Theme.ink)
-                    metric("ERRORS", "\(performance.errors)", tint: performance.errors > 0 ? Theme.rose : Theme.mintDeep)
+                    metric("COBERTURA", coverage, tint: Theme.ink)
+                    metric("FALAS", "\(integrity.transcriptTurns)", tint: Theme.ink)
+                    metric("RECOVERIES", "\(integrity.recoveries)", tint: integrity.recoveries > 0 ? Theme.amberText : Theme.ink)
+                    metric("ERRORS", "\(integrity.errors)", tint: integrity.errors > 0 ? Theme.rose : Theme.mintDeep)
                 }
                 .padding(.horizontal, 14).padding(.bottom, 12)
                 .overlay(alignment: .top) { Rectangle().fill(Theme.line2).frame(height: 1) }
@@ -163,16 +169,11 @@ private struct SessionHealthDisclosure: View {
         .background(Theme.paper, in: RoundedRectangle(cornerRadius: 9))
         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.line))
     }
-
-    private func latency(_ ms: Int64?) -> String {
-        guard let ms else { return "—" }
-        return String(format: "%.1fs", Double(ms) / 1000)
-    }
 }
 
 struct EditableOverview: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var draft = ""
 
     var body: some View {
@@ -255,7 +256,7 @@ struct EditableTakeawayRow: View {
 }
 
 private struct EditableTakeawaysSection: View {
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
     var body: some View {
         ReviewSection(title: "AÇÕES", icon: "checklist") {
@@ -267,7 +268,7 @@ private struct EditableTakeawaysSection: View {
 
 private struct ReviewItemsSection: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     let player: MeetingPlayer
     let openQuestion: Bool
     @State private var newItem = ""
@@ -368,7 +369,7 @@ private struct EvidenceButton: View {
 
 private struct EditableFollowUp: View {
     @Environment(AppModel.self) private var app
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var draft = ""
 
     var body: some View {
@@ -395,7 +396,7 @@ struct ReviewEmptyRow: View {
 /// Post-hoc coach cues as a collapsed log block (mint = coach). Expands to the
 /// card carousel; loud hero treatment is reserved for the live layout.
 private struct CoachCuesBlock: View {
-    let record: SessionRecord
+    let record: MemoryNote
     @State private var expanded = false
 
     private var cards: [CoachCard] { record.coachCards.filter(\.hasContent) }

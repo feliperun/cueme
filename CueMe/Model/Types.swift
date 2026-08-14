@@ -111,7 +111,7 @@ enum Severity: String, Sendable, Codable {
 }
 
 /// Card de coaching mostrado no painel direito.
-struct CoachCard: Identifiable, Sendable, Codable {
+struct CoachCard: Identifiable, Sendable, Codable, Equatable {
     let id: UUID
     var guidePT: String            // guia sempre no idioma nativo
     var sayConversation: String?   // frase no idioma da conversa (nil se == nativo)

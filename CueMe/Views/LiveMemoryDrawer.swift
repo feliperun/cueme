@@ -72,7 +72,7 @@ struct LiveMemoryDrawer: View {
         }
     }
 
-    private func resultCard(_ record: SessionRecord, result: SessionSearchResult) -> some View {
+    private func resultCard(_ record: MemoryNote, result: SessionSearchResult) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Text("\(LibraryFormat.kindTag(record)) · \(LibraryFormat.relative(record.startedAt))")

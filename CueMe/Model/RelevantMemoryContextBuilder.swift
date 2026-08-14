@@ -3,7 +3,7 @@ import Foundation
 enum RelevantMemoryContextBuilder {
     static func build(
         for brief: SessionBrief,
-        records: [SessionRecord],
+        records: [MemoryNote],
         index: SemanticMemoryIndex = .shared
     ) -> String? {
         let query = [brief.goal, brief.details, brief.keyterms.joined(separator: " ")]
@@ -21,7 +21,7 @@ enum RelevantMemoryContextBuilder {
     }
 
     static func format(
-        records: [SessionRecord],
+        records: [MemoryNote],
         rankedIDs: [UUID],
         characterLimit: Int = 12_000
     ) -> String? {
@@ -45,7 +45,7 @@ enum RelevantMemoryContextBuilder {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private static func noteContent(_ record: SessionRecord) -> String {
+    private static func noteContent(_ record: MemoryNote) -> String {
         var sections: [String] = []
         if !record.markdownBody.isEmpty { sections.append(record.markdownBody) }
         if !record.minutes.overview.isEmpty { sections.append(record.minutes.overview) }

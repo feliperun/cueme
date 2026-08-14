@@ -1,7 +1,7 @@
 import Foundation
 
 enum GlobalMemoryAssistant {
-    static func answer(records: [SessionRecord], request: String, model: CoachModel) async throws -> String {
+    static func answer(records: [MemoryNote], request: String, model: CoachModel) async throws -> String {
         let client = ClaudeClient()
         let memory = records.enumerated().map { index, record in
             """
@@ -33,13 +33,13 @@ enum GlobalMemoryAssistant {
         Responda no idioma da pergunta e seja objetivo.
         """
 
-    private static func sourceList(_ records: [SessionRecord]) -> String {
+    private static func sourceList(_ records: [MemoryNote]) -> String {
         records.enumerated().map { index, record in
             "[S\(index + 1)] \(record.title) — \(record.startedAt.formatted(date: .numeric, time: .shortened))"
         }.joined(separator: "\n")
     }
 
-    private static func context(for record: SessionRecord) -> String {
+    private static func context(for record: MemoryNote) -> String {
         let transcript = record.transcript.filter(\.isFinal).map {
             "[\(record.participantName(for: $0.speaker))] \($0.text)"
         }.joined(separator: "\n")

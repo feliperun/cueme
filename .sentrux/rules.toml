@@ -17,5 +17,7 @@ max_coupling = "B"
 # Per-function cyclomatic complexity ceiling.
 max_cc = 25
 
-# Flag new god files early while the repo is small.
-no_god_files = true
+# Absolute fan-out ceiling retired: splitting a file raises the fan-out of what
+# remains, so the rule rewarded large files and punished separated
+# responsibilities. `god_file_count` stays under `sentrux gate`. See ADR 0050.
+no_god_files = false
