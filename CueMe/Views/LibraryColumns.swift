@@ -34,6 +34,7 @@ struct NoteListColumn: View {
                 .buttonStyle(.plain)
                 .help("Reler o corpus do disco")
                 .accessibilityIdentifier("library.refresh")
+                .accessibilityValue("\(app.corpusLoadCount)")
                 Button { _ = app.createMemoryNote(kind: .note) } label: {
                     Image(systemName: "plus").font(.system(size: 12)).foregroundStyle(Theme.ink2)
                 }

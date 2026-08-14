@@ -26,6 +26,7 @@ extension AppModel {
         guard force || CorpusStore.corpusChanged(since: lastCorpusLoad) else { return }
         lastCorpusLoad = CorpusStore.latestModification()
         history = CorpusStore.loadNotes()
+        corpusLoadCount += 1
         CorpusStore.writeIndexes(for: history)
         if let selectedSessionID, !history.contains(where: { $0.id == selectedSessionID }) {
             self.selectedSessionID = nil

@@ -164,6 +164,10 @@ final class AppModel {
     /// Newest `.md` mtime at the last corpus load, so an activation that
     /// changed nothing reads nothing.
     var lastCorpusLoad: Date?
+    /// How many times the corpus has actually been reread. Surfaced on the
+    /// refresh control so a test can tell "the reload never ran" from "it ran
+    /// and read the same thing".
+    var corpusLoadCount = 0
     /// Resolved once at launch rather than read from the environment on every
     /// activation — the answer cannot change while the process lives.
     var reloadFromDiskEnabled = UITestFixtures.reloadFromDiskIsEnabled()

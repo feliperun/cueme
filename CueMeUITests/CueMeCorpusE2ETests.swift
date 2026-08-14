@@ -78,10 +78,19 @@ final class CueMeCorpusE2ETests: XCTestCase {
     /// test is at the mercy of the window server. The refresh control is the
     /// same reload, asked for explicitly — deterministic, and a real affordance
     /// rather than something that exists only for tests.
-    private func reactivateForCorpusReload(_ app: XCUIApplication) {
+    @discardableResult
+    private func reactivateForCorpusReload(_ app: XCUIApplication) -> String? {
         let refresh = app.buttons["library.refresh"]
         XCTAssertTrue(refresh.waitForExistence(timeout: 5))
+        let before = refresh.value as? String
         refresh.click()
+        XCTAssertTrue(
+            waitForCorpusCondition("the corpus was actually reread") {
+                (refresh.value as? String) != before
+            },
+            "refresh did not reread the corpus at all (load count stayed \(String(describing: before)))"
+        )
+        return refresh.value as? String
     }
 
     private func waitForCorpusCondition(
