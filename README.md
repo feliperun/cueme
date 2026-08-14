@@ -37,17 +37,20 @@ subscription/login), so there's nothing to configure and no key to leak.
 
 ## What it does
 
-- **Your files are the product** — every Project is a normal folder and every
-  Memory Note is a folder containing canonical `note.md` frontmatter plus its
-  recordings and attachments. JSON is a compatibility/structured sidecar;
-  SQLite, FTS5, embeddings and sqlite-vec are rebuildable indexes.
+- **Your files are the product** — the corpus is an [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+  bundle, and the Markdown is the only durable copy. A note is `<slug>.md`; it
+  grows a sibling folder when it gains children or a recording. There is no JSON
+  sidecar — SQLite, FTS5, embeddings and sqlite-vec are rebuildable indexes.
+  Edit a note in any editor and CueMe agrees.
 - **Notion-style blocks, plain Markdown files** — create notes and journal entries
   directly from home, type `/` for headings, lists, checklists, quotes, code or a
   divider, format text without seeing delimiters, and switch to the exact Markdown
-  source whenever you want. Organize with Projects and labels, and attach local files.
-- **A unified memory model** — written notes, live meetings, interviews, sales
-  calls, imported audio and Voice Memos share the same base entity and local
-  hybrid search. Each type has a recognizable icon in the library.
+  source whenever you want. Organize by dragging notes into each other — nesting
+  has no depth limit — plus labels and attached local files.
+- **One entity, all the way down** — written notes, live meetings, interviews,
+  sales calls, imported audio and Voice Memos are all notes. A project is a note
+  with notes inside it; a person is a note. They share one base entity and one
+  local hybrid search. Each type has a recognizable icon in the library.
 - **Meaningful titles with human authority** — the selected summary LLM names a
   saved session from its actual content; users can rename anything, and a later
   generation never overwrites that choice.
@@ -210,7 +213,7 @@ CueMe/
 ├── Brain/    ClaudeClient (CLI resolver), ClaudeSession (warm process),
 │             Summary / Coaching lanes, Prompts
 ├── Model/    AppModel (@Observable), SessionCoordinator, SessionBrief,
-│             MemoryNote, NoteDocument, ProjectWorkspaceStore,
+│             MemoryNote, OKF/ (bundle format), CorpusStore, NoteTree,
 │             SemanticMemoryIndex, RelevantMemoryContextBuilder, Types
 └── Views/    RootView, SessionSidebar, MemoryNoteEditor, HeaderBar,
               CoachingPane, SessionWorkspaceView, WaveformPlayerView, Theme

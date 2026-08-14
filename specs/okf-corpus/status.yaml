@@ -1,6 +1,6 @@
 plan: okf-corpus
 spec_version: 1
-updated_at: "2026-08-09T18:00:00Z"
+updated_at: 2026-08-14T00:00:00Z
 integration_branch: felipe/okf-corpus
 base_branch: main
 
@@ -302,14 +302,16 @@ tasks:
 
   - id: T022
     title: Documentar o corpus OKF
-    status: pending
+    status: done
     depends_on: [T020, T021]
     branch: felipe/okf-T022-docs
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: n_a, unit: n_a, sentrux_check: pass, sentrux_gate: pass }
+    review: { round: 0, verdict: approved, findings: [] }
+    notes: >-
+      Sem codigo. GETTING-STARTED.md tambem corrigido (fora da lista da tarefa,
+      mas mostrava o layout antigo). Seis gotchas novos no AGENTS.md.
 
 adrs:
   - { id: "0043", title: Greenfield compatibility policy for the note corpus, task: T001, status: written }

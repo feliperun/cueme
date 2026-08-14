@@ -183,6 +183,37 @@ After a structural change, update `docs/ARCHITECTURE.md` and/or `docs/ABSTRACTIO
 - **No absolute file paths in exported session JSON.** Audio recordings are
   located by session id at read time (`MeetingRecording.directory(for:)`), never
   stored as a literal path — keeps exports portable across machines/reinstalls.
+- **The Markdown is the only durable copy.** There is no JSON sidecar any more
+  ([ADR 0046](docs/adr/0046-note-corpus-is-an-okf-bundle.md)). A new durable
+  field is not done when a test proves it was *written* — it is done when a test
+  proves it survives a full round trip, including a hand edit of the file.
+- **`MemoryNote` is `Equatable` by id alone.** `XCTAssertEqual` on two notes
+  compares nothing else, so a round-trip test written the obvious way passes
+  while losing every field. Use `assertDeepEqual`, which walks the fields and
+  fails on a pinned `Mirror` count when the model grows.
+- **A note is two filesystem objects**, `<slug>.md` and the conditional
+  `<slug>/`. Move and rename have to carry both, folder first, with the folder
+  put back if the document step fails — otherwise a subtree is stranded away from
+  the document that names it. Use `CorpusStore.move`/`rename`; do not reimplement.
+- **Saving a note whose transcript is `.notLoaded` must never touch
+  `raw/transcript.md`.** `loadNotes()` deliberately does not read `raw/`, so a
+  lazily-loaded note saved the naive way would erase a transcript that was merely
+  never read. `TranscriptState` makes that unrepresentable — keep it that way.
+- **Yams stays inside `CueMe/Model/OKF/`.** `Node`/`Emitter` are not `Sendable`
+  under Swift 6 strict concurrency, so they are confined to synchronous,
+  non-escaping calls and preserved YAML crosses boundaries as `String`
+  ([ADR 0044](docs/adr/0044-yaml-frontmatter-via-yams.md)).
+- **`<unknown>:0: error: circular reference` is usually stale DerivedData**, not
+  your diff. It survives a normal rebuild and points at no file. Fix:
+  `rm -rf ~/Library/Developer/Xcode/DerivedData/CueMe-*/Build/Intermediates.noindex/CueMe.build`.
+  Do this before bisecting a type error that makes no sense.
+- **Sentrux counts *outgoing* calls, resolved by name.** A test helper called
+  `write`, `store`, `note` or `day` creates phantom edges to every same-named
+  call site in the repo and can inflate the god-file count of files you did not
+  touch. When `gate` regresses right after adding tests, rename the generic
+  helpers first and re-measure; splitting is the answer only when the file is
+  genuinely large ([ADR 0050](docs/adr/0050-fan-out-ceiling-retired-for-a-no-regression-gate.md)).
+  Measure with `git add -N .` first — `git ls-files` does not see untracked files.
 - **Do not write only to SQLite.** Every new durable note/project field needs a
   Markdown/frontmatter representation and a round-trip test proving filesystem
   edits load back. Search/index tests must also prove the index can be rebuilt.
@@ -217,8 +248,8 @@ CueMe/                    App target (see docs/ARCHITECTURE.md for the full brea
   STT/                    On-device speech + translation
   Bus/                    TranscriptBus actor (fan-out + rolling window)
   Brain/                  Claude CLI client/session, prompts, coach/summary lanes
-  Model/                  AppModel, MemoryNote, NoteDocument, ProjectWorkspaceStore,
-                          SessionCoordinator, SessionBrief, semantic index, Types
+  Model/                  AppModel, MemoryNote, OKF/ (bundle format), CorpusStore,
+                          NoteTree, SessionCoordinator, SessionBrief, semantic index, Types
   Views/                  SwiftUI (Second Brain home/sidebar, Markdown editor,
                           live workspace, session review, brief editor, About)
   Assets.xcassets/        App icon, accent color

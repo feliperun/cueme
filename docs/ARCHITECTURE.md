@@ -27,15 +27,15 @@ Share / Shortcuts / files / drop ─▶ ExternalAudioInbox ─┴─▶ AudioImp
                                                                                                         │
                                                                                           on stop() ────┘
                                                                                                         ▼
-                                                               MemoryNote → SessionStore → Project/Note folders
-                                                                    │        ├─ note.md (canonical)
-                                                                    │        ├─ session.json (structured sidecar)
-                                                                    │        └─ audio + attachments
+                                                               MemoryNote → CorpusStore → OKF corpus tree
+                                                                    │        ├─ <slug>.md (the only durable copy)
+                                                                    │        ├─ <slug>/raw/transcript.md + audio
+                                                                    │        └─ <slug>/ nested notes
                                                                     ▼
                                               SemanticMemoryIndex (SQLite FTS5 + sqlite-vec, rebuildable)
                                                                     │
                                                                     ▼
-                                ProjectTreeColumn / NoteListColumn / NoteColumn
+                                  NoteTreeColumn / NoteListColumn / NoteColumn
 ```
 
 Single Swift process with Sparkle and vendored sqlite-vec as the only runtime
@@ -98,19 +98,20 @@ serial queue. Teardown waits on provider and framework code through
   reusable `BriefProfile`s, `MemoryNote` (the base entity for written and recorded
   experiences), `NoteDocument` (canonical
   Markdown/frontmatter), `MarkdownBlockDocument` (transient visual block projection),
-  `ProjectWorkspaceStore` (Project folders and `project.md`),
-  `SessionArchive`/`SessionStore` (recursive file-first persistence),
+  `OKF/` (the format module — frontmatter codec, section markers, note and
+  transcript documents, backlink rewriting; the only place Yams is imported),
+  `SessionArchive`/`CorpusStore`/`NoteTree` (recursive file-first persistence),
   `ExternalAudioInbox` (atomic App Group handoff shared with the audio-only
   Share Extension), `ImportMeetingAudioIntent` (Shortcuts ingress),
   `SessionKnowledgeIndex` (lexical fallback), `SemanticMemoryIndex` (rebuildable
   SQLite projection with FTS5/BM25 and sqlite-vec),
   `RelevantMemoryContextBuilder` (bounded opt-in Coach snapshot), evidence-linked decisions
-  and actions, and stable `KnowledgeProject`/`KnowledgePerson` entities,
+  and actions, `KnowledgeTimeline` (a note's subtree as a timeline),
   `LiveHealthMonitor`/`SessionIntegrityReport` metadata-only health policies, `Types`.
 - **Views/** — glance-first SwiftUI rooted at `RootWorkspaceShell`: a 40-point
   draggable workspace titlebar sits above the persistent three-column layout.
-  `ProjectTreeColumn`/`ProjectTreeRows` own built-in sections, hierarchical
-  Project children, workspace commands and the start/stop footer;
+  `NoteTreeColumn`/`NoteTreeRows` own built-in sections, the note hierarchy,
+  drag-and-drop nesting, workspace commands and the start/stop footer;
   `NoteListColumn` renders one immutable `NoteListProjection` per pass so rows,
   snippets and type counts come from the same filtered result; `NoteColumn`
   hosts either live capture or the selected durable Note.
@@ -139,38 +140,54 @@ real exercise of the full capture→STT→translate→coach path, not a mock
 
 ## Persistence & history
 
-The canonical corpus is a normal filesystem tree under the user-selected root:
+The corpus is an [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md)
+bundle: a normal filesystem tree under the user-selected root, and the Markdown
+is the **only** durable copy ([ADR 0046](adr/0046-note-corpus-is-an-okf-bundle.md)).
 
 ```text
 <root>/
-├── _Inbox/
-│   └── <note-date-id>/
-│       ├── note.md
-│       ├── session.json
-│       └── attachments/
-└── <project-slug-id>/
-    ├── project.md
-    └── <note-date-id>/
-        ├── note.md
-        ├── session.json
-        ├── self.m4a
-        ├── other.m4a
-        └── attachments/
+├── AGENTS.md                 # operational schema, written once, never overwritten
+├── index.md                  # reserved — the only one with okf_version
+├── log.md                    # reserved — append-only structural history
+├── acme.md                   # a note
+├── acme/                     # exists only because acme has children or capture
+│   ├── index.md
+│   ├── atas.md
+│   └── atas/
+│       ├── reuniao-1.md
+│       └── reuniao-1/
+│           └── raw/          # capture: verbatim transcript, audio, attachments
+│               ├── transcript.md
+│               ├── self.m4a
+│               ├── other.m4a
+│               └── attachments/
+├── pessoas.md
+└── inbox.md                  # where a new note lands; an ordinary note
 ```
 
-`note.md` frontmatter and its delimited user body are canonical for title, type,
-labels, Project relationship and written content. `project.md` is canonical
-Project metadata. `session.json` remains a structured sidecar for transcripts,
-Coach cards, evidence, minutes and other lossless machine state; `session.md` is
-written only as a pre-1.0 compatibility mirror. `SessionStore` recursively loads
-the tree, merges canonical Markdown fields over the sidecar, and idempotently
-migrates top-level legacy sessions into `_Inbox` or their Project folder. Reopening
-the app reloads filesystem edits.
+**A note is `<slug>.md`, and the sibling folder `<slug>/` exists only when the
+note has children or captured material.** A plain text leaf is one file.
+
+There is one entity — the note ([ADR 0047](adr/0047-one-entity-hierarchy-by-path.md)).
+A project is a note others sit under; a person is a note. Hierarchy is the path
+and nothing else, so moving a folder in Finder moves the note. The only other
+relation is an untyped list of links (`x_cueme_links`), rewritten on every move
+and explicit rename.
+
+`raw/` separates capture from knowledge: the transcript is a source, not a
+concept, which keeps the note itself human-sized and a live snapshot cheap.
+`CorpusStore.loadNotes()` reads only the `.md` files and never walks `raw/`;
+a transcript is loaded on demand, and `TranscriptState` makes it impossible to
+erase one that was never read.
+
+Reserved names are `index.md` and `log.md` at any level, `raw` inside a note's
+folder, and `AGENTS.md` at the root. Slug uniqueness is per directory.
+Reopening the app reloads filesystem edits — an edit made in any editor wins.
 
 On `stop()`, `MeetingRecorder` has already written synchronized `self.m4a` and
-`other.m4a` beside the Note. The sidecar stores only portable relative folder
-identity, never an absolute path. `ProjectTreeColumn` keeps the complete Project
-hierarchy and live Project placement visible; `NoteListColumn` applies library,
+`other.m4a` beside the Note. Audio is located by note at read time, never by a
+stored absolute path, so a corpus stays portable across machines. `NoteTreeColumn` keeps the whole note
+hierarchy and live placement visible; `NoteListColumn` applies library,
 label, date, type and search projections without changing the underlying tree.
 `MemoryNoteEditor` provides native visual block editing with an exact Markdown
 source mode;
