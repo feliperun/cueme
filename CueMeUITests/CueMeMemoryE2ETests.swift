@@ -515,6 +515,10 @@ final class CueMeMemoryE2ETests: XCTestCase {
         )
         app.typeKey(.escape, modifierFlags: [])
 
+        // The title belongs to the masthead, which is part of the document
+        // page — source mode replaces that page, so read it while it is there.
+        XCTAssertTrue(app.buttons["note.rename"].label.contains("Mapa da minha jornada"))
+
         let source = app.buttons["note.editor.source"]
         XCTAssertTrue(source.waitForExistence(timeout: 3))
         source.click()
@@ -523,7 +527,10 @@ final class CueMeMemoryE2ETests: XCTestCase {
         let markdown = rawMarkdown.value as? String ?? ""
         XCTAssertTrue(markdown.contains("# Aprendizados"))
         XCTAssertTrue(markdown.contains("A memória ajuda na hora exata."))
-        XCTAssertTrue(app.buttons["note.rename"].label.contains("Mapa da minha jornada"))
+        XCTAssertFalse(
+            markdown.contains("x_cueme_id"),
+            "the source view shows the user's body, never the whole document"
+        )
     }
 
     func testVisualBlockEditorFormatsInlineTextAsMarkdown() {
