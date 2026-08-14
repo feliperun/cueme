@@ -132,17 +132,29 @@ final class CueMeCorpusE2ETests: XCTestCase {
 
         reactivateForCorpusReload(app)
 
+        // Split so a failure says which half broke, and read the file back: if
+        // the app rewrote it, the edit never had a chance and the bug is a
+        // clobbering write, not a missed reload.
+        let onDisk = try String(contentsOf: corpus.appendingPathComponent("acme.md"), encoding: .utf8)
+        XCTAssertTrue(
+            onDisk.contains("title: Acme Corp"),
+            "CueMe overwrote the external edit before it could be read back"
+        )
+        XCTAssertTrue(
+            waitForCorpusCondition("a row for the note still exists") { row.exists },
+            "the note disappeared from the library entirely"
+        )
         XCTAssertTrue(
             waitForCorpusCondition("the library shows the title from the file") {
-                row.exists && row.label.contains("Acme Corp")
+                row.label.contains("Acme Corp")
             },
-            "AC1: a title edited on disk must win over what CueMe had in memory"
+            "AC1: the row still reads \(row.label), and the file says Acme Corp"
         )
         XCTAssertTrue(
             waitForCorpusCondition("the pending item is checked") {
                 app.buttons["Fechar contrato"].value as? String == "checked"
             },
-            "AC2: ticking a box in an editor must be visible in the app"
+            "AC2: the checkbox reads \(String(describing: app.buttons["Fechar contrato"].value))"
         )
     }
 

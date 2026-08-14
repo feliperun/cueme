@@ -506,7 +506,13 @@ final class CueMeMemoryE2ETests: XCTestCase {
         // under some active keyboard layouts, even though the field has focus.
         label.typeText("jornada")
         app.buttons["note.label.add"].click()
-        XCTAssertTrue(app.buttons["note.label.jornada"].waitForExistence(timeout: 3))
+        // If the popover closed, the chip is missing for a different reason
+        // than the label not being applied — say which.
+        XCTAssertTrue(label.exists, "the labels popover closed when the label was added")
+        XCTAssertTrue(
+            app.buttons["note.label.jornada"].waitForExistence(timeout: 3),
+            "popover still open, so the chip itself did not render"
+        )
         app.typeKey(.escape, modifierFlags: [])
 
         let source = app.buttons["note.editor.source"]
