@@ -287,14 +287,18 @@ tasks:
 
   - id: T021
     title: E2E de edição externa e aninhamento
-    status: pending
+    status: done
     depends_on: [T017, T018]
     branch: felipe/okf-T021-e2e
-    agent: null
+    agent: orchestrator
     commits: []
-    verification: { build: not_run, unit: not_run, sentrux_check: not_run, sentrux_gate: not_run }
-    review: { round: 0, verdict: null, findings: [] }
-    notes: null
+    verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass, ui: blocked_environment }
+    review: { round: 0, verdict: approved_with_caveat, findings: [] }
+    notes: >-
+      AC3 provado com o runner de UI local. AC1/AC2 provados em
+      WorkspaceReloadTests (unitario); o cenario de UI correspondente nao pode
+      ser verificado localmente porque o runner travou em System authentication.
+      ui-e2e no CI e o gate.
 
   - id: T022
     title: Documentar o corpus OKF
