@@ -287,7 +287,7 @@ tasks:
 
   - id: T021
     title: E2E de edição externa e aninhamento
-    status: blocked
+    status: done
     depends_on: [T017, T018]
     branch: felipe/okf-T021-e2e
     agent: orchestrator
@@ -295,11 +295,9 @@ tasks:
     verification: { build: pass, unit: pass, sentrux_check: pass, sentrux_gate: pass, ui: blocked_environment }
     review: { round: 0, verdict: approved_with_caveat, findings: [] }
     notes: >-
-      AC3 provado com o runner de UI local. AC1/AC2 provados em
-      WorkspaceReloadTests (unitario). ABERTO: ui-e2e vermelho no PR #46 com dois
-      cenarios (testExternallyEditedNoteMarkdownWinsInTheUI e
-      testCreatesRenamesLabelsAndEditsAMarkdownNoteWithVisualBlocks). Sao falhas
-      de camada de view; o runner local esta bloqueado por System authentication.
+      ui-e2e verde no PR #46. O cenario de edicao externa revelou que
+      MemoryNote era Equatable so por id, o que fazia o SwiftUI pular o redesenho
+      e deixava uma edicao feita fora do app invisivel na tela.
 
   - id: T022
     title: Documentar o corpus OKF
